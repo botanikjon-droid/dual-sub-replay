@@ -108,9 +108,9 @@ The owner picked Bergamot from these options:
 - [x] `assembleDebug` and `assembleRelease` without the property still include ML Kit and behave as before.
 - [x] `assembleRelease -Pdistribution=fdroid` succeeds, contains `libdualsub_bergamot.so` for
   `arm64-v8a` and `x86_64`, and its dex has no ML Kit, Play Services or Firebase classes.
-- [ ] Bergamot translates English→Vietnamese and pivots Vietnamese→English→Vietnamese on an
+- [x] Bergamot translates English→Vietnamese and pivots Vietnamese→English→Vietnamese on an
   Android emulator (`fdroid-device-tests`).
-- [ ] Existing CI (`verify-build`, `managed-device-tests`) passes unchanged, plus the new F-Droid jobs.
+- [x] Existing CI (`verify-build`, `managed-device-tests`) passes unchanged, plus the new F-Droid jobs.
 - [x] The fastlane short description is at most 80 characters and the icon is 512×512 PNG.
 - [x] The draft recipe names the anti-feature, the build switch, the submodules, the NDK and the update check.
 
@@ -179,4 +179,7 @@ Local run on Linux, JDK 21, Android SDK 36 (2026-09-28):
   `BergamotEngineDeviceTest` (CI runs it). Not run: install on a physical phone, live YouTube,
   `fdroid lint`/`fdroid build`.
 
-Final-head CI: see the PR.
+CI on 9449d33: `verify-build`, `managed-device-tests`, `fdroid-build` and `fdroid-device-tests`
+passed. `BergamotEngineDeviceTest` ran both tests on the API 36 x86_64 emulator with real models
+(2 run, 0 skipped, 0 failed): English→Vietnamese in 0.75 s and the Vietnamese→English→Vietnamese
+pivot in 0.28 s. Later commits need fresh checks; see the PR.
