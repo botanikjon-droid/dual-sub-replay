@@ -44,7 +44,9 @@ is a draft of the recipe that goes into F-Droid's fdroiddata repository.
 
 1. Merge and release, so a `vX.Y.Z` tag contains the F-Droid build. Fill that tag's version
    name and code into the recipe.
-2. Check the recipe locally with `fdroid lint` and `fdroid build` from fdroidserver.
+2. Check the recipe locally with `fdroid lint`, `fdroid scanner` and `fdroid build` from
+   fdroidserver, inside a checkout of fdroiddata (its `config/` defines valid categories).
+   fdroiddata wants the tag's full commit hash in `commit`, not the tag name.
 3. Fork fdroiddata on GitLab, add the recipe as `metadata/com.kienhoang.dualsubreplay.yml`, and
    open a merge request. F-Droid reviewers usually reply with changes to make.
 

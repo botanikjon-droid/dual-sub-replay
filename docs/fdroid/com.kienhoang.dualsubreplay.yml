@@ -23,7 +23,7 @@ Repo: https://github.com/hoangkien1703/dual-sub-replay.git
 Builds:
   - versionName: X.Y.Z # first tagged release that contains the distribution switch
     versionCode: 0 # appVersionCode at that tag
-    commit: vX.Y.Z
+    commit: 0000000000000000000000000000000000000000 # full commit hash of the vX.Y.Z tag, not the tag name
     subdir: app
     submodules: true
     gradle:
@@ -34,6 +34,7 @@ Builds:
       - app/src/full
     prebuild: sed -i -e '/com.google.mlkit/d' build.gradle.kts
     scandelete:
+      - app/src/fdroid/cpp/translations/site
       - app/src/fdroid/cpp/translations/tests
       - app/src/fdroid/cpp/pcre2/testdata
     ndk: r28c
