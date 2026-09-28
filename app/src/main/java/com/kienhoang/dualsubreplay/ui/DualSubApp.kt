@@ -104,6 +104,7 @@ fun DualSubApp(
     val webController = rememberYouTubeWebController()
     val pronouncer = rememberWordPronouncer()
     var showVocabulary by remember { mutableStateOf(false) }
+    var showProgress by remember { mutableStateOf(false) }
 
     DualSubTheme {
         if (!state.onboardingCompleted) {
@@ -113,11 +114,18 @@ fun DualSubApp(
             )
         } else if (!state.guideCompleted) {
             GuideScreen(onFinish = viewModel::completeGuide)
+        } else if (!state.dailyGoalPromptCompleted) {
+            DailyGoalSetupScreen(onFinish = viewModel::completeDailyGoalPrompt)
         } else {
             DualSubExperience(
                 state = state,
                 webController = webController,
                 onVocabulary = { viewModel.selectLearningWord(null); webController.pause(); showVocabulary = true },
+                onProgress = {
+                    viewModel.selectLearningWord(null)
+                    webController.pause()
+                    showProgress = true
+                },
                 onAutoPronounceChange = viewModel::setAutoPronounce,
                 playerMode = playerMode,
                 effectivePlayerMode = effectivePlayerMode,
@@ -162,22 +170,7 @@ fun DualSubApp(
             )
         }
         state.selectedLearningWord?.let { selection ->
-            androidx.compose.runtime.key(selection) {
-                androidx.compose.runtime.DisposableEffect(selection) {
-                    onDispose { pronouncer.stop() }
-                }
-                WordLearningDialog(
-                    selection = selection,
-                    existingWord = savedWords.firstOrNull { it.id == com.kienhoang.dualsubreplay.data.savedWordFrom(selection, "", false).id },
-                    autoPronounce = state.autoPronounce,
-                    onTranslateWord = { viewModel.translateSelection(selection) },
-                    onSave = { meaning, online -> viewModel.saveWord(selection, meaning, online); Unit },
-                    onSpeak = { webController.pause(); pronouncer.speak(selection.token.text, selection.wordLanguage) },
-                    speechMessage = pronouncer.message,
-                    onSpeechSettings = if (pronouncer.showSpeechSettings) pronouncer::openSpeechSettings else null,
-                    onDismiss = { viewModel.selectLearningWord(null) },
-                )
-            }
+            SelectedWordDialog(selection, state, savedWords, viewModel, webController, pronouncer)
         }
         if (showVocabulary) SavedWordsScreen(
             repository = viewModel.vocabulary,
@@ -191,6 +184,40 @@ fun DualSubApp(
             onPause = { webController.pause() },
             onDismiss = { showVocabulary = false },
         )
+        if (showProgress) ProgressScreen(
+            repository = viewModel.immersion,
+            savedWords = savedWords,
+            goalMinutes = state.dailyGoalMinutes,
+            onGoalChange = viewModel::setDailyGoal,
+            onDismiss = { showProgress = false },
+        )
+    }
+}
+
+@Composable
+private fun SelectedWordDialog(
+    selection: com.kienhoang.dualsubreplay.data.LearningWordSelection,
+    state: DualSubUiState,
+    savedWords: List<com.kienhoang.dualsubreplay.data.SavedWord>,
+    viewModel: AppViewModel,
+    webController: YouTubeWebController,
+    pronouncer: WordPronouncer,
+) {
+    androidx.compose.runtime.key(selection) {
+        androidx.compose.runtime.DisposableEffect(selection) {
+            onDispose { pronouncer.stop() }
+        }
+        WordLearningDialog(
+            selection = selection,
+            existingWord = savedWords.firstOrNull { it.id == com.kienhoang.dualsubreplay.data.savedWordFrom(selection, "", false).id },
+            autoPronounce = state.autoPronounce,
+            onTranslateWord = { viewModel.translateSelection(selection) },
+            onSave = { meaning, online -> viewModel.saveWord(selection, meaning, online); Unit },
+            onSpeak = { webController.pause(); pronouncer.speak(selection.token.text, selection.wordLanguage) },
+            speechMessage = pronouncer.message,
+            onSpeechSettings = if (pronouncer.showSpeechSettings) pronouncer::openSpeechSettings else null,
+            onDismiss = { viewModel.selectLearningWord(null) },
+        )
     }
 }
 
@@ -200,6 +227,7 @@ private fun DualSubExperience(
     state: DualSubUiState,
     webController: YouTubeWebController,
     onVocabulary: () -> Unit,
+    onProgress: () -> Unit,
     onAutoPronounceChange: (Boolean) -> Unit,
     playerMode: PlayerExperienceMode,
     effectivePlayerMode: PlayerExperienceMode = playerMode,
@@ -292,7 +320,7 @@ private fun DualSubExperience(
         if (externalSettingsRequestId > 0L) showQuickSettings = true
     }
 
-    AppNavigation(onPractice = onVocabulary, onSettings = {
+    AppNavigation(onPractice = onVocabulary, onProgress = onProgress, onSettings = {
         showSettings = true
     }, onVisibilityChange = onNavigationVisibilityChange) { menuButton ->
         Scaffold(contentWindowInsets = contentInsets, topBar = {

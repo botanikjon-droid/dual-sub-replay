@@ -497,7 +497,7 @@ fun LearningPlayerRoot(viewModel: AppViewModel) {
 
         if (
             !youtubeDialogVisible && !navigationOpen && state.onboardingCompleted &&
-            state.guideCompleted &&
+            state.guideCompleted && state.dailyGoalPromptCompleted &&
             state.activeVideoId != null &&
             effectiveMode == PlayerExperienceMode.SCROLL_FRIENDLY_OVERLAY
         ) {

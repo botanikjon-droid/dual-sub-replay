@@ -22,9 +22,10 @@ class NavigationRecoveryUiTest {
         var disposed = 0
         var practice = 0
         var settings = 0
+        var progress = 0
         compose.setContent {
             MaterialTheme {
-                AppNavigation(onPractice = { practice++ }, onSettings = { settings++ }) { menu ->
+                AppNavigation(onPractice = { practice++ }, onSettings = { settings++ }, onProgress = { progress++ }) { menu ->
                     Column {
                         menu()
                         AndroidView(factory = { context ->
@@ -58,6 +59,14 @@ class NavigationRecoveryUiTest {
         compose.onNodeWithText("Settings").performClick()
         compose.waitForIdle()
         compose.runOnIdle { assertEquals(1, settings); assertEquals(1, created); assertEquals(0, disposed) }
+        compose.onNodeWithContentDescription("Open navigation menu").performClick()
+        compose.onNodeWithTag("open_progress").performClick()
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertEquals(1, progress)
+            assertEquals(1, created)
+            assertEquals(0, disposed)
+        }
         compose.onNodeWithContentDescription("Open navigation menu").performClick()
         compose.onRoot().performTouchInput { click(androidx.compose.ui.geometry.Offset(width - 2f, height / 2f)) }
         compose.waitForIdle()

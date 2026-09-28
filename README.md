@@ -80,6 +80,7 @@ Want to test the newest development build? See the [preview release](https://git
 - Swipe the panel header down in portrait or right in landscape, or use its close button, to reveal the complete YouTube page, including the same video,
   actions, comments, and recommendations; no second player or webpage is created.
 - Reopen the subtitle timeline and remember the subtitle text size.
+- Track your immersion time under **Progress** in the menu: today against a daily goal, your streak, totals for this week, month, year and all time, a chart per period, and time per language.
 - Build, test, and publish installable APKs automatically with GitHub Actions.
 
 ## FAQ
@@ -119,6 +120,10 @@ Tap a word in either subtitle line to hear it, inspect its meaning, and choose *
 Each card stores an editable meaning and its original subtitle context. The Online example option replays the saved sentence in the existing YouTube page and stops at its end. A translated word's example contains the original spoken sentence, which may not literally contain the translated word.
 
 Open **Saved words** beside Settings to search, edit, delete, or practice cards. Practice reveals the meaning on request and schedules reviews with Again (10 minutes), Hard (initially 1 day), Good (3 days), or Easy (7 days). Later successful reviews expand the previous interval by 1.2, 2, or 3 respectively; Again restarts progression. This is an independent local review system, without Anki sync. Cards are due immediately when first saved; duplicate saves of the same word/languages/video/segment retain review progress.
+
+## Progress and daily goal
+
+Open **Progress** in the menu to see how long you have watched videos in the app. Time counts only while a video is actually playing with the app open, and goes to the language of its captions (or your chosen learning language while captions load). It is saved per day and language on the device only. Progress shows today's time against your daily goal, your streak (days that reached the goal, or at least one minute without a goal), totals for this week, month, year and all time, a chart for each period, and each language's time, videos and saved words. New users can pick a daily goal right after the guide or skip it; anyone can set, change or turn off the goal in Progress.
 
 Offline video downloading and local video playback have been removed to reduce APK size and simplify the app. Existing clip files from previous versions are preserved in app-private storage without being automatically deleted. Deleting a word removes its review history. Resetting Settings preserves vocabulary.
 
