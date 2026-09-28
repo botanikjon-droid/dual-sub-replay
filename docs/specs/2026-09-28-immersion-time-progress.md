@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented. Managed-device tests and the owner's phone check are still pending (see below). The owner asked for a way to see how much time they spend immersing
+Validated. CI passed on the PR, and the owner tested the preview build on a phone and asked to merge it. Release as v1.2.0. The owner asked for a way to see how much time they spend immersing
 in languages with the app (per day, week, month, year and in total) and which languages that time
 went to. They chose "option A, daily totals per language", a daily goal set from a new "Progress"
 item, and a skippable goal step the first time the app opens, after the guide. That request does
@@ -130,8 +130,8 @@ The app already knows what it needs:
 
 ## Release intent
 
-`release:patch` (default). The owner has not stated a release type. This is a new user-facing
-feature, so `release:minor` would also fit; the owner can apply that label before merging.
+`release:minor`. The owner tested the preview on a phone and asked to merge and release v1.2.0.
+Applied as the GitHub label `release:minor` on PR #84 (latest stable release before it: v1.1.2).
 
 ## Implementation result
 
@@ -158,5 +158,5 @@ feature, so `release:minor` would also fit; the owner can apply that label befor
 | `lintDebug` | Passed locally after reading the week start from `LocalConfiguration` (`NonObservableLocale`). |
 | `assembleDebug assembleDebugAndroidTest` | Passed locally. |
 | `tools/tests` | Passed locally (29 tests). |
-| Managed-device tests (`ImmersionRepositoryTest`, `ProgressScreenTest`, `NavigationRecoveryUiTest`) | Not run locally (no KVM in the build container); CI runs them on the PR. |
-| Physical device / live YouTube | Not run; needs the owner's phone with the PR preview. |
+| Managed-device tests (`ImmersionRepositoryTest`, `ProgressScreenTest`, `NavigationRecoveryUiTest`) | Passed in PR CI (`managed-device-tests`, `fdroid-device-tests`); not run locally (no KVM). |
+| Physical device / live YouTube | Passed: the owner installed the PR #84 preview on a phone and reported that it works well. |
