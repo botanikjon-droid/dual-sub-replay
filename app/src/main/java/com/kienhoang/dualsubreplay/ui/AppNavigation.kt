@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ClosedCaption
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
@@ -25,6 +26,7 @@ import kotlinx.coroutines.launch
 internal fun AppNavigation(
     onPractice: () -> Unit,
     onSettings: () -> Unit,
+    onProgress: () -> Unit = {},
     onVisibilityChange: (Boolean) -> Unit = {},
     content: @Composable (menuButton: @Composable () -> Unit) -> Unit,
 ) {
@@ -53,6 +55,18 @@ internal fun AppNavigation(
                                 label = { Text("Practice") }, selected = false,
                                 modifier = Modifier.testTag("open_saved_words"),
                                 onClick = { scope.launch { drawer.close(); onPractice() } },
+                            )
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.Insights, contentDescription = null) },
+                                label = { Text("Progress") },
+                                selected = false,
+                                modifier = Modifier.testTag("open_progress"),
+                                onClick = {
+                                    scope.launch {
+                                        drawer.close()
+                                        onProgress()
+                                    }
+                                },
                             )
                             NavigationDrawerItem(
                                 icon = { Icon(Icons.Default.Settings, contentDescription = null) },

@@ -1,6 +1,7 @@
 package com.kienhoang.dualsubreplay.ui
 
 import android.app.Application
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kienhoang.dualsubreplay.data.AnalyzedToken
@@ -8,6 +9,12 @@ import com.kienhoang.dualsubreplay.data.CaptionLanguage
 import com.kienhoang.dualsubreplay.data.CaptionProvider
 import com.kienhoang.dualsubreplay.data.CaptionTrackResult
 import com.kienhoang.dualsubreplay.data.CaptionUnavailableException
+import com.kienhoang.dualsubreplay.data.ImmersionAccumulator
+import com.kienhoang.dualsubreplay.data.ImmersionRepository
+import com.kienhoang.dualsubreplay.data.ImmersionTimeTracker
+import com.kienhoang.dualsubreplay.data.immersionLanguage
+import com.kienhoang.dualsubreplay.data.initialDailyGoalPromptCompleted
+import com.kienhoang.dualsubreplay.data.storedDailyGoalMinutes
 import com.kienhoang.dualsubreplay.data.LearningWordSelection
 import com.kienhoang.dualsubreplay.data.SavedWord
 import com.kienhoang.dualsubreplay.data.SubtitleMerger
@@ -37,6 +44,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.time.LocalDate
 import kotlin.math.abs
 import com.kienhoang.dualsubreplay.data.activeWordIndex as timedActiveWordIndex
 
@@ -55,6 +63,8 @@ data class DualSubUiState(
     val targetLanguage: String = "vi",
     val onboardingCompleted: Boolean = false,
     val guideCompleted: Boolean = false,
+    val dailyGoalPromptCompleted: Boolean = false,
+    val dailyGoalMinutes: Int = 0,
     val availableSourceLanguages: List<CaptionLanguage> = emptyList(),
     val resolvedSourceLanguage: String? = null,
     val generatedCaptions: Boolean = false,
@@ -231,6 +241,8 @@ internal fun normalizedOnboardingLanguages(
 }
 
 internal const val GUIDE_COMPLETED_PREFERENCE = "guide_completed"
+internal const val DAILY_GOAL_PROMPT_COMPLETED_PREFERENCE = "daily_goal_prompt_completed"
+internal const val DAILY_GOAL_MINUTES_PREFERENCE = "daily_goal_minutes"
 internal const val SPLIT_LONG_SENTENCES_PREFERENCE = "split_long_sentences"
 internal const val LOCK_OVERLAY_TO_VIDEO_PREFERENCE = "lock_overlay_to_video_player"
 internal const val PRELOAD_MODELS_ENABLED_PREFERENCE = "preload_translation_models"
@@ -265,6 +277,9 @@ class AppViewModel internal constructor(
             modelDirectory = File(application.filesDir, "translation-models"),
         )
     internal val vocabulary = VocabularyRepository.get(application)
+    internal val immersion = ImmersionRepository.get(application)
+    private val immersionTracker = ImmersionTimeTracker()
+    private val immersionAccumulator = ImmersionAccumulator()
     private var loadingJob: Job? = null
     private var translationWarmupJob: Job? = null
     private var loadGeneration = 0L
@@ -321,6 +336,18 @@ class AppViewModel internal constructor(
                         preferenceValue = preferences.getBoolean(GUIDE_COMPLETED_PREFERENCE, false),
                         onboardingCompleted = preferences.getBoolean("onboarding_completed", false),
                     ),
+                dailyGoalPromptCompleted =
+                    initialDailyGoalPromptCompleted(
+                        preferenceExists = preferences.contains(DAILY_GOAL_PROMPT_COMPLETED_PREFERENCE),
+                        preferenceValue = preferences.getBoolean(DAILY_GOAL_PROMPT_COMPLETED_PREFERENCE, false),
+                        guideCompleted =
+                            initialGuideCompleted(
+                                preferenceExists = preferences.contains(GUIDE_COMPLETED_PREFERENCE),
+                                preferenceValue = preferences.getBoolean(GUIDE_COMPLETED_PREFERENCE, false),
+                                onboardingCompleted = preferences.getBoolean("onboarding_completed", false),
+                            ),
+                    ),
+                dailyGoalMinutes = storedDailyGoalMinutes(preferences.getInt(DAILY_GOAL_MINUTES_PREFERENCE, 0)),
                 landscapeSplitEnabled = preferences.getBoolean("landscape_split_enabled", true),
                 originalColorKey =
                     storedSubtitleColorKey(
@@ -397,6 +424,7 @@ class AppViewModel internal constructor(
         }
 
     override fun onCleared() {
+        flushImmersion()
         loadingJob?.cancel()
         preferences.unregisterOnSharedPreferenceChangeListener(visibilityListener)
         super.onCleared()
@@ -407,13 +435,37 @@ class AppViewModel internal constructor(
         paused: Boolean,
     ) {
         if (_state.value.activeVideoId != videoId) return
+        if (paused && !_state.value.playbackPaused) flushImmersion()
         _state.update { it.copy(playbackPaused = paused) }
         updatePlaybackRequest()
     }
 
     internal fun setAppVisible(visible: Boolean) {
         appVisible = visible
+        if (!visible) {
+            immersionTracker.reset()
+            flushImmersion()
+        }
         updatePlaybackRequest()
+    }
+
+    /** Credits watched time to the language being learned; see [ImmersionTimeTracker]. */
+    private fun trackImmersion(
+        current: DualSubUiState,
+        videoId: String,
+        timeMs: Long,
+        seek: Boolean,
+    ) {
+        val now = SystemClock.elapsedRealtime()
+        val language = immersionLanguage(current.resolvedSourceLanguage, current.sourcePreference)
+        val playing = appVisible && !current.playbackPaused && !seek && language != null
+        val credited = immersionTracker.onTick(now, timeMs, playing)
+        if (language != null && credited > 0) immersionAccumulator.add(LocalDate.now(), language, videoId, credited)
+        if (immersionAccumulator.shouldFlush(now)) flushImmersion()
+    }
+
+    private fun flushImmersion() {
+        immersion.record(immersionAccumulator.drain(SystemClock.elapsedRealtime()))
     }
 
     private fun updatePlaybackRequest(seek: Boolean = false) {
@@ -505,6 +557,7 @@ class AppViewModel internal constructor(
             captionHighlightResolver.reset()
             liveCaptionProgress = null
         }
+        trackImmersion(current, videoId, timeMs, seek)
         latestPlaybackSecondMs = timeMs
         playbackKnown = true
         updatePlaybackRequest(seek)
@@ -701,8 +754,26 @@ class AppViewModel internal constructor(
     }
 
     fun completeGuide() {
-        preferences.edit().putBoolean(GUIDE_COMPLETED_PREFERENCE, true).apply()
+        val editor = preferences.edit().putBoolean(GUIDE_COMPLETED_PREFERENCE, true)
+        // The goal step follows the guide, even if the app closes before it is answered.
+        if (!preferences.contains(DAILY_GOAL_PROMPT_COMPLETED_PREFERENCE)) {
+            editor.putBoolean(DAILY_GOAL_PROMPT_COMPLETED_PREFERENCE, false)
+        }
+        editor.apply()
         _state.update { it.copy(guideCompleted = true) }
+    }
+
+    fun setDailyGoal(minutes: Int) {
+        val goal = storedDailyGoalMinutes(minutes)
+        preferences.edit().putInt(DAILY_GOAL_MINUTES_PREFERENCE, goal).apply()
+        _state.update { it.copy(dailyGoalMinutes = goal) }
+    }
+
+    /** Finishes the first-launch goal step; a null goal means the user skipped it. */
+    fun completeDailyGoalPrompt(minutes: Int?) {
+        if (minutes != null) setDailyGoal(minutes)
+        preferences.edit().putBoolean(DAILY_GOAL_PROMPT_COMPLETED_PREFERENCE, true).apply()
+        _state.update { it.copy(dailyGoalPromptCompleted = true) }
     }
 
     fun setFontScale(scale: Float) {
@@ -933,6 +1004,8 @@ class AppViewModel internal constructor(
 
     private fun clearActiveVideo() {
         if (_state.value.activeVideoId == null) return
+        immersionTracker.reset()
+        flushImmersion()
         loadGeneration += 1
         loadingJob?.cancel()
         liveTranslationJob?.cancel()
