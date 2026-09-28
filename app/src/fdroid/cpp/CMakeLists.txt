@@ -34,6 +34,10 @@ set(COMPILE_LIBRARY_ONLY ON CACHE BOOL "" FORCE)
 set(SSPLIT_COMPILE_LIBRARY_ONLY ON CACHE BOOL "" FORCE)
 if(ANDROID_ABI STREQUAL "x86_64")
   set(BUILD_ARCH x86-64 CACHE STRING "" FORCE)
+  # Marian only picks a float GEMM (Ruy) for ARM; without a system BLAS, x86-64
+  # would abort on the first matrix product. Use Ruy there too.
+  set(USE_RUY ON CACHE BOOL "" FORCE)
+  set(USE_RUY_SGEMM ON CACHE BOOL "" FORCE)
   # Marian's bundled faiss uses SSE types but relies on glibc to include their header.
   add_compile_options("SHELL:-include immintrin.h")
 else()

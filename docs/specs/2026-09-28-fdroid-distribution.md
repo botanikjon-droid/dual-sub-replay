@@ -153,6 +153,9 @@ Steps 1 to 7 implemented. Deviations:
 - AGP 9's built-in Kotlin ignores `java.srcDir`, so the variant folder is added with `kotlin.srcDir`.
 - NDK pinned to r28c (`28.2.13676358`) instead of the newest r29 (see risks).
 - Only `arm64-v8a` and `x86_64` are built; 32-bit devices get a clear error instead of translation.
+- Marian only enables its Ruy float GEMM on ARM, so an x86-64 build without a system BLAS
+  aborted on the first translation. The first `fdroid-device-tests` run caught this on the
+  x86_64 emulator; x86_64 now uses Ruy as well.
 - Marian's `git_revision.h` rule depends on a `.git` path that does not exist inside a
   submodule, so the CMake file writes that header itself.
 
