@@ -2,9 +2,10 @@
 
 ## Status
 
-Draft (implementation of the build switch done; engine decision open). The owner asked whether the app can be published on F-Droid and to prepare it. That
-request covers this preparation. It does not authorize submitting to F-Droid, merging, or
-publishing. One product decision is open: which free translation engine the F-Droid build uses.
+Implemented, awaiting owner review. The owner asked whether the app can be published on F-Droid
+and to prepare it, then chose Mozilla Bergamot as the F-Droid build's translation engine and
+approved adding its source as git submodules. That covers this preparation. It does not authorize
+submitting to F-Droid, merging, or publishing.
 
 ## Context / problem
 
@@ -31,11 +32,13 @@ and downloads YouTube captions. That is a label on the listing, not a rejection 
   the default build, CI task names, APK paths, or the release workflow.
 - CI proves on every PR that the F-Droid variant still builds and contains no proprietary Google classes.
 - Store listing metadata in the fastlane layout F-Droid reads.
-- A draft fdroiddata recipe that is ready once the translation engine exists.
+- The F-Droid build translates on-device with Mozilla Bergamot, built from source.
+- A draft fdroiddata recipe that builds the engine.
 
 ## Non-goals
 
-- Choosing or implementing the free translation engine (open decision below).
+- Matching ML Kit's language list: the F-Droid build supports the languages Mozilla has models for.
+- 32-bit ARM (`armeabi-v7a`) and 32-bit x86 native builds.
 - Submitting a merge request to F-Droid's fdroiddata repository.
 - Reproducible builds / developer-signed F-Droid APKs. F-Droid will sign with its own key, so
   users cannot switch between the GitHub and F-Droid builds without reinstalling.
@@ -44,10 +47,13 @@ and downloads YouTube captions. That is a label on the listing, not a rejection 
 
 GitHub releases and previews: unchanged. They keep ML Kit.
 
-F-Droid variant (`-Pdistribution=fdroid`): browsing, captions, replay and saved words work.
-Translating between two different languages fails with "Translation is not available in this
-F-Droid build yet. Original captions still work." until an engine is chosen. It must not be
-submitted in that state.
+F-Droid variant (`-Pdistribution=fdroid`): browsing, captions, replay and saved words work as in
+the full build. The first translation for a language pair downloads Mozilla's models (about
+20 to 40 MB per direction) from Firefox Remote Settings, checks their SHA-256 and keeps them in
+app storage; later translations are offline. Pairs without English pivot through English (two
+models). Pairs Mozilla has no model for show "X to Y is not available for offline translation.";
+32-bit ARM phones show "Offline translation is not supported on this device's processor." Subtitle
+text never leaves the device.
 
 ## Technical constraints / invariants
 
@@ -69,13 +75,27 @@ submitted in that state.
    contains `com/google/mlkit`, `com/google/android/gms` or `com/google/firebase` classes.
 5. Add `fastlane/metadata/android/en-US` (title, descriptions, icon, screenshots) and a draft
    recipe in [docs/fdroid](../fdroid/README.md).
+6. Bergamot engine for the F-Droid build:
+   - Submodules `app/src/fdroid/cpp/translations` (mozilla/translations, pinned commit; its
+     `inference/` folder is Bergamot + Marian) and `app/src/fdroid/cpp/pcre2` (tag pcre2-10.44).
+   - `app/src/fdroid/cpp/CMakeLists.txt` builds them with the NDK for `arm64-v8a` and `x86_64`,
+     plus a JNI bridge (`bergamot_jni.cpp`: load, translate, pivot, release).
+   - `BergamotCatalog.kt` (in `main`, unit-tested): parse Mozilla's model catalog, pick the newest
+     complete model per pair, map app language codes, route through English, build the model config.
+   - `BergamotModelStore.kt`: cached catalog, verified downloads, old versions removed.
+   - The F-Droid `OnDeviceTranslator` keeps the full build's API and caches, and serialises the
+     engine with a mutex. `AppViewModel` passes it a model directory (ignored by the ML Kit build).
+7. CI: `fdroid-build` builds the native libraries and checks both are in the APK;
+   `fdroid-device-tests` runs `BergamotEngineDeviceTest` with real en↔vi models on the API 36 emulator.
 
 Why a property rather than product flavors: flavors rename every task and APK path used by
 `android.yml`, `release-on-main.yml` and the managed-device job. The property keeps those untouched.
 The F-Droid recipe passes it with `gradleprops` and removes the ML Kit line with `prebuild`,
 because F-Droid's scanner reads every dependency line in the build file.
 
-## Open decision: F-Droid translation engine
+## Engine decision (made 2026-09-28: Bergamot)
+
+The owner picked Bergamot from these options:
 
 | Option | Fit |
 | --- | --- |
@@ -85,21 +105,24 @@ because F-Droid's scanner reads every dependency line in the build file.
 
 ## Acceptance criteria
 
-- [ ] `assembleDebug` and `assembleRelease` without the property still include ML Kit and behave as before.
-- [ ] `assembleRelease -Pdistribution=fdroid` succeeds and the APK dex has no ML Kit, Play Services or Firebase classes.
-- [ ] Existing CI (`verify-build`, `managed-device-tests`) passes unchanged, plus the new `fdroid-build` job.
-- [ ] The fastlane short description is at most 80 characters and the icon is 512×512 PNG.
-- [ ] The draft recipe names the anti-feature, the build switch and the update check.
+- [x] `assembleDebug` and `assembleRelease` without the property still include ML Kit and behave as before.
+- [x] `assembleRelease -Pdistribution=fdroid` succeeds, contains `libdualsub_bergamot.so` for
+  `arm64-v8a` and `x86_64`, and its dex has no ML Kit, Play Services or Firebase classes.
+- [ ] Bergamot translates English→Vietnamese and pivots Vietnamese→English→Vietnamese on an
+  Android emulator (`fdroid-device-tests`).
+- [ ] Existing CI (`verify-build`, `managed-device-tests`) passes unchanged, plus the new F-Droid jobs.
+- [x] The fastlane short description is at most 80 characters and the icon is 512×512 PNG.
+- [x] The draft recipe names the anti-feature, the build switch, the submodules, the NDK and the update check.
 
 ## Validation plan
 
 | Category | Command/scenario and expected result | Environment / applicability |
 | --- | --- | --- |
-| Unit tests | `testDebugUnitTest` passes | Local and CI |
-| Android lint/build | `lintDebug assembleDebug`; `assembleRelease -Pdistribution=fdroid` then the dex check | Local and CI |
-| Managed-device/emulator | Existing `pixel2Api36DebugAndroidTest` passes (full variant) | CI |
-| Physical-device/manual | Install the F-Droid APK, open a captioned video: captions load, translation shows the message | Owner device; not run |
-| Live YouTube | Not applicable until an engine is chosen | |
+| Unit tests | `testDebugUnitTest` passes, including `BergamotCatalogTest` | Local and CI |
+| Android lint/build | `lintDebug assembleDebug`; `lintRelease assembleRelease -Pdistribution=fdroid` then the library and dex checks | Local and CI |
+| Managed-device/emulator | Existing `pixel2Api36DebugAndroidTest` passes (full variant); `BergamotEngineDeviceTest` passes (F-Droid variant) | CI |
+| Physical-device/manual | Install the F-Droid APK on an arm64 phone, open a captioned video, pick a language: models download once, then translations appear | Owner device; not run |
+| Live YouTube | Same as above against a real video | Owner device; not run |
 | Documentation/process | fdroiddata recipe reviewed against F-Droid's build metadata reference | Draft only; `fdroid lint` not run |
 
 ## Risks / edge cases
@@ -108,6 +131,12 @@ because F-Droid's scanner reads every dependency line in the build file.
   `versionCode` in the build file is an expression. The recipe uses `UpdateCheckData` for that.
 - F-Droid's build server must know the Gradle 9.5 wrapper checksum and support AGP 9.3; if not,
   the first F-Droid build waits for their tooling update.
+- Bergamot needs NDK r28: NDK r29's Clang rejects SentencePiece code in the pinned sources.
+- pathie-cpp (inside Marian) references `glob`/`iconv`, which Android declares only from API 28.
+  They are declared weak and never called, so the library still loads on API 26 and 27.
+- Mozilla's catalog and CDN URLs are not a stable public API. If they change, downloads fail with
+  an error and original captions keep working; the URLs are constants in `BergamotCatalog.kt`.
+- The native build adds several minutes per ABI to CI and F-Droid builds.
 - Changelogs in fastlane are keyed by `versionCode`, which release automation assigns at merge
   time, so none are added here. F-Droid links the GitHub releases page instead.
 
@@ -119,8 +148,13 @@ no draft reservations seen); the number is reserved at merge time.
 
 ## Implementation result
 
-Steps 1 to 5 implemented as planned. One deviation: AGP 9's built-in Kotlin ignores
-`java.srcDir`, so the variant folder is added with `kotlin.srcDir`.
+Steps 1 to 7 implemented. Deviations:
+
+- AGP 9's built-in Kotlin ignores `java.srcDir`, so the variant folder is added with `kotlin.srcDir`.
+- NDK pinned to r28c (`28.2.13676358`) instead of the newest r29 (see risks).
+- Only `arm64-v8a` and `x86_64` are built; 32-bit devices get a clear error instead of translation.
+- Marian's `git_revision.h` rule depends on a `.git` path that does not exist inside a
+  submodule, so the CMake file writes that header itself.
 
 ## Validation result
 
@@ -132,6 +166,14 @@ Local run on Linux, JDK 21, Android SDK 36 (2026-09-28):
 - Passed: `assembleRelease -Pdistribution=fdroid`. Unsigned APK 2.1 MB; no ML Kit, Play Services
   or Firebase classes.
 - Passed: `python3 -m unittest discover -s tools/tests -p 'test_*.py'` (29 tests).
-- Not run locally: managed-device tests (CI), device install, `fdroid lint`/`fdroid build`.
+- Passed: Bergamot on the Linux host with the same sources and Mozilla's en→vi / vi→en models:
+  translation (about 0.25 s per sentence) and the vi→en→vi pivot.
+- Passed: `lintRelease assembleRelease assembleDebugAndroidTest -Pdistribution=fdroid`. Unsigned
+  APK 9.4 MB with both native libraries (arm64 library 9.9 MB, needs only `liblog`, `libandroid`,
+  `libdl`, `libm`, `libc`, with `glob`/`iconv` weak); no ML Kit, Play Services or Firebase classes.
+- Passed: `tools/fetch_bergamot_test_models.py` downloads and verifies the test models.
+- Not run locally (no emulator acceleration here): managed-device tests, including
+  `BergamotEngineDeviceTest` (CI runs it). Not run: install on a physical phone, live YouTube,
+  `fdroid lint`/`fdroid build`.
 
 Final-head CI: see the PR.

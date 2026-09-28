@@ -1,0 +1,8 @@
+[submodule "app/src/fdroid/cpp/translations"]
+	path = app/src/fdroid/cpp/translations
+	url = https://github.com/mozilla/translations.git
+	shallow = true
+[submodule "app/src/fdroid/cpp/pcre2"]
+	path = app/src/fdroid/cpp/pcre2
+	url = https://github.com/PCRE2Project/pcre2.git
+	shallow = true

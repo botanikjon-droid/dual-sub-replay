@@ -1,6 +1,6 @@
 # DRAFT fdroiddata recipe (metadata/com.kienhoang.dualsubreplay.yml).
-# Do not submit until the F-Droid build has a free translation engine and a
-# release tag contains the `distribution` switch. See README.md in this folder.
+# Do not submit until a release tag contains the `distribution` switch and the
+# Bergamot engine. See README.md in this folder.
 AntiFeatures:
   NonFreeNet:
     en-US: Browses YouTube and downloads its captions; both are proprietary network services.
@@ -25,6 +25,7 @@ Builds:
     versionCode: 0 # appVersionCode at that tag
     commit: vX.Y.Z
     subdir: app
+    submodules: true
     gradle:
       - yes
     gradleprops:
@@ -32,6 +33,10 @@ Builds:
     rm:
       - app/src/full
     prebuild: sed -i -e '/com.google.mlkit/d' build.gradle.kts
+    scandelete:
+      - app/src/fdroid/cpp/translations/tests
+      - app/src/fdroid/cpp/pcre2/testdata
+    ndk: r28c
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[0-9.]+$

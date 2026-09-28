@@ -37,8 +37,10 @@ Paths below are relative to
   bounded loading and cancellation when changing long-video behavior.
 - `translation/OnDeviceTranslator.kt` uses downloadable ML Kit models with memory
   and disk caches. It lives in `app/src/full/java`; the F-Droid build
-  (`-Pdistribution=fdroid`) uses `app/src/fdroid/java` without ML Kit. See
-  [F-Droid distribution](../fdroid/README.md). `ui/PlaybackTranslation.kt` and `TranslationCoordinator.kt`
+  (`-Pdistribution=fdroid`) uses `app/src/fdroid/java` without ML Kit: Mozilla's Bergamot
+  engine (native, from the `app/src/fdroid/cpp` submodules) with downloadable Firefox
+  Translations models. `translation/BergamotCatalog.kt` in main holds its testable model
+  catalog and routing logic. See [F-Droid distribution](../fdroid/README.md). `ui/PlaybackTranslation.kt` and `TranslationCoordinator.kt`
   support playback-prioritized work; obsolete loads must not update current state.
 - `data/VocabularyRepository.kt` stores study cards/review data in local SQLite;
   `PracticeTransfer.kt` handles JSON/Anki TSV transfer. App preferences use Android

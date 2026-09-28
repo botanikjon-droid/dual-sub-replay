@@ -56,6 +56,14 @@ android {
         getByName("main") {
             kotlin.srcDir("src/$distribution/java")
         }
+        if (isFdroidBuild) {
+            // Device test for the native engine; CI fills the assets with
+            // tools/fetch_bergamot_test_models.py.
+            getByName("androidTest") {
+                kotlin.srcDir("src/fdroidAndroidTest/java")
+                assets.srcDir("build/fdroid-test-models")
+            }
+        }
     }
 
     if (isFdroidBuild) {
@@ -63,6 +71,27 @@ android {
         dependenciesInfo {
             includeInApk = false
             includeInBundle = false
+        }
+
+        // Mozilla's Bergamot translator, built from the src/fdroid/cpp submodules.
+        ndkVersion = "28.2.13676358"
+        externalNativeBuild {
+            cmake {
+                path = file("src/fdroid/cpp/CMakeLists.txt")
+                version = "3.22.1"
+            }
+        }
+        defaultConfig {
+            ndk {
+                abiFilters += listOf("arm64-v8a", "x86_64")
+            }
+            externalNativeBuild {
+                cmake {
+                    // Marian is unusably slow unoptimised, so debug builds use Release too.
+                    arguments += listOf("-DCMAKE_BUILD_TYPE=Release", "-DANDROID_STL=c++_static")
+                    targets += "dualsub_bergamot"
+                }
+            }
         }
     }
 

@@ -109,13 +109,14 @@ jobs:
 
   fdroid-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
-      - name: Check out source
+      - name: Check out source with engine submodules
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          submodules: recursive
 
       - name: Set up Java 17
         uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
@@ -128,25 +129,84 @@ jobs:
         with:
           packages: platform-tools
 
-      - name: Install Android build SDK
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Install Android build SDK, NDK and CMake
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
 
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
 
       - name: Build unsigned F-Droid release APK
-        run: bash ./gradlew assembleRelease -Pdistribution=fdroid --stacktrace
+        run: bash ./gradlew lintRelease assembleRelease -Pdistribution=fdroid --stacktrace
 
-      - name: Verify F-Droid APK has no proprietary Google libraries
+      - name: Verify F-Droid APK has the engine and no proprietary Google libraries
         run: |
           set -euo pipefail
           apk=app/build/outputs/apk/release/app-release-unsigned.apk
           test -f "$apk"
+          for abi in arm64-v8a x86_64; do
+            unzip -l "$apk" "lib/$abi/libdualsub_bergamot.so" > /dev/null
+          done
           if unzip -p "$apk" 'classes*.dex' | grep -a -o -E 'Lcom/google/(mlkit|android/gms|firebase)/' | sort -u | grep .; then
             echo "The F-Droid APK contains proprietary Google classes" >&2
             exit 1
           fi
-          echo "No ML Kit, Play Services, or Firebase classes found."
+          echo "Bergamot libraries present; no ML Kit, Play Services, or Firebase classes found."
+
+  fdroid-device-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out source with engine submodules
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Set up Java 17
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Enable KVM access
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          packages: platform-tools
+
+      - name: Install API 36 managed-device image, NDK and CMake
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "emulator" "system-images;android-36;default;x86_64" "ndk;28.2.13676358" "cmake;3.22.1"
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+
+      - name: Download English and Vietnamese test models
+        run: python3 tools/fetch_bergamot_test_models.py
+
+      - name: Run the Bergamot engine test on API 36
+        run: >-
+          bash ./gradlew pixel2Api36DebugAndroidTest
+          -Pdistribution=fdroid
+          -Pandroid.testInstrumentationRunnerArguments.class=com.kienhoang.dualsubreplay.translation.BergamotEngineDeviceTest
+          -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+          --no-parallel --max-workers=2 --stacktrace
+
+      - name: Upload F-Droid device test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: fdroid-pixel2-api36-test-reports
+          path: |
+            app/build/reports/androidTests/managedDevice/
+            app/build/outputs/androidTest-results/managedDevice/
+          if-no-files-found: warn
 
   managed-device-tests:
     needs: verify-build

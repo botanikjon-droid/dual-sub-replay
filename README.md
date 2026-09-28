@@ -157,7 +157,7 @@ bash ./gradlew pixel2Api36DebugAndroidTest
 
 The managed-device suite uses a Pixel 2 profile with an API 36 AOSP image. Its WebView fixtures are designed to run without calls to the live YouTube site. On headless CI hosts, also pass `-Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect`.
 
-Debug APKs are produced at `app/build/outputs/apk/debug/app-debug.apk`. Add `-Pdistribution=fdroid` to build the F-Droid variant without Google ML Kit; see [F-Droid distribution](docs/fdroid/README.md). An official release build requires the four `ANDROID_RELEASE_*` signing environment variables and `-PrequireReleaseSigning=true`; signing credentials must never be committed.
+Debug APKs are produced at `app/build/outputs/apk/debug/app-debug.apk`. Add `-Pdistribution=fdroid` to build the F-Droid variant, which replaces Google ML Kit with Mozilla's Bergamot engine; it needs the git submodules, NDK r28c and CMake 3.22.1. See [F-Droid distribution](docs/fdroid/README.md). An official release build requires the four `ANDROID_RELEASE_*` signing environment variables and `-PrequireReleaseSigning=true`; signing credentials must never be committed.
 
 ## Architecture
 

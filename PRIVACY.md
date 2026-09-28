@@ -7,6 +7,7 @@ DualSub Replay is designed without an application account, analytics SDK, advert
 - The embedded YouTube website receives normal browsing and playback requests, subject to Google's and YouTube's policies.
 - The app requests public caption data from YouTube to build the replayable subtitle timeline.
 - Google ML Kit may download the language models you select. Translation then runs on the device.
+- The F-Droid build does not include ML Kit. It downloads Mozilla's Firefox Translations models from Mozilla's servers the first time you translate a language, then translates on the device. Only model files are downloaded; subtitle text is not sent.
 - The app stores the last Browse URL, target language, subtitle text size, and landscape split ratio in local Android preferences.
 - Saved words, meanings, subtitle context, video IDs, timestamp ranges, and review schedules are stored in a local SQLite database. They are not sent to an application server. Android's normal app backup may include this database and preferences.
 - Optional offline clip downloads send video requests to YouTube and its media hosts using the bundled yt-dlp downloader. Downloads do not copy cookies from the browsing WebView. Clip files are stored privately and excluded from Android backups. Restored cards may require their clips to be downloaded again.
