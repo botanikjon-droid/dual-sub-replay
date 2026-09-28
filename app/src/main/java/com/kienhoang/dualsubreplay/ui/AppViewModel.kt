@@ -259,7 +259,11 @@ class AppViewModel internal constructor(
     constructor(application: Application) : this(application, YouTubeCaptionProvider())
 
     private val preferences = application.getSharedPreferences("dual_sub_preferences", 0)
-    private val translator = OnDeviceTranslator(File(application.cacheDir, "subtitle-translations"))
+    private val translator =
+        OnDeviceTranslator(
+            cacheDirectory = File(application.cacheDir, "subtitle-translations"),
+            modelDirectory = File(application.filesDir, "translation-models"),
+        )
     internal val vocabulary = VocabularyRepository.get(application)
     private var loadingJob: Job? = null
     private var translationWarmupJob: Job? = null

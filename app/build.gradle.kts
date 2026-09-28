@@ -22,6 +22,14 @@ val previewVersionCode = providers.gradleProperty("previewVersionCode").orNull?.
 val previewVersionNameSuffix = providers.gradleProperty("previewVersionNameSuffix").orNull.orEmpty()
 val previewApplicationIdSuffix = providers.gradleProperty("previewApplicationIdSuffix").orNull.orEmpty()
 
+// "full" (default) ships Google ML Kit translation; "fdroid" builds only free
+// software for F-Droid. Each variant adds its own src/<distribution>/java.
+val distribution = providers.gradleProperty("distribution").orNull ?: "full"
+if (distribution !in setOf("full", "fdroid")) {
+    throw GradleException("-Pdistribution must be full or fdroid, not $distribution.")
+}
+val isFdroidBuild = distribution == "fdroid"
+
 if (requireReleaseSigning && !hasReleaseSigning) {
     throw GradleException(
         "Release signing requires ANDROID_RELEASE_STORE_FILE, " +
@@ -42,6 +50,49 @@ android {
         versionName = appVersionName + previewVersionNameSuffix
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    sourceSets {
+        getByName("main") {
+            kotlin.srcDir("src/$distribution/java")
+        }
+        if (isFdroidBuild) {
+            // Device test for the native engine; CI fills the assets with
+            // tools/fetch_bergamot_test_models.py.
+            getByName("androidTest") {
+                kotlin.srcDir("src/fdroidAndroidTest/java")
+                assets.srcDir("build/fdroid-test-models")
+            }
+        }
+    }
+
+    if (isFdroidBuild) {
+        // F-Droid rejects the encrypted dependency blob AGP adds to the signing block.
+        dependenciesInfo {
+            includeInApk = false
+            includeInBundle = false
+        }
+
+        // Mozilla's Bergamot translator, built from the src/fdroid/cpp submodules.
+        ndkVersion = "28.2.13676358"
+        externalNativeBuild {
+            cmake {
+                path = file("src/fdroid/cpp/CMakeLists.txt")
+                version = "3.22.1"
+            }
+        }
+        defaultConfig {
+            ndk {
+                abiFilters += listOf("arm64-v8a", "x86_64")
+            }
+            externalNativeBuild {
+                cmake {
+                    // Marian is unusably slow unoptimised, so debug builds use Release too.
+                    arguments += listOf("-DCMAKE_BUILD_TYPE=Release", "-DANDROID_STL=c++_static")
+                    targets += "dualsub_bergamot"
+                }
+            }
+        }
     }
 
     buildFeatures {
@@ -141,7 +192,9 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
 
-    implementation("com.google.mlkit:translate:17.0.3")
+    if (!isFdroidBuild) {
+        implementation("com.google.mlkit:translate:17.0.3")
+    }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 

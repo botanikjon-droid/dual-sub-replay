@@ -1,0 +1,46 @@
+# DRAFT fdroiddata recipe (metadata/com.kienhoang.dualsubreplay.yml).
+# Do not submit until a release tag contains the `distribution` switch and the
+# Bergamot engine. See README.md in this folder.
+AntiFeatures:
+  NonFreeNet:
+    en-US: Browses YouTube and downloads its captions; both are proprietary network services.
+Categories:
+  - Online Media Player
+  - Science & Education
+  - Translation & Dictionary
+License: MIT
+AuthorName: Hoang Trung Kien
+WebSite: https://hoangkien1703.github.io/dual-sub-replay/
+SourceCode: https://github.com/hoangkien1703/dual-sub-replay
+IssueTracker: https://github.com/hoangkien1703/dual-sub-replay/issues
+Changelog: https://github.com/hoangkien1703/dual-sub-replay/releases
+
+AutoName: DualSub Replay
+
+RepoType: git
+Repo: https://github.com/hoangkien1703/dual-sub-replay.git
+
+Builds:
+  - versionName: X.Y.Z # first tagged release that contains the distribution switch
+    versionCode: 0 # appVersionCode at that tag
+    commit: 0000000000000000000000000000000000000000 # full commit hash of the vX.Y.Z tag, not the tag name
+    subdir: app
+    submodules: true
+    gradle:
+      - yes
+    gradleprops:
+      - distribution=fdroid
+    rm:
+      - app/src/full
+    prebuild: sed -i -e '/com.google.mlkit/d' build.gradle.kts
+    scandelete:
+      - app/src/fdroid/cpp/translations/site
+      - app/src/fdroid/cpp/translations/tests
+      - app/src/fdroid/cpp/pcre2/testdata
+    ndk: r28c
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^v[0-9.]+$
+UpdateCheckData: app/build.gradle.kts|val appVersionCode = (\d+)|.|val appVersionName = "([^"]+)"
+CurrentVersion: X.Y.Z
+CurrentVersionCode: 0

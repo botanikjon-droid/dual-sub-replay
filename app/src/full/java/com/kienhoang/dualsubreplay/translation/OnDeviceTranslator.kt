@@ -20,6 +20,8 @@ import kotlin.coroutines.resumeWithException
 
 class OnDeviceTranslator(
     cacheDirectory: File? = null,
+    // Used by the F-Droid build's downloadable models; ML Kit manages its own.
+    @Suppress("UNUSED_PARAMETER") modelDirectory: File? = null,
 ) {
     private val diskCache = cacheDirectory?.let { TranslationDiskCache(it) }
     private val cache = TranslationCache()

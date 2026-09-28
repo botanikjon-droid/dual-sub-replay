@@ -146,7 +146,7 @@
     "standard:chain-method-continuation": 5,
     "standard:function-signature": 1
   },
-  "app/src/main/java/com/kienhoang/dualsubreplay/translation/OnDeviceTranslator.kt": {
+  "app/src/full/java/com/kienhoang/dualsubreplay/translation/OnDeviceTranslator.kt": {
     "standard:import-ordering": 1,
     "standard:multiline-expression-wrapping": 4,
     "standard:function-signature": 2,
