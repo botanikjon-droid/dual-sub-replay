@@ -20,6 +20,8 @@ Current releases bundle only:
 - Square OkHttp: Apache-2.0.
 - Kotlin / Coroutines: Apache-2.0.
 
+The F-Droid build (`-Pdistribution=fdroid`) leaves out Google ML Kit Translate and contains only free software.
+
 ## Obtain and build this application's source
 
 The complete application source and build scripts are available without charge at https://github.com/hoangkien1703/dual-sub-replay. For a PR preview, select the PR's exact commit; for a tagged release, select that tag. GitHub provides downloadable source archives for both commits and tags. Keep these source links beside redistributed APKs and retain upstream notices and access to the corresponding dependency sources.

@@ -22,7 +22,7 @@ tasks.register<JavaExec>("complexityCheck") {
     group = "verification"
     classpath = detektCli
     mainClass.set("io.gitlab.arturbosch.detekt.cli.Main")
-    args("--input", "app/src/main/java,benchmark/src/main/java", "--config", "config/quality/detekt.yml",
+    args("--input", "app/src/main/java,app/src/full/java,app/src/fdroid/java,benchmark/src/main/java", "--config", "config/quality/detekt.yml",
         "--baseline", "config/quality/detekt-baseline.xml", "--report", "txt:build/reports/complexity.txt")
 }
 
@@ -46,7 +46,7 @@ tasks.register<JavaExec>("recordComplexityBaseline") {
     classpath = detektCli
     mainClass.set("io.gitlab.arturbosch.detekt.cli.Main")
     workingDir = file(providers.gradleProperty("analysisRoot").orElse(".").get())
-    args("--input", "app/src/main/java", "--config", rootProject.file("config/quality/detekt.yml").path,
+    args("--input", "app/src/main/java,app/src/full/java,app/src/fdroid/java", "--config", rootProject.file("config/quality/detekt.yml").path,
         "--create-baseline", "--baseline", rootProject.file("config/quality/detekt-baseline.xml").path)
 }
 

@@ -1,0 +1,19 @@
+<p>DualSub Replay helps you learn languages with YouTube. It shows the original captions and a translation together, and lets you tap any sentence to hear that exact moment again.</p>
+
+<p><b>Features</b></p>
+<ul>
+<li>Browse and search the mobile YouTube site inside the app, or share a YouTube link to it.</li>
+<li>Load manual or auto-generated public captions automatically.</li>
+<li>Show original and translated subtitles side by side in a scrollable timeline.</li>
+<li>Tap a subtitle paragraph to jump back and replay it.</li>
+<li>Follow the spoken word on eligible auto-generated captions.</li>
+<li>Landscape split view with a resizable subtitle panel.</li>
+<li>Tap a word to hear it, save it with its sentence, and review it later with spaced repetition.</li>
+<li>Export saved words as JSON or Anki-ready TSV.</li>
+</ul>
+
+<p><b>Privacy</b></p>
+<p>No account, analytics, ads, or project server. Saved words and settings stay on your device.</p>
+
+<p><b>Good to know</b></p>
+<p>The app uses YouTube's website and caption data, which are not free services. Captions come from an undocumented YouTube interface that can change without notice.</p>

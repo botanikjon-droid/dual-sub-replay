@@ -22,6 +22,14 @@ val previewVersionCode = providers.gradleProperty("previewVersionCode").orNull?.
 val previewVersionNameSuffix = providers.gradleProperty("previewVersionNameSuffix").orNull.orEmpty()
 val previewApplicationIdSuffix = providers.gradleProperty("previewApplicationIdSuffix").orNull.orEmpty()
 
+// "full" (default) ships Google ML Kit translation; "fdroid" builds only free
+// software for F-Droid. Each variant adds its own src/<distribution>/java.
+val distribution = providers.gradleProperty("distribution").orNull ?: "full"
+if (distribution !in setOf("full", "fdroid")) {
+    throw GradleException("-Pdistribution must be full or fdroid, not $distribution.")
+}
+val isFdroidBuild = distribution == "fdroid"
+
 if (requireReleaseSigning && !hasReleaseSigning) {
     throw GradleException(
         "Release signing requires ANDROID_RELEASE_STORE_FILE, " +
@@ -42,6 +50,20 @@ android {
         versionName = appVersionName + previewVersionNameSuffix
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    sourceSets {
+        getByName("main") {
+            kotlin.srcDir("src/$distribution/java")
+        }
+    }
+
+    if (isFdroidBuild) {
+        // F-Droid rejects the encrypted dependency blob AGP adds to the signing block.
+        dependenciesInfo {
+            includeInApk = false
+            includeInBundle = false
+        }
     }
 
     buildFeatures {
@@ -141,7 +163,9 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
 
-    implementation("com.google.mlkit:translate:17.0.3")
+    if (!isFdroidBuild) {
+        implementation("com.google.mlkit:translate:17.0.3")
+    }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
