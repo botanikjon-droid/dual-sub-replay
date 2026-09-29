@@ -44,8 +44,8 @@ finds confusing.
     phrase, the bar shows no translation until **Translate** is pressed.
   - The bar uses the app's dark teal surface with a thin accent border, not a white panel.
   - Tapping another word in the same line extends the selection to every word between the two.
-    Tapping a word inside the selection, tapping a blank part of that line, the bar's ✕, or Back
-    clears it. Selecting in another line moves the selection there.
+    Tapping a word inside the selection, tapping a blank part of that line, the bar's ✕, Back, or
+    playing the video again clears it. Selecting in another line moves the selection there.
   - **Copy** copies the exact selected text (Japanese stays without added spaces) and the button
     shows "Copied".
   - **Pronounce** speaks the whole selection in its line's language. If no voice is available, the
@@ -142,7 +142,10 @@ The owner found the white bar too bright and asked for a colour that matches the
 the single-word behaviour: the first tapped word shows its translation right in the bar, while
 extending to more words keeps the phrase flow without translating immediately. The bar now uses
 `surfaceContainerHighest` with an accent border, and `PhraseActions.translate`
-(`AppViewModel.translateSubtitleText`) fills the single-word translation.
+(`AppViewModel.translateSubtitleText`) fills the single-word translation. The owner also asked for the bar to
+close when the video plays again: `BindPhraseActions` clears the selection when `playbackPaused`
+turns false (`PhraseSelectionTest.selectingPausesOnceAndResumingClearsTheSelection` covers the
+controller side).
 
 ## Implementation result
 

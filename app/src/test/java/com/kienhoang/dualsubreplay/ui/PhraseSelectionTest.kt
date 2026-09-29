@@ -142,4 +142,25 @@ class PhraseSelectionTest {
         assertEquals("fr", learningSourceLanguage(null, "fr"))
         assertEquals("en", learningSourceLanguage(null, "auto"))
     }
+
+    @Test
+    fun selectingPausesOnceAndResumingClearsTheSelection() {
+        var pauses = 0
+        var stops = 0
+        val controller = PhraseSelectionController()
+        controller.actions = PhraseActions(pause = { pauses++ }, stopSpeech = { stops++ })
+        val line = Any()
+
+        controller.tap(line, 2)
+        controller.tap(line, 4)
+        assertEquals(PhraseSelection(line, 2..4), controller.selection)
+        assertEquals(1, pauses)
+
+        controller.clearAll()
+        assertNull(controller.selection)
+        assertEquals(1, stops)
+        // Nothing selected: resuming again does nothing.
+        controller.clearAll()
+        assertEquals(1, stops)
+    }
 }

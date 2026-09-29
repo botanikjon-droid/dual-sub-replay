@@ -178,6 +178,11 @@ internal class PhraseSelectionController {
         selection = null
         actions.stopSpeech()
     }
+
+    /** Drops any selection, for example when the video starts playing again. */
+    fun clearAll() {
+        selection?.let { clear(it.owner) }
+    }
 }
 
 internal val LocalPhraseSelection = staticCompositionLocalOf<PhraseSelectionController?> { null }
@@ -200,6 +205,10 @@ internal fun BindPhraseActions(
     val controller = LocalPhraseSelection.current ?: return
     val source = learningSourceLanguage(state.resolvedSourceLanguage, state.sourcePreference)
     val target = state.targetLanguage
+    // Playing the video again closes the bar; selecting pauses it, so this only fires on resume.
+    LaunchedEffect(controller, state.playbackPaused) {
+        if (!state.playbackPaused) controller.clearAll()
+    }
     SideEffect {
         controller.actions =
             PhraseActions(
