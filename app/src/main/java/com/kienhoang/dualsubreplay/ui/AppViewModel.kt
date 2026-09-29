@@ -909,6 +909,20 @@ class AppViewModel internal constructor(
         _state.update { it.copy(autoPronounce = enabled) }
     }
 
+    /** Translates [text] from a subtitle line: original lines into the target language, translated lines back. */
+    internal suspend fun translateSubtitleText(
+        text: String,
+        translated: Boolean,
+    ): String {
+        val current = _state.value
+        val source = com.kienhoang.dualsubreplay.data.learningSourceLanguage(current.resolvedSourceLanguage, current.sourcePreference)
+        return if (translated) {
+            translator.translateSingle(current.targetLanguage, source, text)
+        } else {
+            translator.translateSingle(source, current.targetLanguage, text)
+        }
+    }
+
     internal suspend fun translateSelection(selection: LearningWordSelection): String =
         translator.translateSingle(selection.wordLanguage, selection.meaningLanguage, selection.token.text)
 

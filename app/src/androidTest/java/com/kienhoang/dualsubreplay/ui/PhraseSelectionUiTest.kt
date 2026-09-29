@@ -28,6 +28,7 @@ class PhraseSelectionUiTest {
     private val spoken = mutableListOf<Pair<String, Boolean>>()
     private var pauses = 0
     private var replays = 0
+    private val translatedTexts = mutableListOf<Pair<String, Boolean>>()
 
     private fun showCard() {
         val controller = PhraseSelectionController()
@@ -35,6 +36,10 @@ class PhraseSelectionUiTest {
             PhraseActions(
                 pause = { pauses++ },
                 pronounce = { text, isTranslated -> spoken += text to isTranslated },
+                translate = { text, isTranslated ->
+                    translatedTexts += text to isTranslated
+                    "nghĩa của $text"
+                },
             )
         compose.setContent {
             DualSubTheme {
@@ -83,9 +88,16 @@ class PhraseSelectionUiTest {
         tapWord(original, "looking")
         compose.onNodeWithTag("phrase_action_bar").assertIsDisplayed()
         compose.onNodeWithText("Tap another word to select a phrase").assertIsDisplayed()
+        // One word shows its meaning in the bar at once.
+        compose.onNodeWithTag("phrase_quick_translation").assertIsDisplayed()
+        compose.onNodeWithText("nghĩa của looking").assertIsDisplayed()
+        saveUiEvidence("phrase-action-bar-word")
         tapWord(original, " to ")
         saveUiEvidence("phrase-action-bar")
         compose.onNodeWithText("Tap another word to select a phrase").assertDoesNotExist()
+        // A phrase is not translated until Translate is pressed.
+        compose.onNodeWithTag("phrase_quick_translation").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(listOf("looking" to false), translatedTexts) }
 
         compose.onNodeWithTag("phrase_translate").performClick()
         compose.waitForIdle()

@@ -2,6 +2,7 @@ package com.kienhoang.dualsubreplay.ui
 
 import android.content.ClipData
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -57,6 +58,7 @@ import com.kienhoang.dualsubreplay.data.PartOfSpeech
 import com.kienhoang.dualsubreplay.data.SubtitleSegment
 import com.kienhoang.dualsubreplay.data.WordTap
 import com.kienhoang.dualsubreplay.data.learningSourceLanguage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /** The selected words of one subtitle line: [owner] identifies the line, [words] the inclusive word range. */
@@ -147,6 +149,7 @@ internal class PhraseActions(
     val pronounce: (text: String, translated: Boolean) -> Unit = { _, _ -> },
     val stopSpeech: () -> Unit = {},
     val speechMessage: () -> String? = { null },
+    val translate: (suspend (text: String, translated: Boolean) -> String)? = null,
 )
 
 /** Holds the one selection shared by every subtitle line on screen. */
@@ -192,6 +195,7 @@ internal fun BindPhraseActions(
     state: DualSubUiState,
     webController: YouTubeWebController,
     pronouncer: WordPronouncer,
+    translate: suspend (text: String, translated: Boolean) -> String,
 ) {
     val controller = LocalPhraseSelection.current ?: return
     val source = learningSourceLanguage(state.resolvedSourceLanguage, state.sourcePreference)
@@ -206,6 +210,7 @@ internal fun BindPhraseActions(
                 },
                 stopSpeech = pronouncer::stop,
                 speechMessage = { pronouncer.message },
+                translate = translate,
             )
     }
 }
@@ -279,6 +284,10 @@ internal fun SelectableSubtitleText(
                 phrase = text.substring(start, end),
                 singleWord = words.first == words.last,
                 speechMessage = controller.actions.speechMessage(),
+                quickTranslate =
+                    controller.actions.translate
+                        ?.takeIf { words.first == words.last }
+                        ?.let { translate -> { translate(text.substring(start, end), translated) } },
                 onTranslate = {
                     val tap = phraseTap(text, tokens, words, segment, translated)
                     controller.clear(owner)
@@ -297,6 +306,7 @@ private fun PhraseActionBar(
     phrase: String,
     singleWord: Boolean,
     speechMessage: String?,
+    quickTranslate: (suspend () -> String)?,
     onTranslate: () -> Unit,
     onPronounce: () -> Unit,
     onClose: () -> Unit,
@@ -319,8 +329,9 @@ private fun PhraseActionBar(
         Surface(
             modifier = Modifier.widthIn(max = 360.dp).testTag("phrase_action_bar"),
             shape = RoundedCornerShape(20.dp),
-            color = Color(0xFFF7FAFA),
-            contentColor = Color(0xFF10262A),
+            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
             shadowElevation = 8.dp,
         ) {
             Column(Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) {
@@ -338,17 +349,44 @@ private fun PhraseActionBar(
                         Icon(Icons.Default.Close, contentDescription = "Clear selection", modifier = Modifier.size(18.dp))
                     }
                 }
+                quickTranslate?.let { QuickTranslation(phrase, it) }
                 val note = speechMessage ?: if (singleWord) "Tap another word to select a phrase" else null
                 note?.let {
                     Text(
                         it,
                         style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 6.dp),
                     )
                 }
             }
         }
     }
+}
+
+/** A single word's meaning, shown right in the bar so one tap is enough to understand it. */
+@Composable
+private fun QuickTranslation(
+    word: String,
+    translate: suspend () -> String,
+) {
+    var meaning by remember(word) { mutableStateOf<String?>(null) }
+    LaunchedEffect(word) {
+        meaning =
+            try {
+                translate().ifBlank { null } ?: "Translation unavailable"
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                "Translation unavailable"
+            }
+    }
+    Text(
+        meaning ?: "Translating…",
+        style = MaterialTheme.typography.titleMedium,
+        color = if (meaning == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 6.dp).testTag("phrase_quick_translation"),
+    )
 }
 
 private class PhraseBarPositionProvider(

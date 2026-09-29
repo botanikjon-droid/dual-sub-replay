@@ -105,7 +105,7 @@ fun DualSubApp(
     val savedWords by viewModel.vocabulary.words.collectAsStateWithLifecycle()
     val webController = rememberYouTubeWebController()
     val pronouncer = rememberWordPronouncer()
-    BindPhraseActions(state, webController, pronouncer)
+    BindPhraseActions(state, webController, pronouncer, viewModel::translateSubtitleText)
     var showVocabulary by remember { mutableStateOf(false) }
     var showProgress by remember { mutableStateOf(false) }
 

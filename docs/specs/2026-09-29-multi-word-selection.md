@@ -39,8 +39,10 @@ finds confusing.
   to Close at the bottom.
 - **After:**
   - Tapping a word pauses the video, highlights the word and shows the bar above it (below it when
-    there is no room above). With one word selected, the bar also says "Tap another word to
-    select a phrase".
+    there is no room above). With one word selected, the bar shows that word's translation under
+    the buttons and says "Tap another word to select a phrase". Once the selection grows to a
+    phrase, the bar shows no translation until **Translate** is pressed.
+  - The bar uses the app's dark teal surface with a thin accent border, not a white panel.
   - Tapping another word in the same line extends the selection to every word between the two.
     Tapping a word inside the selection, tapping a blank part of that line, the bar's ✕, or Back
     clears it. Selecting in another line moves the selection there.
@@ -95,6 +97,8 @@ finds confusing.
 - [x] Tap, extend backwards/forwards, and clear rules hold (`PhraseSelectionTest`).
 - [x] A phrase keeps the exact source text between its first and last word, including Japanese
   without spaces, and lists every word as a part (`PhraseSelectionTest`).
+- [x] A single selected word shows its translation in the bar; a phrase is not translated until
+  Translate is pressed (`PhraseSelectionUiTest`).
 - [x] The bar sits above the selection, flips below it near the top of the window, and stays
   inside the window horizontally (`PhraseSelectionTest`).
 - [x] A saved phrase keeps the phrase text and joined readings, and its id differs from its first
@@ -131,6 +135,14 @@ finds confusing.
 `release:patch` (the default; no label or directive). This is a new feature, so `release:minor`
 fits too; the owner decides before merge. Expected version: next patch after PR #85's v1.2.1
 estimate, so about v1.2.2 (estimate until reserved).
+
+## Revision after the owner's phone test (2026-09-29)
+
+The owner found the white bar too bright and asked for a colour that matches the app, and changed
+the single-word behaviour: the first tapped word shows its translation right in the bar, while
+extending to more words keeps the phrase flow without translating immediately. The bar now uses
+`surfaceContainerHighest` with an accent border, and `PhraseActions.translate`
+(`AppViewModel.translateSubtitleText`) fills the single-word translation.
 
 ## Implementation result
 
