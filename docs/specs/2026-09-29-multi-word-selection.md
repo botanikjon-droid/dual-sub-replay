@@ -154,6 +154,8 @@ As planned, with these details:
 - Passed locally (Linux, JDK 21, Android SDK 36):
   `./gradlew formatCheck complexityCheck testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest`,
   332 unit tests with 0 failures, including 10 in `PhraseSelectionTest`.
-- Not run locally: `pixel2Api36DebugAndroidTest` (no KVM on this host). `PhraseSelectionUiTest`
-  and the new `WordLearningDialogTest` case run in CI's `managed-device-tests`; see the PR.
+- Not run locally: `pixel2Api36DebugAndroidTest` (no KVM on this host). CI's
+  `managed-device-tests` passed on `141f75c`, including `PhraseSelectionUiTest` and the new
+  `WordLearningDialogTest` case; `fdroid-build` and `fdroid-device-tests` passed too. Final-head
+  CI status is on the PR.
 - Not yet run: the owner's phone and live YouTube scenario.
