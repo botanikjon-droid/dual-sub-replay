@@ -2,8 +2,9 @@
 
 ## Status
 
-Implemented. The owner asked for this in the project thread on 2026-09-29, agreed to the design
-below, and chose "Show action bar" for single-word taps. Physical-device validation is pending.
+Validated. The owner asked for this in the project thread on 2026-09-29, agreed to the design
+below, and chose "Show action bar" for single-word taps. The owner tested it on their phone on
+2026-09-29 and reported that it works.
 
 ## Context / problem
 
@@ -108,7 +109,7 @@ finds confusing.
 - [x] The card shows the ✕ close and the Save button, and a phrase shows its word-by-word list
   with per-word speech (`WordLearningDialogTest`).
 - [x] Existing word card behavior still passes (`WordLearningDialogTest` existing cases).
-- [ ] Owner's phone: select a phrase in the overlay and the transcript on a live video,
+- [x] Owner's phone: select a phrase in the overlay and the transcript on a live video,
   translate it, save it, and find it in Saved words.
 
 ## Validation plan
@@ -132,9 +133,8 @@ finds confusing.
 
 ## Release intent
 
-`release:patch` (the default; no label or directive). This is a new feature, so `release:minor`
-fits too; the owner decides before merge. Expected version: next patch after PR #85's v1.2.1
-estimate, so about v1.2.2 (estimate until reserved).
+Exact version `Release-Version: 1.3.0` in the PR description. The owner asked on 2026-09-29 to
+merge this and create v1.3.0, since it is a new feature.
 
 ## Revision after the owner's phone test (2026-09-29)
 
@@ -173,4 +173,5 @@ As planned, with these details:
   `managed-device-tests` passed on `141f75c`, including `PhraseSelectionUiTest` and the new
   `WordLearningDialogTest` case; `fdroid-build` and `fdroid-device-tests` passed too. Final-head
   CI status is on the PR.
-- Not yet run: the owner's phone and live YouTube scenario.
+- Passed: the owner's phone and live YouTube scenario (owner's report on 2026-09-29, including
+  the darker bar, single-word translation and closing the bar on resume).
