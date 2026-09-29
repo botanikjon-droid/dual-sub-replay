@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -820,7 +822,7 @@ private fun SideSubtitlePanel(
 }
 
 @Composable
-private fun SubtitleTimeline(
+internal fun SubtitleTimeline(
     state: DualSubUiState,
     onWordClick: (WordTap) -> Unit = {},
     onReplay: (SubtitleSegment) -> Unit,
@@ -868,26 +870,7 @@ private fun SubtitleTimeline(
         }
     }
 
-    LaunchedEffect(listState, state.currentIndex) {
-        var previousViewportHeight = 0
-        var activeWasVisible = false
-        snapshotFlow {
-            listState.layoutInfo.viewportSize.height to
-                listState.layoutInfo.visibleItemsInfo.map { it.index }
-        }.collect { (viewportHeight, visibleItemIndices) ->
-            val target = state.currentIndex
-            val viewportShrank = previousViewportHeight > 0 && viewportHeight < previousViewportHeight
-            val shouldRestoreActiveRow =
-                viewportShrank && activeWasVisible && target >= 0 &&
-                    target !in visibleItemIndices && !listState.isScrollInProgress
-            previousViewportHeight = viewportHeight
-            activeWasVisible = target in visibleItemIndices
-            if (shouldRestoreActiveRow) {
-                listState.scrollToItem(target)
-                activeWasVisible = true
-            }
-        }
-    }
+    KeepActiveRowOnScreen(listState, state.currentIndex)
 
     val showOriginal = state.showOriginal()
     val showTranslation = state.showTranslation()
@@ -930,6 +913,66 @@ private fun SubtitleTimeline(
 }
 
 /**
+ * Keeps the active row on screen when the layout changes under it rather than through a scroll:
+ * the panel shrinking, or a pause revealing translations that make the rows above it taller.
+ */
+@Composable
+private fun KeepActiveRowOnScreen(
+    listState: LazyListState,
+    target: Int,
+) {
+    LaunchedEffect(listState, target) {
+        if (target < 0) return@LaunchedEffect
+        var previousViewportHeight = 0
+        var activeWasVisible = false
+        var activeFitted = false
+        snapshotFlow { listState.layoutInfo }.collect { layout ->
+            val viewportHeight = layout.viewportSize.height
+            val viewportShrank = previousViewportHeight > 0 && viewportHeight < previousViewportHeight
+            previousViewportHeight = viewportHeight
+            val viewportEnd = layout.viewportEndOffset - layout.afterContentPadding
+            val active = layout.visibleItemsInfo.firstOrNull { it.index == target }
+            val revealDelta = active?.let { revealScrollDelta(it.offset, it.size, 0, viewportEnd) }
+            val scrolling = listState.isScrollInProgress
+            when {
+                !scrolling && activeFitted && revealDelta != null && revealDelta != 0 -> {
+                    listState.scrollBy(revealDelta.toFloat())
+                }
+                !scrolling && activeFitted && active == null -> {
+                    val pushedDown = target > (layout.visibleItemsInfo.lastOrNull()?.index ?: -1)
+                    listState.bringBackActiveRow(target, pushedDown, viewportEnd)
+                }
+                !scrolling && viewportShrank && activeWasVisible && active == null -> {
+                    listState.scrollToItem(target)
+                    activeWasVisible = true
+                }
+                else -> {
+                    activeWasVisible = active != null
+                    activeFitted = revealDelta == 0
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The active row was pushed out in one frame. scrollToItem remeasures at once, so the row's size is
+ * known before the next frame draws. A row pushed down then moves back by the free space into the
+ * bottom slot, so the rows above it stay readable.
+ */
+private suspend fun LazyListState.bringBackActiveRow(
+    target: Int,
+    pushedDown: Boolean,
+    viewportEnd: Int,
+) {
+    scrollToItem(target)
+    val row = layoutInfo.visibleItemsInfo.firstOrNull { it.index == target }
+    if (pushedDown && row != null && row.size < viewportEnd) {
+        scrollBy((row.size - viewportEnd).toFloat())
+    }
+}
+
+/**
  * Keeps earlier paragraphs on screen until the active paragraph reaches the
  * bottom-most visible slot. Seeking past the viewport also promotes the active
  * paragraph so playback can recover without leaving it off-screen.
@@ -941,6 +984,23 @@ internal fun shouldPromoteActiveSubtitle(
     if (currentIndex < 0 || visibleItemIndices.isEmpty()) return false
     return currentIndex >= visibleItemIndices.last()
 }
+
+/**
+ * Pixels to scroll so a row at [offset] with [size] fits between [viewportStart] and [viewportEnd]:
+ * 0 when it already fits, positive to scroll forward. The smallest move wins, so a row clipped at
+ * the bottom ends in the bottom slot. A row taller than the viewport aligns its top.
+ */
+internal fun revealScrollDelta(
+    offset: Int,
+    size: Int,
+    viewportStart: Int,
+    viewportEnd: Int,
+): Int =
+    when {
+        offset < viewportStart || size > viewportEnd - viewportStart -> offset - viewportStart
+        offset + size > viewportEnd -> offset + size - viewportEnd
+        else -> 0
+    }
 
 internal const val SUBTITLE_INSTANT_SCROLL_DISTANCE = 40
 

@@ -1,5 +1,17 @@
 package com.kienhoang.dualsubreplay.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -150,5 +162,61 @@ class SubtitleUiTest {
         composeRule.onNodeWithText("Next sentence")
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Subtitle"))
         composeRule.onNodeWithText("Câu tiếp theo").assertIsDisplayed()
+    }
+
+    @Test
+    fun pausingKeepsTheActiveLineAndItsTranslationOnScreen() {
+        val segments =
+            (0 until 16).map { index ->
+                SubtitleSegment(
+                    id = index.toLong(),
+                    startMs = index * 2_000L,
+                    endMs = index * 2_000L + 1_900L,
+                    originalText = "Original line $index",
+                    translatedText = "Translated line $index, long enough to wrap onto a second line in the panel",
+                )
+            }
+        var state by mutableStateOf(
+            DualSubUiState(
+                segments = segments,
+                currentIndex = 0,
+                translatedVisibility = CaptionVisibility.PAUSED,
+                wordHighlightEnabled = false,
+                wordLearningEnabled = false,
+            ),
+        )
+        composeRule.setContent {
+            DualSubTheme {
+                Box(Modifier.fillMaxWidth().height(360.dp).testTag("timeline_viewport")) {
+                    SubtitleTimeline(state, onReplay = {})
+                }
+            }
+        }
+
+        fun viewport() = composeRule.onNodeWithTag("timeline_viewport").getUnclippedBoundsInRoot()
+
+        fun rowBounds(text: String): DpRect? =
+            composeRule.onAllNodesWithText(text).fetchSemanticsNodes().firstOrNull()?.let {
+                composeRule.onNodeWithText(text).getUnclippedBoundsInRoot()
+            }
+
+        fun fits(bounds: DpRect?) = bounds != null && bounds.top >= viewport().top && bounds.bottom <= viewport().bottom
+
+        // Play forward one line at a time until the spoken line is the last one that fits, as in the report.
+        var active = 0
+        while (fits(rowBounds("Original line ${active + 1}")) && rowBounds("Original line ${active + 2}") != null) {
+            active++
+            state = state.copy(currentIndex = active)
+            composeRule.waitForIdle()
+        }
+        assertTrue("active line must fit before the pause", fits(rowBounds("Original line $active")))
+
+        state = state.copy(playbackPaused = true)
+        composeRule.waitForIdle()
+
+        val original = rowBounds("Original line $active")
+        val translation = rowBounds("Translated line $active, long enough to wrap onto a second line in the panel")
+        assertTrue("active original stays on screen: $original in ${viewport()}", fits(original))
+        assertTrue("active translation stays on screen: $translation in ${viewport()}", fits(translation))
     }
 }
