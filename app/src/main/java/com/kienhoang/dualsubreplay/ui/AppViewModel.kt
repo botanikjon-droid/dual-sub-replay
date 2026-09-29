@@ -888,7 +888,7 @@ class AppViewModel internal constructor(
 
     fun selectLearningWord(tap: WordTap?) {
         val current = _state.value
-        val source = current.resolvedSourceLanguage ?: current.sourcePreference.takeUnless { it == "auto" } ?: "en"
+        val source = com.kienhoang.dualsubreplay.data.learningSourceLanguage(current.resolvedSourceLanguage, current.sourcePreference)
         _state.update {
             it.copy(
                 selectedLearningWord =

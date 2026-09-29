@@ -83,4 +83,43 @@ class WordLearningDialogTest {
             assertEquals(1, spoken)
         }
     }
+
+    @Test
+    fun closeSitsApartFromSaveAndPhraseListsEachWord() {
+        val parts =
+            listOf(
+                AnalyzedToken("looking", 2, 9, PartOfSpeech.VERB),
+                AnalyzedToken("forward", 10, 17, PartOfSpeech.ADVERB),
+                AnalyzedToken("to", 18, 20, PartOfSpeech.PREPOSITION),
+            )
+        val phrase =
+            selection.copy(
+                token = AnalyzedToken("looking forward to", 2, 20, PartOfSpeech.OTHER),
+                parts = parts,
+            )
+        val spokenParts = mutableListOf<String>()
+        var dismissed = 0
+        compose.setContent {
+            DualSubTheme {
+                WordLearningDialog(
+                    selection = phrase,
+                    autoPronounce = false,
+                    onTranslateWord = { "mong chờ" },
+                    onSave = { _, _ -> },
+                    onSpeak = {},
+                    speechMessage = null,
+                    onDismiss = { dismissed++ },
+                    onSpeakPart = { spokenParts += it.text },
+                )
+            }
+        }
+        compose.onNodeWithText("Phrase").assertIsDisplayed()
+        compose.onNodeWithText("Save to vocabulary").assertIsDisplayed()
+        compose.onNodeWithText("Word by word").performScrollTo().assertIsDisplayed()
+        saveUiEvidence("phrase-card")
+        compose.onNodeWithTag("pronounce_part_1").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(listOf("forward"), spokenParts) }
+        compose.onNodeWithTag("close_word_card").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(1, dismissed) }
+    }
 }

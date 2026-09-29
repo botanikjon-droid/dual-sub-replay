@@ -210,15 +210,6 @@ internal fun findWordAtOffset(
     alignedOriginalTokens: List<AnalyzedToken>? = null,
 ): AnalyzedToken? {
     if (text.isBlank() || charOffset < 0 || charOffset >= text.length) return null
-    val tokens =
-        if (alignedOriginalTokens != null) {
-            LanguageAwareTokenizer.alignAndTokenizeTranslation(
-                text,
-                alignedOriginalTokens,
-                languageCode,
-            )
-        } else {
-            LanguageAwareTokenizer.tokenize(text, languageCode)
-        }
-    return tokens.firstOrNull { charOffset >= it.startIndex && charOffset < it.endIndex }
+    return subtitleWordTokens(text, languageCode, alignedOriginalTokens)
+        .firstOrNull { charOffset >= it.startIndex && charOffset < it.endIndex }
 }

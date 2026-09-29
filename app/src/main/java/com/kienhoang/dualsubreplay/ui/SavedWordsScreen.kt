@@ -108,7 +108,7 @@ internal fun SavedWordsScreen(
                             queue = due.map { it.id }; practice = true
                         }) { Text("Practice due words") }
                         OutlinedTextField(search, { search = it }, label = { Text("Search words or meanings") }, modifier = Modifier.fillMaxWidth())
-                        if (words.isEmpty()) Text("Tap a subtitle word and choose Save word to start your collection.")
+                        if (words.isEmpty()) Text("Tap subtitle words, choose Translate, then Save to vocabulary to start your collection.")
                         else if (due.isEmpty()) words.minOfOrNull { it.dueAt }?.let {
                             Text("Next review: ${DateFormat.getDateTimeInstance().format(Date(it))}", style = MaterialTheme.typography.bodySmall)
                         }
