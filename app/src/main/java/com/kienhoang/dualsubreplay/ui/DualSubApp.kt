@@ -105,6 +105,7 @@ fun DualSubApp(
     val savedWords by viewModel.vocabulary.words.collectAsStateWithLifecycle()
     val webController = rememberYouTubeWebController()
     val pronouncer = rememberWordPronouncer()
+    BindPhraseActions(state, webController, pronouncer, viewModel::translateSubtitleText)
     var showVocabulary by remember { mutableStateOf(false) }
     var showProgress by remember { mutableStateOf(false) }
 
@@ -219,6 +220,10 @@ private fun SelectedWordDialog(
             speechMessage = pronouncer.message,
             onSpeechSettings = if (pronouncer.showSpeechSettings) pronouncer::openSpeechSettings else null,
             onDismiss = { viewModel.selectLearningWord(null) },
+            onSpeakPart = { part ->
+                webController.pause()
+                pronouncer.speak(part.text, selection.wordLanguage)
+            },
         )
     }
 }

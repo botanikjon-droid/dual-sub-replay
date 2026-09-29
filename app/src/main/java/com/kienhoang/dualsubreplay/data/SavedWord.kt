@@ -3,7 +3,13 @@ package com.kienhoang.dualsubreplay.data
 import java.security.MessageDigest
 import java.util.Locale
 
-data class WordTap(val token: AnalyzedToken, val segment: SubtitleSegment?, val translated: Boolean)
+/** A tapped word or phrase. [parts] lists every word of a phrase; a single word is its own only part. */
+data class WordTap(
+    val token: AnalyzedToken,
+    val segment: SubtitleSegment?,
+    val translated: Boolean,
+    val parts: List<AnalyzedToken> = listOf(token),
+)
 
 data class LearningWordSelection(
     val token: AnalyzedToken,
@@ -12,11 +18,32 @@ data class LearningWordSelection(
     val videoId: String?,
     val segment: SubtitleSegment?,
     val translated: Boolean,
-)
+    val parts: List<AnalyzedToken> = listOf(token),
+) {
+    val isPhrase: Boolean get() = parts.size > 1
+}
 
-internal fun learningSelection(tap: WordTap, source: String, target: String, videoId: String?): LearningWordSelection =
-    LearningWordSelection(tap.token, if (tap.translated) target else source,
-        if (tap.translated) source else target, videoId, tap.segment, tap.translated)
+internal fun learningSelection(
+    tap: WordTap,
+    source: String,
+    target: String,
+    videoId: String?,
+): LearningWordSelection =
+    LearningWordSelection(
+        token = tap.token,
+        wordLanguage = if (tap.translated) target else source,
+        meaningLanguage = if (tap.translated) source else target,
+        videoId = videoId,
+        segment = tap.segment,
+        translated = tap.translated,
+        parts = tap.parts,
+    )
+
+/** The language of original subtitle lines, falling back to English until one is known. */
+internal fun learningSourceLanguage(
+    resolved: String?,
+    preference: String,
+): String = resolved ?: preference.takeUnless { it == "auto" } ?: "en"
 
 data class SavedWord(
     val id: String,

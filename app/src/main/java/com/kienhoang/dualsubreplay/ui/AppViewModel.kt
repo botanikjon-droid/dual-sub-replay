@@ -888,7 +888,7 @@ class AppViewModel internal constructor(
 
     fun selectLearningWord(tap: WordTap?) {
         val current = _state.value
-        val source = current.resolvedSourceLanguage ?: current.sourcePreference.takeUnless { it == "auto" } ?: "en"
+        val source = com.kienhoang.dualsubreplay.data.learningSourceLanguage(current.resolvedSourceLanguage, current.sourcePreference)
         _state.update {
             it.copy(
                 selectedLearningWord =
@@ -907,6 +907,20 @@ class AppViewModel internal constructor(
     fun setAutoPronounce(enabled: Boolean) {
         preferences.edit().putBoolean("auto_pronounce", enabled).apply()
         _state.update { it.copy(autoPronounce = enabled) }
+    }
+
+    /** Translates [text] from a subtitle line: original lines into the target language, translated lines back. */
+    internal suspend fun translateSubtitleText(
+        text: String,
+        translated: Boolean,
+    ): String {
+        val current = _state.value
+        val source = com.kienhoang.dualsubreplay.data.learningSourceLanguage(current.resolvedSourceLanguage, current.sourcePreference)
+        return if (translated) {
+            translator.translateSingle(current.targetLanguage, source, text)
+        } else {
+            translator.translateSingle(source, current.targetLanguage, text)
+        }
     }
 
     internal suspend fun translateSelection(selection: LearningWordSelection): String =

@@ -47,6 +47,8 @@ Paths below are relative to
   watched time per local day and language in a separate SQLite database; `ImmersionStats.kt`
   holds the testable tracking, batching and aggregation used by `ui/ProgressScreen.kt`. App preferences use Android
   SharedPreferences. `ui/WordPronouncer.kt` manages Android speech-engine fallback.
+  `ui/PhraseSelection.kt` owns word/phrase selection in subtitle lines and its Copy /
+  Translate / Pronounce bar; `ui/WordLearningSheet.kt` is the card Translate opens.
 
 ## Architecture invariants
 

@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Card
@@ -188,8 +187,9 @@ private fun OriginalCardText(
             languageCode = resolvedSourceLanguage,
         )
     if (wordLearningEnabled && tapToLearnEnabled) {
-        ClickableText(
-            text = annotatedOriginal,
+        SelectableSubtitleText(
+            text = segment.originalText,
+            annotated = annotatedOriginal,
             style =
                 TextStyle(
                     fontSize = (17 * fontScale).sp,
@@ -197,14 +197,12 @@ private fun OriginalCardText(
                     fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                     color = originalColor,
                 ),
-            onClick = { offset ->
-                val token = findWordAtOffset(segment.originalText, offset, resolvedSourceLanguage)
-                if (token != null) {
-                    onWordClick(WordTap(token, segment, false))
-                } else {
-                    onReplay()
-                }
-            },
+            languageCode = resolvedSourceLanguage,
+            segment = segment,
+            translated = false,
+            highlightColor = highlightColor,
+            onWordClick = onWordClick,
+            onBlankTap = onReplay,
         )
     } else {
         Text(
@@ -272,28 +270,22 @@ private fun TranslatedCardText(
             AnnotatedString(translatedText ?: fallbackText)
         }
     if (wordLearningEnabled && tapToLearnEnabled && translatedText != null) {
-        ClickableText(
-            text = annotatedTrans,
+        SelectableSubtitleText(
+            text = translatedText,
+            annotated = annotatedTrans,
             style =
                 TextStyle(
                     fontSize = (14 * fontScale).sp,
                     lineHeight = (18 * fontScale).sp,
                     color = translatedColor,
                 ),
-            onClick = { offset ->
-                val token =
-                    findWordAtOffset(
-                        text = translatedText,
-                        charOffset = offset,
-                        languageCode = targetLanguage,
-                        alignedOriginalTokens = originalTokens,
-                    )
-                if (token != null) {
-                    onWordClick(WordTap(token, segment, true))
-                } else {
-                    onReplay()
-                }
-            },
+            languageCode = targetLanguage,
+            segment = segment,
+            translated = true,
+            highlightColor = highlightColor,
+            onWordClick = onWordClick,
+            onBlankTap = onReplay,
+            alignedOriginalTokens = originalTokens,
         )
     } else {
         Text(
