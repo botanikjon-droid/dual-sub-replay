@@ -307,6 +307,18 @@ class PlaybackArchitectureTest {
     }
 
     @Test
+    fun activeRowRevealMovesOnlyAsFarAsTheClippedPart() {
+        // Fits: no scroll.
+        assertEquals(0, revealScrollDelta(offset = 300, size = 100, viewportStart = 0, viewportEnd = 400))
+        // Pause translations pushed the bottom 60 px past the edge: scroll just those 60 px.
+        assertEquals(60, revealScrollDelta(offset = 360, size = 100, viewportStart = 0, viewportEnd = 400))
+        // Clipped at the top: scroll back to its top.
+        assertEquals(-20, revealScrollDelta(offset = -20, size = 100, viewportStart = 0, viewportEnd = 400))
+        // Taller than the panel: align its top rather than its bottom.
+        assertEquals(50, revealScrollDelta(offset = 50, size = 500, viewportStart = 0, viewportEnd = 400))
+    }
+
+    @Test
     fun activeSubtitleFollowsRewindsAndSkippedSeeksImmediately() {
         assertTrue(shouldFollowPlaybackSeek(previousIndex = 12, currentIndex = 5))
         assertTrue(shouldFollowPlaybackSeek(previousIndex = 4, currentIndex = 40))
