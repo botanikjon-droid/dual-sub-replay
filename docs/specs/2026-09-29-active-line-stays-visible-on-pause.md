@@ -2,9 +2,8 @@
 
 ## Status
 
-Implemented. Unit tests and the build pass locally. The new managed-device test runs in CI. The
-owner's phone check is pending. The owner asked for a PR; that does not authorize merging or
-publishing.
+Validated. Local checks and CI pass, including the new managed-device test. On 2026-09-29 the
+owner confirmed on their phone that it works and asked to merge.
 
 ## Context / problem
 
@@ -60,10 +59,10 @@ panel got shorter. Rows growing in place moved nothing.
 - [x] `revealScrollDelta` returns 0 for a fitting row, the clipped amount at the bottom, the top
   offset at the top, and top-alignment for a row taller than the panel
   (`PlaybackArchitectureTest.activeRowRevealMovesOnlyAsFarAsTheClippedPart`).
-- [ ] With translations shown only when paused and the spoken line as the last row that fits,
+- [x] With translations shown only when paused and the spoken line as the last row that fits,
   pausing leaves that line and its translation inside the panel
   (`SubtitleUiTest.pausingKeepsTheActiveLineAndItsTranslationOnScreen`, managed device in CI).
-- [ ] Owner's phone: the report's scenario no longer needs a scroll.
+- [x] Owner's phone: the report's scenario no longer needs a scroll.
 
 ## Validation plan
 
@@ -99,6 +98,6 @@ disappears; a row that was only partly visible keeps the old jump-to-top rule.
   `./gradlew formatCheck complexityCheck testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest`.
   `PlaybackArchitectureTest` ran 22 tests with 0 failures, including the new one.
 - Not run locally: `pixel2Api36DebugAndroidTest`, because this host has no KVM. CI's
-  `managed-device-tests` job runs the new `SubtitleUiTest` case.
-- Not run: phone and live YouTube. The owner can check this on the PR's preview APK.
+  `managed-device-tests` passed on `cdaaca9`, including the new `SubtitleUiTest` case.
+- Passed on the owner's phone with live YouTube, reported by the owner on 2026-09-29.
 - Final-head CI status is on the PR.
