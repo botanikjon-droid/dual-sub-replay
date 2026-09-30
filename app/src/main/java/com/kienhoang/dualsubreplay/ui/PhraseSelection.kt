@@ -26,6 +26,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,6 +54,8 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import com.kienhoang.dualsubreplay.data.AnalyzedToken
+import com.kienhoang.dualsubreplay.data.JapaneseDictionaryStatus
+import com.kienhoang.dualsubreplay.data.JapaneseMorphology
 import com.kienhoang.dualsubreplay.data.LanguageAwareTokenizer
 import com.kienhoang.dualsubreplay.data.PartOfSpeech
 import com.kienhoang.dualsubreplay.data.SubtitleSegment
@@ -152,6 +155,14 @@ internal fun speaksOnSelect(
     singleWord: Boolean,
     autoPronounce: Boolean,
 ): Boolean = autoPronounce && singleWord && text.any(Char::isLetterOrDigit)
+
+/** What the selection bar says while the Japanese dictionary is not ready, or null once it is. */
+internal fun japaneseDictionaryNote(status: JapaneseDictionaryStatus): String? =
+    when (status) {
+        JapaneseDictionaryStatus.DOWNLOADING -> "Downloading the Japanese dictionary (13 MB) so taps select whole words…"
+        JapaneseDictionaryStatus.UNAVAILABLE -> "The Japanese dictionary could not download yet. Words may split oddly until it does."
+        else -> null
+    }
 
 /** Actions the app root supplies to every selectable subtitle line. */
 internal class PhraseActions(
@@ -280,6 +291,7 @@ internal fun SelectableSubtitleText(
             ?.words
             ?.takeIf { it.last < tokens.size }
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    val dictionaryStatus by JapaneseMorphology.status.collectAsState()
     LaunchedEffect(text, revision) { controller.clear(owner) }
     DisposableEffect(owner) { onDispose { controller.clear(owner) } }
 
@@ -324,6 +336,8 @@ internal fun SelectableSubtitleText(
                 phrase = text.substring(start, end),
                 singleWord = words.first == words.last,
                 speechMessage = controller.actions.speechMessage(),
+                dictionaryNote =
+                    japaneseDictionaryNote(dictionaryStatus).takeIf { LanguageAwareTokenizer.isJapanese(text, languageCode) },
                 quickTranslate =
                     controller.actions.translate
                         ?.takeIf { words.first == words.last }
@@ -346,6 +360,7 @@ private fun PhraseActionBar(
     phrase: String,
     singleWord: Boolean,
     speechMessage: String?,
+    dictionaryNote: String?,
     quickTranslate: (suspend () -> String)?,
     onTranslate: () -> Unit,
     onPronounce: () -> Unit,
@@ -390,7 +405,7 @@ private fun PhraseActionBar(
                     }
                 }
                 quickTranslate?.let { QuickTranslation(phrase, it) }
-                val note = speechMessage ?: if (singleWord) "Tap another word to select a phrase" else null
+                val note = speechMessage ?: dictionaryNote ?: if (singleWord) "Tap another word to select a phrase" else null
                 note?.let {
                     Text(
                         it,

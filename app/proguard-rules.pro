@@ -3,6 +3,6 @@
 -keep,allowoptimization class com.google.mlkit.nl.translate.NaturalLanguageTranslateRegistrar { public <init>(); }
 -keep,allowoptimization class com.google.mlkit.common.internal.CommonComponentRegistrar { public <init>(); }
 
-# Kuromoji loads its dictionary with Class.getResourceAsStream relative to its own package, so
-# its classes must keep their names and packages or Japanese word grouping falls back to heuristics.
+# Kuromoji is small (about 100 KB of code). Keep it whole: its dictionary is downloaded later, so a
+# shrinking mistake would only show up on a phone, after the download.
 -keep class com.atilika.kuromoji.** { *; }

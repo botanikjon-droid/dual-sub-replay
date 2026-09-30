@@ -3,6 +3,7 @@ package com.kienhoang.dualsubreplay.ui
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import com.kienhoang.dualsubreplay.data.AnalyzedToken
+import com.kienhoang.dualsubreplay.data.JapaneseDictionaryStatus
 import com.kienhoang.dualsubreplay.data.PartOfSpeech
 import com.kienhoang.dualsubreplay.data.SubtitleSegment
 import com.kienhoang.dualsubreplay.data.learningSelection
@@ -170,5 +171,13 @@ class PhraseSelectionTest {
         assertFalse(speaksOnSelect("思います", singleWord = true, autoPronounce = false))
         assertFalse(speaksOnSelect("台湾はもう", singleWord = false, autoPronounce = true))
         assertFalse(speaksOnSelect("。", singleWord = true, autoPronounce = true))
+    }
+
+    @Test
+    fun theBarExplainsTheJapaneseDictionaryOnlyUntilItIsReady() {
+        assertTrue(japaneseDictionaryNote(JapaneseDictionaryStatus.DOWNLOADING)!!.contains("Downloading"))
+        assertTrue(japaneseDictionaryNote(JapaneseDictionaryStatus.UNAVAILABLE) != null)
+        assertNull(japaneseDictionaryNote(JapaneseDictionaryStatus.READY))
+        assertNull(japaneseDictionaryNote(JapaneseDictionaryStatus.IDLE))
     }
 }

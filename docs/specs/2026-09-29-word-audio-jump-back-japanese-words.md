@@ -3,8 +3,8 @@
 ## Status
 
 Implemented; local checks pass, device CI and the owner's phone test pending. The owner asked for
-all three changes on 2026-09-29 in the project thread. The APK size increase from the Japanese
-dictionary (29.8 MB to 41.2 MB release APK) is an open decision flagged to the owner in the PR.
+all three changes on 2026-09-29 in the project thread. Bundling the dictionary grew the release
+APK from 29.8 MB to 41.2 MB; on 2026-09-30 the owner chose to download it on first use instead.
 
 ## Context / problem
 
@@ -45,8 +45,10 @@ The owner reported three things in the dual subtitle panel:
 **Chosen:** Kuromoji IPADIC for analysis, plus a small grouping pass in the app modelled on
 `bunsetsu`, because it is the only option that gives correct morphemes and part of speech in pure
 Java, works in both the full and F-Droid builds, and keeps the tokenizer a local, testable function.
-The cost is about 13 MB of APK and about 50 MB of heap once loaded, so it loads lazily on a
-background thread the first time Japanese text is tokenized; until then the old heuristic is used.
+The dictionary is 13 MB, so (owner's decision) the APK keeps only Kuromoji's code and downloads
+the unchanged Maven artifact, pinned by size and SHA-256, the first time Japanese text is
+tokenized. It then loads (about 50 MB of heap) on a background thread; until then the old
+heuristic is used.
 
 ## Goals
 
@@ -63,7 +65,8 @@ background thread the first time Japanese text is tokenized; until then the old 
 
 - No change to how the transcript follows playback or to the phrase selection gestures.
 - No Chinese analyzer change (Chinese keeps the current heuristic).
-- No dictionary download on demand; the dictionary ships inside the APK.
+- No Wi-Fi-only setting for the dictionary download; it follows the translation models, which
+  also download on any network.
 - No offline audio for words that were never played; the cache holds one word.
 
 ## User-visible behavior
@@ -84,8 +87,11 @@ background thread the first time Japanese text is tokenized; until then the old 
 ## Proposed approach / plan
 
 1. `data/JapaneseMorphology.kt`: lazy Kuromoji loader (single background thread, failure falls
-   back to heuristics) with a `revision` flow, and `groupJapaneseMorphemes` that turns morphemes
-   into learner words with part of speech, reading and base form.
+   back to heuristics and retries after a minute) with `revision` and `status` flows, and
+   `groupJapaneseMorphemes` that turns morphemes into learner words with part of speech, reading
+   and base form. `data/JapaneseDictionaryStore.kt` downloads the IPADIC jar from Maven Central
+   (Google's mirror as fallback), verifies it, and builds Kuromoji from its entries. The APK
+   excludes the dictionary files; the selection bar says when the dictionary is downloading.
 2. `LanguageAwareTokenizer.tokenize` uses the grouped words for Japanese (`ja`, or kana in text
    without a Chinese language code) once Kuromoji is loaded. UI `remember` keys include the
    revision, so lines re-tokenize when it finishes loading.
@@ -103,6 +109,9 @@ background thread the first time Japanese text is tokenized; until then the old 
   `食べられなかった`, `勉強しています`, `５歳`, `お母さん` and `でした` whole, and keeps particles
   such as `は`, `と`, `が` separate (`JapaneseMorphologyTest`).
 - [x] Existing tokenizer, phrase and timing tests still pass with either analyzer.
+- [x] The dictionary store installs only a file with the pinned size and SHA-256, falls back to
+  the mirror, and loads Kuromoji from the stored file (`JapaneseDictionaryStoreTest`).
+- [x] The release APK carries no dictionary files and stays near v1.3.0's size.
 - [x] `PronunciationCache` returns the stored file only for the same word and language and deletes
   it when another word is prepared (`PronunciationCacheTest`).
 - [x] `pronounceWord` with a render step reports success from synthesis and still tries other
@@ -111,8 +120,9 @@ background thread the first time Japanese text is tokenized; until then the old 
   pill only while browsing with the spoken row off screen (`JumpBackPillTest`).
 - [ ] On the managed device, scrolling the transcript away shows the pill, it hides after the
   learner stops, returns on the next scroll, and tapping it brings the spoken line back
-  (`SubtitleUiTest.jumpBackPillShowsWhileScrollingAwayAndReturnsToTheSpokenLine`), and Kuromoji
-  loads from the APK (`JapaneseMorphologyDeviceTest`).
+  (`SubtitleUiTest.jumpBackPillShowsWhileScrollingAwayAndReturnsToTheSpokenLine`), and the exact
+  Maven artifact passes the pinned checksum and loads on ART (`JapaneseMorphologyDeviceTest`,
+  which installs it from a test-APK asset instead of the network).
 - [ ] Owner's phone: tapping a Japanese word selects the whole word and speaks it; tapping
   Pronounce again replays at once; the pill behaves as described on a live video.
 
@@ -129,8 +139,11 @@ background thread the first time Japanese text is tokenized; until then the old 
 
 ## Risks / edge cases
 
-- First Japanese line after launch shows heuristic words for about a second while Kuromoji loads;
-  lines update when it finishes, and any selection on them is cleared.
+- The first Japanese video shows heuristic words while the 13 MB download and load finish; lines
+  update when it is ready, and any selection on them is cleared. Offline, it retries a minute
+  later on the next Japanese line.
+- Downloads come from Maven Central or Google's mirror of it. A changed or damaged file fails the
+  checksum and is never loaded.
 - Low-memory devices may fail to load Kuromoji; the error is caught and heuristics remain.
 - Some TTS engines cannot synthesize to a file; the app then speaks directly without caching.
 - Grouping is a heuristic over IPADIC tags; rare constructions may still split or over-group.
@@ -161,17 +174,25 @@ As planned, with these details:
   keeps its independent `ない`, compound verbs join (`思い出す`), and only the prefixes お, ご,
   御 and 第 join the next word (`今` stays separate before `２月`).
 - Kuromoji's two jars ship the same `META-INF` license files, so packaging picks the first.
+- Download on first use (owner's choice after the first push): packaging excludes
+  `com/atilika/kuromoji/ipadic/*.bin`. Kuromoji 0.9.0's builder always reads from its own
+  package, so `JapaneseDictionaryStore` subclasses it and repeats its loading steps against the
+  downloaded jar. The jar is kept as downloaded (13 MB of storage), not unpacked (33 MB). Without a
+  configured store (unit tests) the analyzer uses the dictionary on the classpath. A Gradle task
+  copies the same Maven artifact into the device-test APK as an asset.
 
 ## Validation result
 
-- Passed locally (Linux, JDK 21, Android SDK 36):
+- Passed locally (Linux, JDK 21, Android SDK 36), bundled version:
   `./gradlew testDebugUnitTest` (359 tests, 0 failures) and
   `./gradlew formatCheck complexityCheck lintDebug assembleDebug assembleDebugAndroidTest`.
-- Passed locally: `./gradlew assembleRelease -PtestReleaseSigning=true`. The R8 output keeps
-  `com.atilika.kuromoji.ipadic.Tokenizer` and `SimpleResourceResolver` names and all eight
-  dictionary `.bin` files. `tools/report_apk.py`: 43,196,573 bytes (41.2 MB), under the 80 MB
-  limit, over the 40 MB stretch target (v1.3.0 was 29,822,538 bytes).
+- Bundled version (first push): release APK 43,196,573 bytes (41.2 MB), over the 40 MB stretch
+  target; v1.3.0 was 29,822,538 bytes.
+- Download version, passed locally: `./gradlew testDebugUnitTest` (365 tests, 0 failures), the
+  CI-parity command above, and `assembleRelease -PtestReleaseSigning=true`:
+  `tools/report_apk.py` reports 29,870,705 bytes (28.49 MB), no dictionary files in the APK,
+  Kuromoji classes kept. The device-test APK contains `assets/japanese-dictionary.jar`.
 - Not run locally: `pixel2Api36DebugAndroidTest` (no KVM on this host). CI
   `managed-device-tests` runs the new pill and Kuromoji device tests.
 - Not run: F-Droid build (needs the NDK); CI `fdroid-build` covers it.
-- Pending: owner's phone test with live YouTube.
+- Pending: owner's phone test with live YouTube, including the first-use download.

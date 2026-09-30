@@ -4,8 +4,7 @@ import com.atilika.kuromoji.ipadic.Token
 import com.atilika.kuromoji.ipadic.Tokenizer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
+import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
@@ -26,43 +25,79 @@ internal data class Morpheme(
     val end: Int get() = start + surface.length
 }
 
+/** Where the Japanese dictionary is: not needed yet, downloading, loaded, or failed (retried later). */
+internal enum class JapaneseDictionaryStatus { IDLE, DOWNLOADING, READY, UNAVAILABLE }
+
 /**
  * Japanese morphological analysis with Kuromoji (MeCab's IPADIC dictionary), grouped into the
- * words a learner taps. The dictionary takes about a second and ~50 MB to load, so it loads once,
- * on a background thread, the first time Japanese text is analyzed. Until then [analyze] returns
- * null and callers use their heuristic; [revision] changes when the analyzer becomes ready so UI
- * can tokenize again.
+ * words a learner taps. The first time Japanese text is analyzed, the dictionary is downloaded
+ * if needed and loaded (about a second and ~50 MB) on a background thread. Until then [analyze]
+ * returns null and callers use their heuristic; [revision] changes when the analyzer becomes
+ * ready so UI can tokenize again.
  */
 internal object JapaneseMorphology {
     private val loaded = MutableStateFlow(0)
     val revision: StateFlow<Int> = loaded
+    private val dictionaryStatus = MutableStateFlow(JapaneseDictionaryStatus.IDLE)
+    val status: StateFlow<JapaneseDictionaryStatus> = dictionaryStatus
 
     @Volatile
     private var tokenizer: Tokenizer? = null
-    private val started = AtomicBoolean(false)
-    private val finished = CountDownLatch(1)
 
-    /** Starts loading the dictionary in the background if nothing has started it yet. */
+    @Volatile
+    private var store: JapaneseDictionaryStore? = null
+
+    @Volatile
+    private var retryAt = 0L
+    private val loading = AtomicBoolean(false)
+
+    /** Where the app keeps the downloaded dictionary. Without one, a dictionary on the classpath (unit tests) is used. */
+    fun useStore(dictionary: JapaneseDictionaryStore) {
+        store = dictionary
+    }
+
+    /** Starts downloading and loading the dictionary in the background unless it is loaded or loading. */
     fun warmUp() {
-        if (!started.compareAndSet(false, true)) return
+        if (tokenizer != null || System.currentTimeMillis() < retryAt) return
+        val dictionary = store
+        // No store yet and no bundled dictionary: the app has not configured storage; try again later.
+        if (dictionary == null && Tokenizer::class.java.getResource(BUNDLED_DICTIONARY_PROBE) == null) return
+        if (!loading.compareAndSet(false, true)) return
         thread(name = "japanese-morphology", isDaemon = true, priority = Thread.MIN_PRIORITY) {
             try {
-                tokenizer = Tokenizer()
+                tokenizer = load(dictionary)
+                dictionaryStatus.value = JapaneseDictionaryStatus.READY
                 loaded.value += 1
             } catch (_: Exception) {
-                // A broken dictionary resource leaves the heuristic tokenizer in charge.
+                failed()
             } catch (_: OutOfMemoryError) {
                 // Low-memory devices keep the heuristic tokenizer rather than crash.
+                failed()
             } finally {
-                finished.countDown()
+                loading.set(false)
             }
         }
+    }
+
+    private fun load(dictionary: JapaneseDictionaryStore?): Tokenizer {
+        if (dictionary == null) return Tokenizer()
+        if (!dictionary.isInstalled()) {
+            dictionaryStatus.value = JapaneseDictionaryStatus.DOWNLOADING
+            if (!dictionary.install()) throw IOException("The Japanese dictionary could not be downloaded.")
+        }
+        return dictionary.loadTokenizer()
+    }
+
+    private fun failed() {
+        retryAt = System.currentTimeMillis() + RETRY_DELAY_MS
+        dictionaryStatus.value = JapaneseDictionaryStatus.UNAVAILABLE
     }
 
     /** Loads the analyzer and waits for it, for tests. Returns whether it is ready. */
     fun awaitReady(timeoutMs: Long = 30_000): Boolean {
         warmUp()
-        finished.await(timeoutMs, TimeUnit.MILLISECONDS)
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (loading.get() && System.currentTimeMillis() < deadline) Thread.sleep(POLL_MS)
         return tokenizer != null
     }
 
@@ -73,22 +108,34 @@ internal object JapaneseMorphology {
             warmUp()
             return null
         }
-        val morphemes = synchronized(analyzer) { analyzer.tokenize(text) }.map(::toMorpheme)
-        return groupJapaneseMorphemes(morphemes)
+        return japaneseLearnerWords(analyzer, text)
     }
 
-    private fun toMorpheme(token: Token) =
-        Morpheme(
-            surface = token.surface,
-            start = token.position,
-            pos = token.partOfSpeechLevel1,
-            detail = token.partOfSpeechLevel2,
-            subDetail = token.partOfSpeechLevel3,
-            conjugationForm = token.conjugationForm,
-            baseForm = token.baseForm,
-            reading = token.reading ?: "*",
-        )
+    private const val BUNDLED_DICTIONARY_PROBE = "doubleArrayTrie.bin"
+    private const val RETRY_DELAY_MS = 60_000L
+    private const val POLL_MS = 20L
 }
+
+/** Analyzes [text] with [analyzer] and groups the morphemes into learner words. */
+internal fun japaneseLearnerWords(
+    analyzer: Tokenizer,
+    text: String,
+): List<AnalyzedToken> {
+    val morphemes = synchronized(analyzer) { analyzer.tokenize(text) }.map(::toMorpheme)
+    return groupJapaneseMorphemes(morphemes)
+}
+
+private fun toMorpheme(token: Token) =
+    Morpheme(
+        surface = token.surface,
+        start = token.position,
+        pos = token.partOfSpeechLevel1,
+        detail = token.partOfSpeechLevel2,
+        subDetail = token.partOfSpeechLevel3,
+        conjugationForm = token.conjugationForm,
+        baseForm = token.baseForm,
+        reading = token.reading ?: "*",
+    )
 
 private enum class WordKind { PREFIX, NOUN, SURU_NOUN, NUMBER, INFLECTING, COPULA, CLOSED }
 

@@ -1,17 +1,27 @@
 package com.kienhoang.dualsubreplay.data
 
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
-/** Kuromoji reads its dictionary as Java resources; this proves that works inside the APK on ART. */
+/**
+ * The APK leaves out Kuromoji's dictionary. This installs the exact Maven artifact the app
+ * downloads (packaged in the test APK, so no network), checks it against the pinned checksum,
+ * and proves Kuromoji loads it on ART.
+ */
 class JapaneseMorphologyDeviceTest {
     @Test
-    fun analyzerLoadsFromTheApkAndGroupsWholeWords() {
-        assertTrue("Kuromoji should load on device", JapaneseMorphology.awaitReady(timeoutMs = 60_000))
+    fun downloadedDictionaryVerifiesAndGroupsWholeWords() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val directory = File(instrumentation.targetContext.cacheDir, "japanese-dictionary-test").apply { deleteRecursively() }
+        val store = JapaneseDictionaryStore(directory, open = { instrumentation.context.assets.open("japanese-dictionary.jar") })
 
-        val words = LanguageAwareTokenizer.tokenize("毎日お母さんに手伝ってもらって、", "ja").map { it.text }
+        assertTrue("The pinned size and SHA-256 must match the Maven artifact", store.install())
 
+        val words = japaneseLearnerWords(store.loadTokenizer(), "毎日お母さんに手伝ってもらって、").map { it.text }
         assertEquals(listOf("毎日", "お母さん", "に", "手伝ってもらって", "、"), words)
+        directory.deleteRecursively()
     }
 }
