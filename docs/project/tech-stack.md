@@ -33,6 +33,8 @@ Paths below are relative to
   discovers caption tracks from watch-page player metadata and undocumented
   Innertube player fallbacks, then fetches timed text. `CaptionDocumentParser.kt`
   handles formats. Do not spread YouTube extraction details into UI/translation code.
+  `RecentCaptionTracks.kt` wraps the provider with a small, expiring disk cache of recent tracks,
+  so a video reopened after Android closed the app does not download its captions again.
 - `data/SubtitleMerger.kt` prepares readable segments; `SubtitleStore.kt` keeps
   transcript text/timing on disk and exposes bounded playback windows. Preserve
   bounded loading and cancellation when changing long-video behavior.
