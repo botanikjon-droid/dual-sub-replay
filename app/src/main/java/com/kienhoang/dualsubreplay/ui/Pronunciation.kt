@@ -2,6 +2,7 @@ package com.kienhoang.dualsubreplay.ui
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
 import java.util.Locale
 
 internal data class PronunciationVoice(
@@ -21,6 +22,12 @@ internal interface PronunciationEngine {
     fun selectLanguage(locale: Locale): Boolean
 
     suspend fun speak(word: String): Boolean
+
+    /** Writes [word]'s speech to [file] instead of playing it. Engines that cannot return false. */
+    suspend fun synthesize(
+        word: String,
+        file: File,
+    ): Boolean = false
 
     fun close()
 }
@@ -58,11 +65,15 @@ internal fun pronunciationVoices(
         .take(3)
 }
 
-/** Try the user's default engine first, then other installed engines, without changing system settings. */
+/**
+ * Try the user's default engine first, then other installed engines, without changing system settings.
+ * [render] speaks the word by default; pass a synthesis step to record it instead.
+ */
 internal suspend fun pronounceWord(
     word: String,
     language: String,
     engineNames: List<String?>,
+    render: suspend PronunciationEngine.() -> Boolean = { speak(word) },
     createEngine: (String?) -> PronunciationEngine,
 ): PronunciationResult {
     val locale = pronunciationLocale(language) ?: return PronunciationResult.INVALID_LANGUAGE
@@ -79,12 +90,12 @@ internal suspend fun pronounceWord(
                 // Some older engines implement setLanguage but do not expose a voice catalog.
                 if (!active.selectLanguage(locale)) continue
                 playbackFailed = true
-                if (withTimeoutOrNull(10_000) { active.speak(word) } == true) return PronunciationResult.SPOKEN
+                if (withTimeoutOrNull(10_000) { active.render() } == true) return PronunciationResult.SPOKEN
             } else {
                 for (voice in voices) {
                     if (!active.selectVoice(voice)) continue
                     playbackFailed = true
-                    if (withTimeoutOrNull(10_000) { active.speak(word) } == true) return PronunciationResult.SPOKEN
+                    if (withTimeoutOrNull(10_000) { active.render() } == true) return PronunciationResult.SPOKEN
                 }
             }
         } catch (cancel: CancellationException) {

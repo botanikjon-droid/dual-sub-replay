@@ -47,6 +47,7 @@ object LanguageAwareTokenizer {
     private val KANJI_REGEX = Regex("[\\u4E00-\\u9FAF]")
     private val HIRAGANA_REGEX = Regex("[\\u3040-\\u309F]")
     private val KATAKANA_REGEX = Regex("[\\u30A0-\\u30FF]")
+    private val KANA_REGEX = Regex("[\\u3040-\\u30FF]")
 
     // Common Japanese particles and auxiliary grammar words
     private val JAPANESE_PARTICLES = setOf(
@@ -172,10 +173,31 @@ object LanguageAwareTokenizer {
             || isCjk(text)
 
         return if (isJapaneseOrCjk) {
-            tokenizeJapanese(text)
+            tokenizeCjk(text, languageCode)
         } else {
             tokenizeSpacedLanguage(text)
         }
+    }
+
+    /**
+     * Japanese goes through the morphological analyzer once it has loaded, so a tap selects the
+     * whole word with its endings. Chinese, and Japanese while the analyzer loads, use the
+     * script-boundary heuristic below.
+     */
+    private fun tokenizeCjk(
+        text: String,
+        languageCode: String?,
+    ): List<AnalyzedToken> =
+        (if (isJapanese(text, languageCode)) JapaneseMorphology.analyze(text) else null)
+            ?: tokenizeJapanese(text)
+
+    /** Japanese by its language code, or by kana in text whose language is unknown or not Chinese. */
+    internal fun isJapanese(
+        text: String,
+        languageCode: String?,
+    ): Boolean {
+        val code = languageCode?.lowercase(Locale.ROOT).orEmpty()
+        return code.startsWith("ja") || (!code.startsWith("zh") && KANA_REGEX.containsMatchIn(text))
     }
 
     /**
@@ -400,7 +422,7 @@ object LanguageAwareTokenizer {
         val isCjk = isCjk(translationText) || (translationLanguage != null && (translationLanguage.startsWith("ja") || translationLanguage.startsWith("zh")))
 
         val rawTokens = if (isCjk) {
-            tokenizeJapanese(translationText)
+            tokenizeCjk(translationText, translationLanguage)
         } else {
             tokenizeWordsWithOffsets(translationText)
         }

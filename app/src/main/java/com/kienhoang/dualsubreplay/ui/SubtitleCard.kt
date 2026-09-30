@@ -247,7 +247,7 @@ private fun TranslatedCardText(
     // Tokens only feed word colors and tap-to-learn, so skip tokenizing when neither is on.
     val needsOriginalTokens = shouldHighlightTrans || (wordLearningEnabled && tapToLearnEnabled)
     val originalTokens: List<AnalyzedToken> =
-        remember(segment.originalText, resolvedSourceLanguage, needsOriginalTokens) {
+        remember(segment.originalText, resolvedSourceLanguage, needsOriginalTokens, tokenizerRevision()) {
             if (needsOriginalTokens) {
                 LanguageAwareTokenizer.tokenize(segment.originalText, resolvedSourceLanguage)
             } else {

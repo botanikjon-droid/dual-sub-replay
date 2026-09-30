@@ -143,10 +143,22 @@ internal fun phraseBarPosition(
     return IntOffset(x, y)
 }
 
+/**
+ * Whether selecting [text] should speak it right away: a single word (not a phrase, not
+ * punctuation) while the learner has "Pronounce tapped words" on.
+ */
+internal fun speaksOnSelect(
+    text: String,
+    singleWord: Boolean,
+    autoPronounce: Boolean,
+): Boolean = autoPronounce && singleWord && text.any(Char::isLetterOrDigit)
+
 /** Actions the app root supplies to every selectable subtitle line. */
 internal class PhraseActions(
     val pause: () -> Unit = {},
     val pronounce: (text: String, translated: Boolean) -> Unit = { _, _ -> },
+    /** Runs whenever the selected text changes, before any button is pressed. */
+    val select: (text: String, translated: Boolean, singleWord: Boolean) -> Unit = { _, _, _ -> },
     val stopSpeech: () -> Unit = {},
     val speechMessage: () -> String? = { null },
     val translate: (suspend (text: String, translated: Boolean) -> String)? = null,
@@ -209,6 +221,7 @@ internal fun BindPhraseActions(
     LaunchedEffect(controller, state.playbackPaused) {
         if (!state.playbackPaused) controller.clearAll()
     }
+    val autoPronounce = state.autoPronounce
     SideEffect {
         controller.actions =
             PhraseActions(
@@ -216,6 +229,15 @@ internal fun BindPhraseActions(
                 pronounce = { text, translated ->
                     webController.pause()
                     pronouncer.speak(text, if (translated) target else source)
+                },
+                select = { text, translated, singleWord ->
+                    val language = if (translated) target else source
+                    if (speaksOnSelect(text, singleWord, autoPronounce)) {
+                        webController.pause()
+                        pronouncer.speak(text, language)
+                    } else {
+                        pronouncer.forgetUnless(text, language)
+                    }
                 },
                 stopSpeech = pronouncer::stop,
                 speechMessage = { pronouncer.message },
@@ -247,18 +269,27 @@ internal fun SelectableSubtitleText(
 ) {
     val controller = rememberPhraseSelection()
     val owner = remember { Any() }
-    val tokens = remember(text, languageCode, alignedOriginalTokens) { subtitleWordTokens(text, languageCode, alignedOriginalTokens) }
+    val revision = tokenizerRevision()
+    val tokens =
+        remember(text, languageCode, alignedOriginalTokens, revision) {
+            subtitleWordTokens(text, languageCode, alignedOriginalTokens)
+        }
     val words =
         controller.selection
             ?.takeIf { it.owner === owner }
             ?.words
             ?.takeIf { it.last < tokens.size }
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
-    LaunchedEffect(text) { controller.clear(owner) }
+    LaunchedEffect(text, revision) { controller.clear(owner) }
     DisposableEffect(owner) { onDispose { controller.clear(owner) } }
 
     val start = words?.let { tokens[it.first].startIndex }
     val end = words?.let { tokens[it.last].endIndex }
+    val selectedText = if (start != null && end != null) text.substring(start, end) else null
+    val singleWord = words != null && words.first == words.last
+    LaunchedEffect(selectedText, singleWord) {
+        selectedText?.let { controller.actions.select(it, translated, singleWord) }
+    }
     val shown =
         if (start != null && end != null) {
             AnnotatedString

@@ -163,4 +163,12 @@ class PhraseSelectionTest {
         controller.clearAll()
         assertEquals(1, stops)
     }
+
+    @Test
+    fun onlyASingleRealWordSpeaksOnSelectAndOnlyWhenTheSettingIsOn() {
+        assertTrue(speaksOnSelect("思います", singleWord = true, autoPronounce = true))
+        assertFalse(speaksOnSelect("思います", singleWord = true, autoPronounce = false))
+        assertFalse(speaksOnSelect("台湾はもう", singleWord = false, autoPronounce = true))
+        assertFalse(speaksOnSelect("。", singleWord = true, autoPronounce = true))
+    }
 }

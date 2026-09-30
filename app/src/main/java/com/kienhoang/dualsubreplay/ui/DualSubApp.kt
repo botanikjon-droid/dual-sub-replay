@@ -883,37 +883,45 @@ internal fun SubtitleTimeline(
     val originalColor = effectiveOriginalColor(state)
     val translatedColor = effectiveTranslatedColor(state)
     val highlightColor = effectiveHighlightColor(state)
-    LazyColumn(
-        state = listState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp),
-        verticalArrangement = Arrangement.spacedBy(5.dp),
-    ) {
-        itemsIndexed(state.segments, key = { _, segment -> segment.id }) { index, segment ->
-            val active = index == state.currentIndex
-            CompactSubtitleCard(
-                segment = segment,
-                showOriginal = showOriginal,
-                showTranslation = showTranslation,
-                active = active,
-                fontScale = state.fontScale,
-                onReplay = { onReplay(segment) },
-                // Only the active row draws the spoken word. Giving the others a constant lets them
-                // skip recomposition each time the highlighted word moves.
-                activeWordIndex = if (active) activeWordIndex else -1,
-                originalColor = originalColor,
-                translatedColor = translatedColor,
-                highlightColor = highlightColor,
-                wordLearningEnabled = state.wordLearningEnabled,
-                wordLearningTarget = state.wordLearningTarget,
-                wordLearningActiveOnly = state.wordLearningActiveOnly,
-                tapToLearnEnabled = state.tapToLearnEnabled,
-                resolvedSourceLanguage = state.resolvedSourceLanguage ?: state.sourcePreference,
-                targetLanguage = state.targetLanguage,
-                isDownloadingTranslationModel = state.isDownloadingTranslationModel,
-                onWordClick = onWordClick,
-            )
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            itemsIndexed(state.segments, key = { _, segment -> segment.id }) { index, segment ->
+                val active = index == state.currentIndex
+                CompactSubtitleCard(
+                    segment = segment,
+                    showOriginal = showOriginal,
+                    showTranslation = showTranslation,
+                    active = active,
+                    fontScale = state.fontScale,
+                    onReplay = { onReplay(segment) },
+                    // Only the active row draws the spoken word. Giving the others a constant lets them
+                    // skip recomposition each time the highlighted word moves.
+                    activeWordIndex = if (active) activeWordIndex else -1,
+                    originalColor = originalColor,
+                    translatedColor = translatedColor,
+                    highlightColor = highlightColor,
+                    wordLearningEnabled = state.wordLearningEnabled,
+                    wordLearningTarget = state.wordLearningTarget,
+                    wordLearningActiveOnly = state.wordLearningActiveOnly,
+                    tapToLearnEnabled = state.tapToLearnEnabled,
+                    resolvedSourceLanguage = state.resolvedSourceLanguage ?: state.sourcePreference,
+                    targetLanguage = state.targetLanguage,
+                    isDownloadingTranslationModel = state.isDownloadingTranslationModel,
+                    onWordClick = onWordClick,
+                )
+            }
         }
+        JumpBackPill(
+            listState = listState,
+            target = state.currentIndex,
+            startMs = state.segments.getOrNull(state.currentIndex)?.startMs,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 }
 

@@ -156,6 +156,12 @@ android {
             "/META-INF/{AL2.0,LGPL2.1}",
             "META-INF/DEPENDENCIES",
         )
+        // Both Kuromoji jars ship the same license, notice and contributor files.
+        resources.pickFirsts += setOf(
+            "META-INF/CONTRIBUTORS.md",
+            "META-INF/LICENSE.md",
+            "META-INF/NOTICE.md",
+        )
     }
 
     testOptions {
@@ -196,6 +202,8 @@ dependencies {
         implementation("com.google.mlkit:translate:17.0.3")
     }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // Japanese morphological analysis (MeCab IPADIC dictionary), Apache-2.0, pure Java.
+    implementation("com.atilika.kuromoji:kuromoji-ipadic:0.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
     debugImplementation("androidx.compose.ui:ui-tooling")

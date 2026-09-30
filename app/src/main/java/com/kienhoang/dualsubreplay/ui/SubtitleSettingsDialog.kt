@@ -642,7 +642,7 @@ private fun WordLearningSettings(
 ) {
     SettingsSwitchRow(
         title = "Pronounce tapped words",
-        description = "Speak a word when you open its definition.",
+        description = "Speak a word when you tap it in the subtitles or open its definition.",
         checked = autoPronounce,
         onCheckedChange = onAutoPronounceChange,
         testTag = "auto_pronounce_switch",
