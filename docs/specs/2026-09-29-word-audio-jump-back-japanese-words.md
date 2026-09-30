@@ -2,9 +2,10 @@
 
 ## Status
 
-Implemented; local checks pass, device CI and the owner's phone test pending. The owner asked for
-all three changes on 2026-09-29 in the project thread. Bundling the dictionary grew the release
-APK from 29.8 MB to 41.2 MB; on 2026-09-30 the owner chose to download it on first use instead.
+Implemented; local checks and Android CI pass, the owner's phone test is pending. The owner
+asked for all three changes on 2026-09-29 in the project thread. Bundling the dictionary grew the
+release APK from 29.8 MB to 41.2 MB; on 2026-09-30 the owner chose to download it on first use
+instead.
 
 ## Context / problem
 
@@ -192,7 +193,8 @@ As planned, with these details:
   CI-parity command above, and `assembleRelease -PtestReleaseSigning=true`:
   `tools/report_apk.py` reports 29,870,705 bytes (28.49 MB), no dictionary files in the APK,
   Kuromoji classes kept. The device-test APK contains `assets/japanese-dictionary.jar`.
-- Not run locally: `pixel2Api36DebugAndroidTest` (no KVM on this host). CI
-  `managed-device-tests` runs the new pill and Kuromoji device tests.
-- Not run: F-Droid build (needs the NDK); CI `fdroid-build` covers it.
+- Not run locally: `pixel2Api36DebugAndroidTest` (no KVM on this host) and the F-Droid build
+  (needs the NDK). Android CI on `4f2162a` (the download version) passed all four jobs:
+  `verify-build`, `managed-device-tests` (including the jump-back pill and the on-device
+  Kuromoji load from the pinned jar), `fdroid-build` and `fdroid-device-tests`.
 - Pending: owner's phone test with live YouTube, including the first-use download.
