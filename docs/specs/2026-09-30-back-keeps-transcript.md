@@ -32,7 +32,8 @@ here.
 
 ## Non-goals
 
-- Keeping transcripts after Android closes the app's process (a possible follow-up).
+- Keeping transcripts after Android closes the app's process; see
+  [transcript survives app restart](2026-09-30-transcript-survives-app-restart.md).
 - Any change to the WebView, caption loading or translation.
 
 ## User-visible behavior
