@@ -740,7 +740,8 @@ internal fun LearningSubtitleOverlay(
                 content.translatedText?.let { translated ->
                     if (content.originalText != null) Spacer(Modifier.size(2.dp))
                     val shouldHighlightPos = wordLearningEnabled && (wordLearningTarget == "translation" || wordLearningTarget == "both")
-                    val origTokens: List<AnalyzedToken>? = remember(content.segment?.originalText, originalLanguageCode) {
+                    val revision = tokenizerRevision()
+                    val origTokens: List<AnalyzedToken>? = remember(content.segment?.originalText, originalLanguageCode, revision) {
                         content.segment?.originalText?.let { LanguageAwareTokenizer.tokenize(it, originalLanguageCode) }
                     }
                     val annotated = if (shouldHighlightPos) {

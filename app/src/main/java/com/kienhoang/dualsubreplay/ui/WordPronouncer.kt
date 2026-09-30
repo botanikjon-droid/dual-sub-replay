@@ -16,10 +16,12 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
 
 internal class WordPronouncer(context: Context) {
     private val application = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val cache = PronunciationCache(File(application.cacheDir, "pronunciation"))
     private var speech: Job? = null
     private var disposed = false
     var message by mutableStateOf<String?>(null)
@@ -30,20 +32,9 @@ internal class WordPronouncer(context: Context) {
     fun speak(word: String, language: String) {
         if (disposed || word.isBlank()) return
         stop()
-        message = "Preparing pronunciation…"
+        if (cache.lookup(word, language) == null) message = "Preparing pronunciation…"
         speech = scope.launch {
-            val result =
-                try {
-                    withTimeoutOrNull(25_000) {
-                        pronounceWord(word, language, installedPronunciationEngines(application)) {
-                            AndroidPronunciationEngine(application, it)
-                        }
-                    } ?: PronunciationResult.PLAYBACK_FAILED
-                } catch (cancel: CancellationException) {
-                    throw cancel
-                } catch (_: Exception) {
-                    PronunciationResult.UNAVAILABLE
-                }
+            val result = pronounce(word, language)
             showSpeechSettings = result != PronunciationResult.SPOKEN && result != PronunciationResult.INVALID_LANGUAGE
             message =
                 when (result) {
@@ -58,6 +49,55 @@ internal class WordPronouncer(context: Context) {
                 }
         }
     }
+
+    /** Drops the recorded speech of the last word unless the learner is still on [word]. */
+    fun forgetUnless(
+        word: String,
+        language: String,
+    ) {
+        cache.keepOnly(word, language)
+    }
+
+    /**
+     * Replays the recorded speech when [word] was the last word pronounced. Otherwise records it to
+     * a file, keeps that file for the next replay and plays it; engines that cannot record speak it
+     * directly instead.
+     */
+    private suspend fun pronounce(
+        word: String,
+        language: String,
+    ): PronunciationResult {
+        cache.lookup(word, language)?.let { audio ->
+            if (withTimeoutOrNull(15_000) { playSpeechFile(audio) } == true) return PronunciationResult.SPOKEN
+        }
+        val file = cache.prepare(word, language)
+        val recorded = attempt(word, language) { synthesize(word, file) && file.length() > 0 }
+        if (recorded == PronunciationResult.SPOKEN) {
+            cache.markReady()
+            if (withTimeoutOrNull(15_000) { playSpeechFile(file) } == true) return PronunciationResult.SPOKEN
+        }
+        cache.clear()
+        // Only a recording or playback failure is worth a second try; the rest fail the same way.
+        if (recorded != PronunciationResult.SPOKEN && recorded != PronunciationResult.PLAYBACK_FAILED) return recorded
+        return attempt(word, language) { speak(word) }
+    }
+
+    private suspend fun attempt(
+        word: String,
+        language: String,
+        render: suspend PronunciationEngine.() -> Boolean,
+    ): PronunciationResult =
+        try {
+            withTimeoutOrNull(25_000) {
+                pronounceWord(word, language, installedPronunciationEngines(application), render) {
+                    AndroidPronunciationEngine(application, it)
+                }
+            } ?: PronunciationResult.PLAYBACK_FAILED
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (_: Exception) {
+            PronunciationResult.UNAVAILABLE
+        }
 
     fun openSpeechSettings() {
         stop()
@@ -82,6 +122,7 @@ internal class WordPronouncer(context: Context) {
         disposed = true
         stop()
         scope.cancel()
+        cache.clear()
     }
 }
 

@@ -3,6 +3,7 @@ package com.kienhoang.dualsubreplay.ui
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -10,7 +11,10 @@ import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.suspendCancellableCoroutine
+import java.io.File
 import java.util.Locale
+import kotlin.coroutines.resume
 
 internal fun installedPronunciationEngines(context: Context): List<String?> {
     val preferred = Settings.Secure.getString(context.contentResolver, Settings.Secure.TTS_DEFAULT_SYNTH)
@@ -95,14 +99,23 @@ internal class AndroidPronunciationEngine(
 
     override fun selectLanguage(locale: Locale): Boolean = tts.setLanguage(locale) >= TextToSpeech.LANG_AVAILABLE
 
-    override suspend fun speak(word: String): Boolean {
+    override suspend fun speak(word: String): Boolean =
+        utter { parameters, id -> tts.speak(word, TextToSpeech.QUEUE_FLUSH, parameters, id) }
+
+    override suspend fun synthesize(
+        word: String,
+        file: File,
+    ): Boolean = utter { parameters, id -> tts.synthesizeToFile(word, parameters, file, id) }
+
+    /** Starts one utterance with [start] and waits until the engine reports it done or failed. */
+    private suspend fun utter(start: (Bundle, String) -> Int): Boolean {
         val result = CompletableDeferred<Boolean>()
         playback = result
         val id = "word-${++nextUtterance}"
         utteranceId = id
         val parameters = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1f) }
         return try {
-            if (tts.speak(word, TextToSpeech.QUEUE_FLUSH, parameters, id) == TextToSpeech.ERROR) false else result.await()
+            if (start(parameters, id) == TextToSpeech.ERROR) false else result.await()
         } finally {
             utteranceId = null
             playback = null
@@ -123,3 +136,34 @@ internal class AndroidPronunciationEngine(
         }
     }
 }
+
+/** Plays recorded speech from [file] and returns whether it played to the end. Cancelling stops it. */
+internal suspend fun playSpeechFile(file: File): Boolean =
+    suspendCancellableCoroutine { continuation ->
+        val player = MediaPlayer()
+
+        fun finish(played: Boolean) {
+            player.release()
+            if (continuation.isActive) continuation.resume(played)
+        }
+        continuation.invokeOnCancellation { player.release() }
+        try {
+            player.setAudioAttributes(
+                AudioAttributes
+                    .Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build(),
+            )
+            player.setOnCompletionListener { finish(true) }
+            player.setOnErrorListener { _, _, _ ->
+                finish(false)
+                true
+            }
+            player.setDataSource(file.path)
+            player.prepare()
+            player.start()
+        } catch (_: Exception) {
+            finish(false)
+        }
+    }

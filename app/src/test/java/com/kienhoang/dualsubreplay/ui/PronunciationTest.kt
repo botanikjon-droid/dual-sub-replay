@@ -9,6 +9,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.util.Locale
 
 class PronunciationTest {
@@ -210,6 +211,24 @@ class PronunciationTest {
         assertEquals(listOf(british, english), pronunciationVoices(listOf(english, british), Locale.UK))
     }
 
+    @Test
+    fun recordingTriesTheNextVoiceAndNeverSpeaksAloud() {
+        runBlocking {
+            val second = japanese.copy(name = "ja-second")
+            val engine = FakeEngine(listOf(japanese, second))
+            engine.record = { voice -> voice == second }
+            val file = File.createTempFile("speech", ".wav").apply { deleteOnExit() }
+
+            val result = pronounceWord("春", "ja", listOf(null), render = { synthesize("春", file) }) { engine }
+
+            assertEquals(PronunciationResult.SPOKEN, result)
+            assertEquals(listOf(japanese, second), engine.selected)
+            assertEquals(listOf("春"), engine.recorded)
+            assertTrue(engine.spoken.isEmpty())
+            assertTrue(engine.closed)
+        }
+    }
+
     private suspend fun pronounce(engine: FakeEngine): PronunciationResult = pronounceWord("座れそう", "ja", listOf(null)) { engine }
 
     @Test
@@ -229,6 +248,8 @@ class PronunciationTest {
         val spoken = mutableListOf<String>()
         var init: suspend () -> Boolean = { ready }
         var play: suspend () -> Boolean = { true }
+        var record: (PronunciationVoice?) -> Boolean = { false }
+        val recorded = mutableListOf<String>()
 
         override suspend fun initialize(): Boolean = init()
 
@@ -247,6 +268,18 @@ class PronunciationTest {
         override suspend fun speak(word: String): Boolean {
             spoken += word
             return play()
+        }
+
+        override suspend fun synthesize(
+            word: String,
+            file: File,
+        ): Boolean {
+            val ok = record(selected.lastOrNull())
+            if (ok) {
+                recorded += word
+                file.writeText(word)
+            }
+            return ok
         }
 
         override fun close() {

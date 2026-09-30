@@ -38,6 +38,36 @@ if (requireReleaseSigning && !hasReleaseSigning) {
     )
 }
 
+// The exact artifact the app downloads, packaged into the device-test APK so the device test
+// installs and loads it without network.
+val japaneseDictionary by configurations.creating { isTransitive = false }
+
+abstract class JapaneseTestDictionary : DefaultTask() {
+    @get:InputFiles
+    abstract val artifact: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val output: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        artifact.singleFile.copyTo(output.file("japanese-dictionary.jar").get().asFile, overwrite = true)
+    }
+}
+
+val japaneseTestDictionary by tasks.registering(JapaneseTestDictionary::class) {
+    artifact.from(japaneseDictionary)
+    output.set(layout.buildDirectory.dir("generated/japanese-test-dictionary"))
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.deviceTests.values.forEach { deviceTest ->
+            deviceTest.sources.assets?.addGeneratedSourceDirectory(japaneseTestDictionary, JapaneseTestDictionary::output)
+        }
+    }
+}
+
 android {
     namespace = "com.kienhoang.dualsubreplay"
     compileSdk = 36
@@ -155,6 +185,14 @@ android {
         resources.excludes += setOf(
             "/META-INF/{AL2.0,LGPL2.1}",
             "META-INF/DEPENDENCIES",
+            // Kuromoji's 13 MB dictionary is downloaded on first Japanese use (JapaneseDictionaryStore).
+            "com/atilika/kuromoji/ipadic/*.bin",
+        )
+        // Both Kuromoji jars ship the same license, notice and contributor files.
+        resources.pickFirsts += setOf(
+            "META-INF/CONTRIBUTORS.md",
+            "META-INF/LICENSE.md",
+            "META-INF/NOTICE.md",
         )
     }
 
@@ -196,6 +234,10 @@ dependencies {
         implementation("com.google.mlkit:translate:17.0.3")
     }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // Japanese morphological analysis (MeCab IPADIC dictionary), Apache-2.0, pure Java.
+    // The APK keeps only its code; the dictionary files are excluded from packaging below.
+    implementation("com.atilika.kuromoji:kuromoji-ipadic:0.9.0")
+    japaneseDictionary("com.atilika.kuromoji:kuromoji-ipadic:0.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
     debugImplementation("androidx.compose.ui:ui-tooling")

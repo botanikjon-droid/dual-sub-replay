@@ -26,6 +26,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,6 +54,8 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import com.kienhoang.dualsubreplay.data.AnalyzedToken
+import com.kienhoang.dualsubreplay.data.JapaneseDictionaryStatus
+import com.kienhoang.dualsubreplay.data.JapaneseMorphology
 import com.kienhoang.dualsubreplay.data.LanguageAwareTokenizer
 import com.kienhoang.dualsubreplay.data.PartOfSpeech
 import com.kienhoang.dualsubreplay.data.SubtitleSegment
@@ -143,10 +146,30 @@ internal fun phraseBarPosition(
     return IntOffset(x, y)
 }
 
+/**
+ * Whether selecting [text] should speak it right away: a single word (not a phrase, not
+ * punctuation) while the learner has "Pronounce tapped words" on.
+ */
+internal fun speaksOnSelect(
+    text: String,
+    singleWord: Boolean,
+    autoPronounce: Boolean,
+): Boolean = autoPronounce && singleWord && text.any(Char::isLetterOrDigit)
+
+/** What the selection bar says while the Japanese dictionary is not ready, or null once it is. */
+internal fun japaneseDictionaryNote(status: JapaneseDictionaryStatus): String? =
+    when (status) {
+        JapaneseDictionaryStatus.DOWNLOADING -> "Downloading the Japanese dictionary (13 MB) so taps select whole words…"
+        JapaneseDictionaryStatus.UNAVAILABLE -> "The Japanese dictionary could not download yet. Words may split oddly until it does."
+        else -> null
+    }
+
 /** Actions the app root supplies to every selectable subtitle line. */
 internal class PhraseActions(
     val pause: () -> Unit = {},
     val pronounce: (text: String, translated: Boolean) -> Unit = { _, _ -> },
+    /** Runs whenever the selected text changes, before any button is pressed. */
+    val select: (text: String, translated: Boolean, singleWord: Boolean) -> Unit = { _, _, _ -> },
     val stopSpeech: () -> Unit = {},
     val speechMessage: () -> String? = { null },
     val translate: (suspend (text: String, translated: Boolean) -> String)? = null,
@@ -209,6 +232,7 @@ internal fun BindPhraseActions(
     LaunchedEffect(controller, state.playbackPaused) {
         if (!state.playbackPaused) controller.clearAll()
     }
+    val autoPronounce = state.autoPronounce
     SideEffect {
         controller.actions =
             PhraseActions(
@@ -216,6 +240,15 @@ internal fun BindPhraseActions(
                 pronounce = { text, translated ->
                     webController.pause()
                     pronouncer.speak(text, if (translated) target else source)
+                },
+                select = { text, translated, singleWord ->
+                    val language = if (translated) target else source
+                    if (speaksOnSelect(text, singleWord, autoPronounce)) {
+                        webController.pause()
+                        pronouncer.speak(text, language)
+                    } else {
+                        pronouncer.forgetUnless(text, language)
+                    }
                 },
                 stopSpeech = pronouncer::stop,
                 speechMessage = { pronouncer.message },
@@ -247,18 +280,28 @@ internal fun SelectableSubtitleText(
 ) {
     val controller = rememberPhraseSelection()
     val owner = remember { Any() }
-    val tokens = remember(text, languageCode, alignedOriginalTokens) { subtitleWordTokens(text, languageCode, alignedOriginalTokens) }
+    val revision = tokenizerRevision()
+    val tokens =
+        remember(text, languageCode, alignedOriginalTokens, revision) {
+            subtitleWordTokens(text, languageCode, alignedOriginalTokens)
+        }
     val words =
         controller.selection
             ?.takeIf { it.owner === owner }
             ?.words
             ?.takeIf { it.last < tokens.size }
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
-    LaunchedEffect(text) { controller.clear(owner) }
+    val dictionaryStatus by JapaneseMorphology.status.collectAsState()
+    LaunchedEffect(text, revision) { controller.clear(owner) }
     DisposableEffect(owner) { onDispose { controller.clear(owner) } }
 
     val start = words?.let { tokens[it.first].startIndex }
     val end = words?.let { tokens[it.last].endIndex }
+    val selectedText = if (start != null && end != null) text.substring(start, end) else null
+    val singleWord = words != null && words.first == words.last
+    LaunchedEffect(selectedText, singleWord) {
+        selectedText?.let { controller.actions.select(it, translated, singleWord) }
+    }
     val shown =
         if (start != null && end != null) {
             AnnotatedString
@@ -293,6 +336,8 @@ internal fun SelectableSubtitleText(
                 phrase = text.substring(start, end),
                 singleWord = words.first == words.last,
                 speechMessage = controller.actions.speechMessage(),
+                dictionaryNote =
+                    japaneseDictionaryNote(dictionaryStatus).takeIf { LanguageAwareTokenizer.isJapanese(text, languageCode) },
                 quickTranslate =
                     controller.actions.translate
                         ?.takeIf { words.first == words.last }
@@ -315,6 +360,7 @@ private fun PhraseActionBar(
     phrase: String,
     singleWord: Boolean,
     speechMessage: String?,
+    dictionaryNote: String?,
     quickTranslate: (suspend () -> String)?,
     onTranslate: () -> Unit,
     onPronounce: () -> Unit,
@@ -359,7 +405,7 @@ private fun PhraseActionBar(
                     }
                 }
                 quickTranslate?.let { QuickTranslation(phrase, it) }
-                val note = speechMessage ?: if (singleWord) "Tap another word to select a phrase" else null
+                val note = speechMessage ?: dictionaryNote ?: if (singleWord) "Tap another word to select a phrase" else null
                 note?.let {
                     Text(
                         it,

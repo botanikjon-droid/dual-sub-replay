@@ -1,6 +1,7 @@
 package com.kienhoang.dualsubreplay.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
@@ -8,6 +9,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import com.kienhoang.dualsubreplay.data.AnalyzedToken
+import com.kienhoang.dualsubreplay.data.JapaneseMorphology
 import com.kienhoang.dualsubreplay.data.LanguageAwareTokenizer
 import com.kienhoang.dualsubreplay.data.PartOfSpeech
 import com.kienhoang.dualsubreplay.data.SubtitleSegment
@@ -144,6 +146,13 @@ internal fun annotatedSubtitleText(
     }
 }
 
+/**
+ * Changes once the Japanese analyzer finishes loading in the background. Use it as a `remember`
+ * key wherever subtitle text is tokenized, so lines shown before it loaded are split again.
+ */
+@Composable
+internal fun tokenizerRevision(): Int = JapaneseMorphology.revision.collectAsState().value
+
 /** Expensive language analysis is independent of the changing spoken-word index. */
 @Composable
 internal fun rememberAnnotatedSubtitleText(
@@ -158,7 +167,7 @@ internal fun rememberAnnotatedSubtitleText(
 ): AnnotatedString {
     val spans = remember(text, words) { subtitleWordSpans(text, words) }
     val tokens =
-        remember(text, wordLearningEnabled, languageCode, alignedOriginalTokens) {
+        remember(text, wordLearningEnabled, languageCode, alignedOriginalTokens, tokenizerRevision()) {
             when {
                 !wordLearningEnabled -> emptyList()
                 alignedOriginalTokens != null ->

@@ -12,6 +12,7 @@ version snapshot here drifts, and update relevant documentation with lasting cha
 | Language/build | Kotlin 2.3.21, AGP 9.3.2, JDK 17; committed Gradle 9.5.0 wrapper | [Root build](../../build.gradle.kts), [wrapper](../../gradle/wrapper/gradle-wrapper.properties), [CI](../../.github/workflows/android.yml) |
 | UI | Jetpack Compose / Material 3; Compose BOM 2026.06.01 | [App dependencies](../../app/build.gradle.kts) |
 | Translation/network | ML Kit Translate 17.0.3, OkHttp, Kotlin coroutines | [App dependencies](../../app/build.gradle.kts) |
+| Japanese words | Kuromoji 0.9.0 (Apache-2.0, pure Java); its 13 MB IPADIC dictionary downloads on first Japanese use | [App dependencies](../../app/build.gradle.kts), [spec](../specs/2026-09-29-word-audio-jump-back-japanese-words.md) |
 | Tests | JUnit4 4.13.2; Compose/Android instrumentation, API 36 AOSP x86_64 managed Pixel 2 | [App test configuration](../../app/build.gradle.kts) |
 | Performance | Separate test-only `:benchmark` module, Macrobenchmark and app Baseline Profile | [Benchmark build](../../benchmark/build.gradle.kts), [methodology](../quality-and-performance.md) |
 | Website | Static English/Vietnamese landing page in `site/`, published to GitHub Pages from `main`; offline checks in `tools/tests/test_site.py` | [Pages workflow](../../.github/workflows/pages.yml), [discoverability](../promotion/discoverability.md) |
@@ -49,6 +50,12 @@ Paths below are relative to
   SharedPreferences. `ui/WordPronouncer.kt` manages Android speech-engine fallback.
   `ui/PhraseSelection.kt` owns word/phrase selection in subtitle lines and its Copy /
   Translate / Pronounce bar; `ui/WordLearningSheet.kt` is the card Translate opens.
+  `ui/PronunciationCache.kt` keeps the recorded speech of the last pronounced word only.
+- `data/LanguageAwareTokenizer.kt` splits subtitle words. Japanese goes through
+  `data/JapaneseMorphology.kt`, which loads Kuromoji lazily on a background thread and groups
+  its morphemes into learner words; until it loads, the script-boundary heuristic is used.
+  The APK excludes Kuromoji's dictionary files; `data/JapaneseDictionaryStore.kt` downloads the
+  Maven artifact (pinned SHA-256) into app storage and reads the dictionary from it.
 
 ## Architecture invariants
 

@@ -16,6 +16,8 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -218,5 +220,56 @@ class SubtitleUiTest {
         val translation = rowBounds("Translated line $active, long enough to wrap onto a second line in the panel")
         assertTrue("active original stays on screen: $original in ${viewport()}", fits(original))
         assertTrue("active translation stays on screen: $translation in ${viewport()}", fits(translation))
+    }
+
+    @Test
+    fun jumpBackPillShowsWhileScrollingAwayAndReturnsToTheSpokenLine() {
+        val segments =
+            (0 until 40).map { index ->
+                SubtitleSegment(
+                    id = index.toLong(),
+                    startMs = index * 2_000L,
+                    endMs = index * 2_000L + 1_900L,
+                    originalText = "Original line $index",
+                    translatedText = "Translated line $index",
+                )
+            }
+        val state =
+            DualSubUiState(
+                segments = segments,
+                currentIndex = 4,
+                playbackPaused = true,
+                wordHighlightEnabled = false,
+                wordLearningEnabled = false,
+            )
+        composeRule.setContent {
+            DualSubTheme {
+                Box(Modifier.fillMaxWidth().height(360.dp).testTag("timeline_viewport")) {
+                    SubtitleTimeline(state, onReplay = {})
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Original line 4").assertIsDisplayed()
+        composeRule.onNodeWithTag("jump_back_pill").assertDoesNotExist()
+
+        composeRule.mainClock.autoAdvance = false
+        composeRule.onNodeWithTag("timeline_viewport").performTouchInput { swipeUp() }
+        composeRule.mainClock.advanceTimeBy(800)
+        composeRule.onNodeWithTag("jump_back_pill").assertExists()
+        composeRule.onNodeWithText("Now playing · 0:08").assertExists()
+
+        // Stopping to read hides it; scrolling again brings it back.
+        composeRule.mainClock.advanceTimeBy(JUMP_BACK_LINGER_MS + 3_000)
+        composeRule.onNodeWithTag("jump_back_pill").assertDoesNotExist()
+        composeRule.onNodeWithTag("timeline_viewport").performTouchInput { swipeUp() }
+        composeRule.mainClock.advanceTimeBy(800)
+        composeRule.onNodeWithTag("jump_back_pill").assertExists().performClick()
+
+        composeRule.mainClock.advanceTimeBy(3_000)
+        composeRule.mainClock.autoAdvance = true
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Original line 4").assertIsDisplayed()
+        composeRule.onNodeWithTag("jump_back_pill").assertDoesNotExist()
     }
 }
