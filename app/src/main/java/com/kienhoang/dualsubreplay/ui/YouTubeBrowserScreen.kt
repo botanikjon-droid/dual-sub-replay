@@ -53,6 +53,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.kienhoang.dualsubreplay.BuildConfig
 import com.kienhoang.dualsubreplay.data.YouTubeUrlParser
+import com.kienhoang.dualsubreplay.dubbing.dubbingDucksVideo
+import com.kienhoang.dualsubreplay.dubbing.dubbingVolumeScript
 import java.net.URI
 import java.util.Collections
 import java.util.WeakHashMap
@@ -601,6 +603,11 @@ internal fun SingleYouTubePage(
             }
             delay(SIGN_IN_POLL_INTERVAL_MS)
         }
+    }
+
+    // The "uz" build's dub lowers the video while it speaks (see DubbingController).
+    LaunchedEffect(webView) {
+        dubbingDucksVideo.collect { duck -> webView.evaluateJavascript(dubbingVolumeScript(duck), null) }
     }
 
     DisposableEffect(controller, webView) {

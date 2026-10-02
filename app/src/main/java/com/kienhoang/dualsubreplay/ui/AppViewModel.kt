@@ -29,6 +29,8 @@ import com.kienhoang.dualsubreplay.data.YouTubeCaptionProvider
 import com.kienhoang.dualsubreplay.data.YouTubeUrlParser
 import com.kienhoang.dualsubreplay.data.retireLegacyDownloadJobs
 import com.kienhoang.dualsubreplay.data.savedWordFrom
+import com.kienhoang.dualsubreplay.dubbing.DubbingController
+import com.kienhoang.dualsubreplay.dubbing.createDubbingVoice
 import com.kienhoang.dualsubreplay.translation.OnDeviceTranslator
 import com.kienhoang.dualsubreplay.translation.TranslationLanguages
 import kotlinx.coroutines.CancellationException
@@ -253,6 +255,9 @@ class AppViewModel internal constructor(
             cacheDirectory = File(application.cacheDir, "subtitle-translations"),
             modelDirectory = File(application.filesDir, "translation-models"),
         )
+
+    // Speaks translated sentences in the "uz" build; idle where no voice exists.
+    private val dubbing = DubbingController(viewModelScope, createDubbingVoice(application))
     internal val vocabulary = VocabularyRepository.get(application)
     internal val immersion = ImmersionRepository.get(application)
 
@@ -409,6 +414,7 @@ class AppViewModel internal constructor(
     override fun onCleared() {
         flushImmersion()
         loadingJob?.cancel()
+        dubbing.reset()
         preferences.unregisterOnSharedPreferenceChangeListener(visibilityListener)
         super.onCleared()
     }
@@ -428,6 +434,7 @@ class AppViewModel internal constructor(
         if (!visible) {
             immersionTracker.reset()
             flushImmersion()
+            dubbing.reset()
         }
         updatePlaybackRequest()
     }
@@ -545,6 +552,7 @@ class AppViewModel internal constructor(
         latestPlaybackSecondMs = timeMs
         playbackKnown = true
         updatePlaybackRequest(seek)
+        dubbing.onPlayback(videoId, timeMs, current.playbackPaused, seek)
         if (current.liveFallback) {
             updateLiveFallbackPlayback(videoId, liveCaption, seek)
         } else {
@@ -1012,6 +1020,7 @@ class AppViewModel internal constructor(
 
     private fun clearActiveVideo() {
         if (_state.value.activeVideoId == null) return
+        dubbing.reset()
         immersionTracker.reset()
         flushImmersion()
         loadGeneration += 1
@@ -1272,6 +1281,7 @@ class AppViewModel internal constructor(
         rows: List<SubtitleSegment>,
         preparing: Boolean,
     ) {
+        dubbing.onRows(videoId, rows)
         // The window slides forward every few rows during playback. Keep the highlight on the same
         // row instead of recomputing it from timestamps, which can point at the previous sentence.
         val shift = windowShift(_state.value.segments, rows)
