@@ -82,6 +82,27 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      # Uzbek build: online translation (ML Kit cannot translate Uzbek). The optional
+      # GOOGLE_TRANSLATE_API_KEY secret enables Google Cloud; without it gtx is used.
+      - name: Test and build Uzbek APK
+        env:
+          GOOGLE_TRANSLATE_API_KEY: ${{ secrets.GOOGLE_TRANSLATE_API_KEY }}
+        run: |
+          set -euo pipefail
+          bash ./gradlew testDebugUnitTest assembleDebug -Pdistribution=uz \
+            -PpreviewVersionNameSuffix="-uz-build${GITHUB_RUN_NUMBER}" \
+            -PpreviewApplicationIdSuffix=".uz" \
+            --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk DualSub-Replay-uz.apk
+
+      - name: Upload Uzbek APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: DualSub-Replay-uz
+          path: DualSub-Replay-uz.apk
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Build optimized release APK with test signing
         run: |
           set -euo pipefail
