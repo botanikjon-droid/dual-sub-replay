@@ -101,6 +101,12 @@ android {
         getByName("main") {
             kotlin.srcDir("src/$distribution/java")
         }
+        if (distribution == "uz") {
+            // Its own launcher name, so the Uzbek build is told apart from the preview.
+            getByName("debug") {
+                res.setSrcDirs(listOf("src/uzDebug/res"))
+            }
+        }
         if (isFdroidBuild) {
             // Device test for the native engine; CI fills the assets with
             // tools/fetch_bergamot_test_models.py.
