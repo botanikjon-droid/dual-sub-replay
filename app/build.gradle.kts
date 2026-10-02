@@ -23,12 +23,25 @@ val previewVersionNameSuffix = providers.gradleProperty("previewVersionNameSuffi
 val previewApplicationIdSuffix = providers.gradleProperty("previewApplicationIdSuffix").orNull.orEmpty()
 
 // "full" (default) ships Google ML Kit translation; "fdroid" builds only free
-// software for F-Droid. Each variant adds its own src/<distribution>/java.
+// software for F-Droid; "uz" translates online so Uzbek, which neither on-device
+// engine supports, works. Each variant adds its own src/<distribution>/java.
 val distribution = providers.gradleProperty("distribution").orNull ?: "full"
-if (distribution !in setOf("full", "fdroid")) {
-    throw GradleException("-Pdistribution must be full or fdroid, not $distribution.")
+if (distribution !in setOf("full", "fdroid", "uz")) {
+    throw GradleException("-Pdistribution must be full, fdroid or uz, not $distribution.")
 }
 val isFdroidBuild = distribution == "fdroid"
+
+// Optional Google Cloud Translation key for the "uz" build, supplied at build time
+// (never committed). Without it the "uz" build uses its keyless fallback.
+val googleTranslateApiKey =
+    if (distribution == "uz") {
+        (
+            providers.gradleProperty("googleTranslateApiKey").orNull
+                ?: providers.environmentVariable("GOOGLE_TRANSLATE_API_KEY").orNull
+        ).orEmpty().filter { it.isLetterOrDigit() || it == '-' || it == '_' }
+    } else {
+        ""
+    }
 
 if (requireReleaseSigning && !hasReleaseSigning) {
     throw GradleException(
@@ -80,6 +93,8 @@ android {
         versionName = appVersionName + previewVersionNameSuffix
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "DISTRIBUTION", "\"$distribution\"")
+        buildConfigField("String", "GOOGLE_TRANSLATE_API_KEY", "\"$googleTranslateApiKey\"")
     }
 
     sourceSets {
@@ -230,7 +245,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
 
-    if (!isFdroidBuild) {
+    if (distribution == "full") {
         implementation("com.google.mlkit:translate:17.0.3")
     }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

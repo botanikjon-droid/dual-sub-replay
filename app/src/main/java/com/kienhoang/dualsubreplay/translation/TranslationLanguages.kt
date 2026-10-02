@@ -66,7 +66,7 @@ object TranslationLanguages {
         TranslationLanguageOption("ur", "Urdu"),
         TranslationLanguageOption("vi", "Vietnamese"),
         TranslationLanguageOption("cy", "Welsh"),
-    )
+    ) + onlineOnlyLanguages()
 
     private val byCode = all.associateBy(TranslationLanguageOption::code)
 
