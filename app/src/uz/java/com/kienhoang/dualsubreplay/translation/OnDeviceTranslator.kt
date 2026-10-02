@@ -56,26 +56,52 @@ class OnDeviceTranslator(
         block: suspend (suspend (String) -> String) -> T,
     ): T {
         val languages = resolveLanguages(sourceLanguageCode, targetLanguageCode)
+        var lastSentence: String? = null
         return block { text ->
-            if (text.isBlank() || languages.source == languages.target) {
-                text
-            } else {
-                cached(languages, text) ?: translateOnline(languages, text)
+            when {
+                text.isBlank() || languages.source == languages.target -> text
+                // Playback translates a sentence, then each of its row prefixes only to place the
+                // row breaks. Offline that is free; online it costs one request per row. A blank
+                // prefix makes the caption code split the sentence proportionally instead.
+                isPrefixOf(text, lastSentence) -> ""
+                else -> {
+                    lastSentence = text
+                    translateText(languages, text)
+                }
             }
         }
     }
 
+    @Suppress("UNUSED_PARAMETER")
     suspend fun translateAll(
         sourceLanguageCode: String,
         targetLanguageCode: String,
         texts: List<String>,
         onDownloadingChange: ((Boolean) -> Unit)? = null,
         onTranslation: suspend (index: Int, translatedText: String) -> Unit,
-    ) = withSession(sourceLanguageCode, targetLanguageCode, onDownloadingChange) { translate ->
+    ) {
+        // Every text here is a full caption, never a row prefix, so none is skipped.
+        val languages = resolveLanguages(sourceLanguageCode, targetLanguageCode)
         texts.forEachIndexed { index, text ->
             kotlinx.coroutines.currentCoroutineContext().ensureActive()
-            onTranslation(index, translate(text))
+            val translated =
+                if (text.isBlank() || languages.source == languages.target) text else translateText(languages, text)
+            onTranslation(index, translated)
         }
+    }
+
+    private suspend fun translateText(
+        languages: TranslationPair,
+        text: String,
+    ): String = cached(languages, text) ?: translateOnline(languages, text)
+
+    private fun isPrefixOf(
+        text: String,
+        sentence: String?,
+    ): Boolean {
+        val prefix = text.trim()
+        val whole = sentence?.trim() ?: return false
+        return prefix.length < whole.length && whole.startsWith(prefix)
     }
 
     private suspend fun cached(

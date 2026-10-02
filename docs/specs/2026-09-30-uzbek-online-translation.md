@@ -18,6 +18,13 @@ AppViewModel, the YouTube caption provider, the player, and the UI are unchanged
 The "uz" build does not include ML Kit. Uzbek appears in the language list only in
 the "uz" build (`OnlineOnlyLanguages.kt`), so full/fdroid and the website list are unchanged.
 
+## Row prefixes (faster playback)
+Playback translates a sentence, then each row prefix only to place row breaks
+(`PlaybackTranslation.translateRow`). Online, that is one request per row. Inside a
+`withSession`, the "uz" translator answers a prefix of the sentence it just translated with
+"", so `translationSlices` splits proportionally: one request per sentence instead of one
+per row. `translateSingle` and `translateAll` never skip.
+
 ## Files
 - `app/build.gradle.kts`: allow `uz`, ML Kit only for `full`, two BuildConfig fields.
 - `app/src/uz/.../OnDeviceTranslator.kt`, `OnlineTranslationProviders.kt`: new.
