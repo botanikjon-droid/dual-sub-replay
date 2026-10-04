@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 
 /**
  * The "uz" build's translator. Neither ML Kit nor Bergamot can translate Uzbek, so this
@@ -57,6 +58,7 @@ class OnDeviceTranslator(
     ): T {
         val languages = resolveLanguages(sourceLanguageCode, targetLanguageCode)
         var lastSentence: String? = null
+        var failuresInARow = 0
         return block { text ->
             when {
                 text.isBlank() || languages.source == languages.target -> text
@@ -66,7 +68,15 @@ class OnDeviceTranslator(
                 isPrefixOf(text, lastSentence) -> ""
                 else -> {
                     lastSentence = text
-                    translateText(languages, text)
+                    // Playback stops translating for good after one error, so a brief network
+                    // or rate-limit failure leaves one sentence blank instead; only repeated
+                    // failures (really offline) are reported.
+                    try {
+                        translateText(languages, text).also { failuresInARow = 0 }
+                    } catch (error: IOException) {
+                        if (++failuresInARow >= MAX_SKIPPED_IN_A_ROW) throw error
+                        ""
+                    }
                 }
             }
         }
@@ -148,5 +158,6 @@ class OnDeviceTranslator(
     private companion object {
         // Bump when the provider or its output changes, to drop stale cached translations.
         const val CACHE_VERSION = "uz-online-v1"
+        const val MAX_SKIPPED_IN_A_ROW = 3
     }
 }

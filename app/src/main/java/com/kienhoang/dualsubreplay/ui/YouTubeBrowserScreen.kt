@@ -53,8 +53,12 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.kienhoang.dualsubreplay.BuildConfig
 import com.kienhoang.dualsubreplay.data.YouTubeUrlParser
+import com.kienhoang.dualsubreplay.dubbing.VIDEO_QUALITY_CHECK_MS
 import com.kienhoang.dualsubreplay.dubbing.dubbingDucksVideo
+import com.kienhoang.dualsubreplay.dubbing.dubbingHold
+import com.kienhoang.dualsubreplay.dubbing.dubbingHoldScript
 import com.kienhoang.dualsubreplay.dubbing.dubbingVolumeScript
+import com.kienhoang.dualsubreplay.dubbing.videoQualityScript
 import java.net.URI
 import java.util.Collections
 import java.util.WeakHashMap
@@ -608,6 +612,17 @@ internal fun SingleYouTubePage(
     // The "uz" build's dub lowers the video while it speaks (see DubbingController).
     LaunchedEffect(webView) {
         dubbingDucksVideo.collect { duck -> webView.evaluateJavascript(dubbingVolumeScript(duck), null) }
+    }
+    // The "uz" build's dub holds the video paused while a sentence's speech is not ready.
+    LaunchedEffect(webView) {
+        dubbingHold.collect { command -> webView.evaluateJavascript(dubbingHoldScript(command), null) }
+    }
+    // The "uz" build can cap YouTube's quality to save data; YouTube resets it per video.
+    LaunchedEffect(webView) {
+        while (true) {
+            videoQualityScript()?.let { webView.evaluateJavascript(it, null) }
+            delay(VIDEO_QUALITY_CHECK_MS)
+        }
     }
 
     DisposableEffect(controller, webView) {

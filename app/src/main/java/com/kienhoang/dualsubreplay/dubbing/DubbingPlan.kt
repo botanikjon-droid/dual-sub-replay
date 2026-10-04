@@ -52,6 +52,34 @@ internal fun dubLines(rows: List<SubtitleSegment>): List<DubLine> {
 
 private val WHITESPACE = Regex("\\s+")
 
+/**
+ * Start times of sentences whose rows are all in the window but not all translated yet. A held
+ * video waits for these like it waits for speech that is not ready: the sentence will be spoken
+ * once its translation arrives.
+ */
+internal fun dubPending(rows: List<SubtitleSegment>): List<Long> {
+    val starts = mutableListOf<Long>()
+    var index = 0
+    while (index < rows.size) {
+        val row = rows[index]
+        val sentence = row.sentence
+        if (sentence == null) {
+            if (row.translatedText == null) starts += row.startMs
+            index++
+            continue
+        }
+        var end = index
+        while (end + 1 < rows.size && rows[end + 1].sentence?.let { it.text == sentence.text && it.cuts == sentence.cuts } == true) {
+            end++
+        }
+        val group = rows.subList(index, end + 1)
+        val whole = group.map { it.sentence?.index } == (0..sentence.cuts.size).toList()
+        if (whole && group.any { it.translatedText == null }) starts += row.startMs
+        index = end + 1
+    }
+    return starts
+}
+
 /** How fast to speak a clip of [clipMs] so it ends before the next line, within [maxTempo]. */
 internal fun dubTempo(
     clipMs: Long,
@@ -65,6 +93,25 @@ internal fun dubTempo(
 
 private const val MIN_SLOT_MS = 500L
 
+/** What to do at one playback tick when the video may be held until the dub catches up. */
+internal sealed interface DubStep {
+    /** Nothing is due, or a clip is about to end: keep playing. */
+    data object Idle : DubStep
+
+    /** The next line is due but another clip is still speaking: hold the video until it ends. */
+    data object HoldForClip : DubStep
+
+    /** The next line is due but its speech or translation is not ready: hold the video. */
+    data object HoldForAudio : DubStep
+
+    /** Gave up waiting for the next line; it is skipped. */
+    data object Skipped : DubStep
+
+    data class Start(
+        val line: DubLine,
+    ) : DubStep
+}
+
 /**
  * Decides which line to speak at each playback tick. A line plays once, in order. A line that
  * would start more than [maxLateMs] late is skipped, and a clip still playing [cutAfterMs] after
@@ -76,6 +123,7 @@ internal class DubScheduler(
     private val cutAfterMs: Long = 1_200L,
 ) {
     private var lines: List<DubLine> = emptyList()
+    private var pending: List<Long> = emptyList()
 
     /** Lines starting at or before this time have been spoken or skipped. */
     private var doneThroughMs = Long.MIN_VALUE
@@ -87,12 +135,18 @@ internal class DubScheduler(
         lines = byKey.values.sortedBy(DubLine::startMs)
     }
 
+    /** Replaces the starts of sentences still waiting for their translation. */
+    fun updatePending(starts: List<Long>) {
+        pending = starts.sorted()
+    }
+
     fun seek(timeMs: Long) {
         doneThroughMs = timeMs - SEEK_GRACE_MS
     }
 
     fun reset() {
         lines = emptyList()
+        pending = emptyList()
         doneThroughMs = Long.MIN_VALUE
     }
 
@@ -125,6 +179,48 @@ internal class DubScheduler(
         return null
     }
 
+    /**
+     * The next step when the video can be held. Lines play whole and in order: a clip that is
+     * still speaking when the next line is due holds the video (unless it ends within
+     * [SHORT_WAIT_MS]), and a line whose speech or translation is not ready holds it too, for at
+     * most [maxWaitMs] ([waitedMs] is how long it has waited) before that line is skipped.
+     * [clipRemainingMs] is null when no clip is speaking; [holding] is whether the video is
+     * already held.
+     */
+    fun decide(
+        timeMs: Long,
+        clipRemainingMs: Long?,
+        waitedMs: Long,
+        maxWaitMs: Long,
+        ready: (DubLine) -> Boolean,
+        failed: (DubLine) -> Boolean = { false },
+        holding: Boolean = false,
+    ): DubStep {
+        if (doneThroughMs == Long.MIN_VALUE) seek(timeMs)
+        var line: DubLine?
+        var itemStart: Long
+        while (true) {
+            line = lines.firstOrNull { it.startMs > doneThroughMs }
+            val pendingStart = pending.firstOrNull { it > doneThroughMs }
+            itemStart = listOfNotNull(line?.startMs, pendingStart).minOrNull() ?: return DubStep.Idle
+            if (itemStart >= timeMs - STALE_MS) break
+            // The video moved well past it (not while held): too late to be worth speaking.
+            doneThroughMs = itemStart
+        }
+        if (itemStart > timeMs + START_TOLERANCE_MS) return DubStep.Idle
+        if (clipRemainingMs != null) {
+            // A hold lasts until the clip ends; stopping and starting again every few hundred
+            // milliseconds would make the video stutter.
+            return if (holding || clipRemainingMs > SHORT_WAIT_MS) DubStep.HoldForClip else DubStep.Idle
+        }
+        if (line != null && line.startMs == itemStart && ready(line)) return DubStep.Start(line)
+        if (waitedMs > maxWaitMs || (line != null && line.startMs == itemStart && failed(line))) {
+            doneThroughMs = itemStart
+            return DubStep.Skipped
+        }
+        return DubStep.HoldForAudio
+    }
+
     fun started(line: DubLine) {
         doneThroughMs = maxOf(doneThroughMs, line.startMs)
     }
@@ -135,8 +231,14 @@ internal class DubScheduler(
         return (following?.startMs ?: line.endMs) - line.startMs
     }
 
-    private companion object {
+    internal companion object {
         const val SEEK_GRACE_MS = 300L
         const val START_TOLERANCE_MS = 50L
+
+        /** A line that started longer ago than this is skipped silently, never spoken late. */
+        const val STALE_MS = 3_000L
+
+        /** A clip ending sooner than this after the next line is due is not worth a pause; fewer, longer holds look smoother than many short ones. */
+        const val SHORT_WAIT_MS = 1_200L
     }
 }

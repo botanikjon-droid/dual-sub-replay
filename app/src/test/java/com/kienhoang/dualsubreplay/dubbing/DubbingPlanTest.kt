@@ -121,4 +121,110 @@ class DubbingPlanTest {
         scheduler.update(listOf(line(3_000), line(6_000)))
         assertEquals(listOf(1_000L, 3_000L, 6_000L), scheduler.upcoming(0, 45_000).map(DubLine::startMs))
     }
+
+    @Test
+    fun volumeScriptUsesTheChosenLevelAndRestores() {
+        assertTrue(dubbingVolumeScript(duck = true, videoVolumePercent = 35).contains("v.__dualsubVolume*0.35"))
+        assertTrue(dubbingVolumeScript(duck = true, videoVolumePercent = 250).contains("v.__dualsubVolume*1.0"))
+        assertTrue(dubbingVolumeScript(duck = false).contains("v.volume=v.__dualsubVolume;v.__dualsubVolume=null"))
+    }
+
+    @Test
+    fun qualityScriptOnlyWhenACapIsChosen() {
+        assertTrue(videoQualityScript(quality = "medium", available = true)!!.contains("('medium')"))
+        assertNull(videoQualityScript(quality = VIDEO_QUALITY_AUTO, available = true))
+        assertNull("full/fdroid builds never touch the quality", videoQualityScript(quality = "medium", available = false))
+        assertNull(videoQualityScript(quality = "hd720'); alert('x", available = true))
+    }
+
+    private fun decide(
+        scheduler: DubScheduler,
+        timeMs: Long,
+        clipRemainingMs: Long? = null,
+        waitedMs: Long = 0,
+        holding: Boolean = false,
+        ready: (DubLine) -> Boolean = { true },
+        failed: (DubLine) -> Boolean = { false },
+    ) = scheduler.decide(timeMs, clipRemainingMs, waitedMs, 6_000, ready, failed, holding)
+
+    @Test
+    fun holdsUntilTheLineIsReadyThenStarts() {
+        val scheduler = DubScheduler()
+        scheduler.update(listOf(line(2_000)))
+        assertEquals(DubStep.Idle, decide(scheduler, 1_000))
+        assertEquals(DubStep.HoldForAudio, decide(scheduler, 2_000, ready = { false }))
+        assertEquals(DubStep.HoldForAudio, decide(scheduler, 2_000, waitedMs = 5_000, ready = { false }))
+        assertEquals(2_000L, (decide(scheduler, 2_000) as DubStep.Start).line.startMs)
+    }
+
+    @Test
+    fun givesUpOnALineThatTakesTooLongOrFailed() {
+        val scheduler = DubScheduler()
+        scheduler.update(listOf(line(2_000), line(5_000)))
+        assertEquals(DubStep.Skipped, decide(scheduler, 2_000, waitedMs = 6_001, ready = { false }))
+        assertEquals("the next line is considered afresh", DubStep.Idle, decide(scheduler, 2_100))
+        assertEquals(DubStep.Skipped, decide(scheduler, 5_000, failed = { true }, ready = { false }))
+    }
+
+    @Test
+    fun holdsForASpeakingClipOnlyWhenItRunsLongAfterTheNextLineIsDue() {
+        val scheduler = DubScheduler()
+        scheduler.update(listOf(line(2_000)))
+        assertEquals(DubStep.HoldForClip, decide(scheduler, 2_000, clipRemainingMs = 1_300))
+        assertEquals("a short overrun is not worth a pause", DubStep.Idle, decide(scheduler, 2_000, clipRemainingMs = 1_100))
+        assertEquals(
+            "a hold lasts until the clip ends",
+            DubStep.HoldForClip,
+            decide(scheduler, 2_000, clipRemainingMs = 300, holding = true),
+        )
+        assertEquals(2_000L, (decide(scheduler, 2_000, holding = true) as DubStep.Start).line.startMs)
+    }
+
+    @Test
+    fun waitsForASentenceStillBeingTranslated() {
+        val scheduler = DubScheduler()
+        scheduler.updatePending(listOf(2_000L))
+        assertEquals(DubStep.Idle, decide(scheduler, 1_000))
+        assertEquals(DubStep.HoldForAudio, decide(scheduler, 2_000))
+        scheduler.updatePending(emptyList())
+        scheduler.update(listOf(line(2_000)))
+        assertEquals(2_000L, (decide(scheduler, 2_100) as DubStep.Start).line.startMs)
+    }
+
+    @Test
+    fun neverSpeaksALineLongAfterItWasSaid() {
+        val scheduler = DubScheduler()
+        scheduler.update(listOf(line(1_000), line(9_000)))
+        scheduler.seek(500)
+        assertEquals("1 s line is 8 s old: skipped without holding", DubStep.Idle, decide(scheduler, 9_000 - 100, ready = { false }))
+        assertEquals(9_000L, (decide(scheduler, 9_000) as DubStep.Start).line.startMs)
+    }
+
+    private fun sentenceRow(
+        id: Long,
+        startMs: Long,
+        index: Int,
+        translated: String?,
+    ) = SubtitleSegment(id, startMs, startMs + 1_000, "r$id", translated, sentence = SentenceSlice(sentence, cuts, index))
+
+    @Test
+    fun findsSentencesWaitingForTheirTranslation() {
+        val untranslated = listOf(sentenceRow(1, 1_000, 0, "a"), sentenceRow(2, 2_000, 1, null), sentenceRow(3, 3_000, 2, "c"))
+        assertEquals(listOf(1_000L), dubPending(untranslated))
+        val done = untranslated.map { it.copy(translatedText = "x") }
+        assertTrue(dubPending(done).isEmpty())
+        assertTrue("a window that starts mid-sentence is not waited for", dubPending(untranslated.drop(1)).isEmpty())
+        val plain = SubtitleSegment(id = 9, startMs = 500, endMs = 900, originalText = "Hi")
+        assertEquals(listOf(500L), dubPending(listOf(plain)))
+    }
+
+    @Test
+    fun holdScriptPausesResumesAndDrops() {
+        val held = dubbingHoldScript(VideoHold.HELD)
+        assertTrue(held.contains("v.pause()") && held.contains("__dualsubHeld=true") && !held.contains("v.play()"))
+        val resume = dubbingHoldScript(VideoHold.RESUME)
+        assertTrue(resume.contains("if(v.__dualsubHeld)") && resume.contains("v.play()"))
+        val drop = dubbingHoldScript(VideoHold.DROP)
+        assertTrue(drop.contains("__dualsubHeld=false") && !drop.contains("play(") && !drop.contains("pause("))
+    }
 }

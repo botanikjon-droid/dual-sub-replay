@@ -52,7 +52,10 @@ internal class GtxTranslationProvider : OnlineTranslationProvider {
     }
 }
 
-/** Tries each provider in order, retrying once, and reports every failure if none succeeds. */
+/**
+ * Tries each provider in order, retrying with growing pauses (a rate-limited service often
+ * recovers within seconds), and reports every failure if none succeeds.
+ */
 internal class OnlineTranslationChain(
     private val providers: List<OnlineTranslationProvider>,
     private val retryDelayMs: Long = RETRY_DELAY_MS,
@@ -69,7 +72,7 @@ internal class OnlineTranslationChain(
                     return provider.translate(source, target, text)
                 } catch (error: IOException) {
                     failures += "${provider.name}: ${error.message}"
-                    if (attempt < ATTEMPTS_PER_PROVIDER - 1) Thread.sleep(retryDelayMs)
+                    if (attempt < ATTEMPTS_PER_PROVIDER - 1) Thread.sleep(retryDelayMs * (attempt * 2 + 1))
                 }
             }
         }
@@ -79,8 +82,8 @@ internal class OnlineTranslationChain(
     }
 
     private companion object {
-        const val ATTEMPTS_PER_PROVIDER = 2
-        const val RETRY_DELAY_MS = 400L
+        const val ATTEMPTS_PER_PROVIDER = 3
+        const val RETRY_DELAY_MS = 500L
     }
 }
 

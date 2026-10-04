@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.kienhoang.dualsubreplay.data.CaptionLanguage
+import com.kienhoang.dualsubreplay.dubbing.DubbingSettingsCard
 import com.kienhoang.dualsubreplay.translation.TranslationLanguages
 
 /** Collapsible groups that replace the old single "More settings" list. */
@@ -355,6 +356,8 @@ internal fun SubtitleSettingsDialog(
                     SettingsGroupCard(title = "Languages", icon = Icons.Default.Language) {
                         LanguagePickerButtons(sourceLabel, targetLanguage, languagePicker::open)
                     }
+
+                    DubbingSettingsCard()
 
                     SettingsGroupCard(title = "Reading", icon = Icons.Default.TextFields) {
                         Text("Text size: ${(fontScale * 100).toInt()}%")

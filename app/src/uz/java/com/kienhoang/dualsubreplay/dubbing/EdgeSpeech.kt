@@ -29,13 +29,23 @@ import kotlin.coroutines.resumeWithException
  * "uz" build, so it can be replaced without touching the rest of the app.
  */
 
-internal fun createDubbingVoice(context: Context): DubbingVoice? = EdgeDubbingVoice(File(context.cacheDir, "dub-uz-v1"))
+internal fun createDubbingVoice(context: Context): DubbingVoice? {
+    DubbingSettings.load(
+        context,
+        listOf(
+            DubbingVoiceOption(EDGE_VOICE_SARDOR, "Sardor (erkak)"),
+            DubbingVoiceOption(EDGE_VOICE_MADINA, "Madina (ayol)"),
+        ),
+    )
+    return EdgeDubbingVoice(File(context.cacheDir, "dub-uz-v1"))
+}
 
 internal const val EDGE_TRUSTED_CLIENT_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4"
 internal const val EDGE_CHROMIUM_VERSION = "143.0.3650.75"
 internal const val EDGE_WSS_URL =
     "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=$EDGE_TRUSTED_CLIENT_TOKEN"
 internal const val EDGE_VOICE_SARDOR = "uz-UZ-SardorNeural"
+internal const val EDGE_VOICE_MADINA = "uz-UZ-MadinaNeural"
 
 /** edge-tts output format: 48 kbit/s constant bitrate, so the byte count gives the length. */
 private const val MP3_BYTES_PER_SECOND = 48_000 / 8
@@ -94,7 +104,7 @@ internal fun edgeAudioPayload(frame: ByteArray): ByteArray? {
 /** Fetches Uzbek speech and caches it as mp3 files named by a hash of voice and text. */
 internal class EdgeDubbingVoice(
     private val directory: File,
-    private val voice: String = EDGE_VOICE_SARDOR,
+    private val voiceOf: () -> String = { DubbingSettings.voiceId.value.ifEmpty { EDGE_VOICE_SARDOR } },
     private val url: String = EDGE_WSS_URL,
     private val client: OkHttpClient =
         OkHttpClient
@@ -103,29 +113,40 @@ internal class EdgeDubbingVoice(
             .readTimeout(20, TimeUnit.SECONDS)
             .build(),
 ) : DubbingVoice {
+    override val language = "uz"
+
     /** Server clock minus device clock, learned from a rejected token, as edge-tts does. */
     private var clockSkewSeconds = 0L
+    private var writesSinceTrim = 0
 
     override suspend fun synthesize(text: String): DubClip =
         withContext(Dispatchers.IO) {
             directory.mkdirs()
+            val voice = voiceOf()
             val file = File(directory, "${sha1("$voice\n$text")}.mp3")
             if (file.length() == 0L) {
                 val audio =
                     try {
-                        request(text)
+                        request(voice, text)
                     } catch (error: SkewedClock) {
                         clockSkewSeconds = error.serverSeconds - System.currentTimeMillis() / 1000
-                        request(text)
+                        request(voice, text)
                     }
                 val partial = File(directory, "${file.name}.part")
                 partial.writeBytes(audio)
                 if (!partial.renameTo(file)) throw IOException("Could not save the speech clip.")
+                if (++writesSinceTrim >= TRIM_EVERY_WRITES) {
+                    writesSinceTrim = 0
+                    trimEdgeCache(directory, CACHE_MAX_BYTES, CACHE_TRIM_TO_BYTES)
+                }
             }
             DubClip(file, file.length() * 1000 / MP3_BYTES_PER_SECOND)
         }
 
-    private suspend fun request(text: String): ByteArray =
+    private suspend fun request(
+        voice: String,
+        text: String,
+    ): ByteArray =
         suspendCancellableCoroutine { continuation ->
             val audio = ByteArrayOutputStream()
             val now = System.currentTimeMillis() / 1000 + clockSkewSeconds
@@ -201,6 +222,9 @@ internal class EdgeDubbingVoice(
 
     private companion object {
         const val NORMAL_CLOSURE = 1000
+        const val TRIM_EVERY_WRITES = 25
+        const val CACHE_MAX_BYTES = 50L * 1024 * 1024
+        const val CACHE_TRIM_TO_BYTES = 40L * 1024 * 1024
         const val HTTP_FORBIDDEN = 403
         val EDGE_USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
@@ -211,3 +235,19 @@ internal class EdgeDubbingVoice(
 
 private fun sha1(text: String): String =
     MessageDigest.getInstance("SHA-1").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
+
+/** Deletes the oldest clips once the folder passes [maxBytes], down to [targetBytes]. */
+internal fun trimEdgeCache(
+    directory: File,
+    maxBytes: Long,
+    targetBytes: Long,
+) {
+    val files = directory.listFiles()?.filter { it.isFile } ?: return
+    var total = files.sumOf(File::length)
+    if (total <= maxBytes) return
+    for (file in files.sortedBy(File::lastModified)) {
+        if (total <= targetBytes) break
+        val size = file.length()
+        if (file.delete()) total -= size
+    }
+}

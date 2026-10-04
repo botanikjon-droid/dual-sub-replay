@@ -1281,7 +1281,7 @@ class AppViewModel internal constructor(
         rows: List<SubtitleSegment>,
         preparing: Boolean,
     ) {
-        dubbing.onRows(videoId, rows)
+        dubbing.onRows(videoId, rows, _state.value.targetLanguage)
         // The window slides forward every few rows during playback. Keep the highlight on the same
         // row instead of recomputing it from timestamps, which can point at the previous sentence.
         val shift = windowShift(_state.value.segments, rows)
