@@ -123,14 +123,16 @@ internal class EdgeDubbingVoice(
         withContext(Dispatchers.IO) {
             directory.mkdirs()
             val voice = voiceOf()
-            val file = File(directory, "${sha1("$voice\n$text")}.mp3")
+            // The voice only says oʻ and gʻ correctly with their official apostrophe.
+            val spoken = uzbekSpeechText(text)
+            val file = File(directory, "${sha1("$voice\n$spoken")}.mp3")
             if (file.length() == 0L) {
                 val audio =
                     try {
-                        request(voice, text)
+                        request(voice, spoken)
                     } catch (error: SkewedClock) {
                         clockSkewSeconds = error.serverSeconds - System.currentTimeMillis() / 1000
-                        request(voice, text)
+                        request(voice, spoken)
                     }
                 val partial = File(directory, "${file.name}.part")
                 partial.writeBytes(audio)

@@ -73,6 +73,16 @@ or plays the video with `dubbingHoldScript`, and only plays a video this script 
 - Settings: hold on/off (default on), fastest speech 1.3x / 1.5x / 1.8x, and a line of what
   happened in the current video.
 
+## Pronunciation of oʻ and gʻ
+Field report: the voice read "o'" and "g'" as plain "o" and "g". The voice only pronounces oʻ
+and gʻ with the official U+02BB (modifier letter turned comma); Google's translation gives a
+plain apostrophe. `uzbekSpeechText` rewrites an apostrophe look-alike after o/O/g/G (' ‘ ’ ʼ ʹ ′
+` ´ ＇) to U+02BB and turns curly apostrophes inside a word (ma'no) into a plain one; the glottal
+stop and quotation marks are left alone. Only the text sent to the voice changes, never the
+subtitles, and the clip cache key uses the rewritten text so earlier clips are not reused.
+Sources: Microsoft's own uz-UZ sample sentences use U+02BB, and another project built on the
+same voice documents that a plain apostrophe mangles it. Not verified by ear here.
+
 ## Validation so far
 - Passed offline (dubbing hold: 88 controller checks incl. 21 hold scenarios, 18 JUnit tests, JS hold script 5/5): 9 JUnit tests (`DubbingPlanTest`), 14 controller checks with a fake voice and
   player, 17 protocol checks against values produced by Python edge-tts (token, SSML, frames,
