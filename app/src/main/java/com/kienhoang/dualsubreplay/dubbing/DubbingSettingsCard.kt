@@ -68,6 +68,7 @@ internal fun DubbingSettingsCard() {
                 PacingControls()
             }
             VideoQualityControls()
+            GlossaryTranslationSwitch()
         }
     }
 }
@@ -160,6 +161,19 @@ private fun VideoQualityControls() {
             )
         }
     }
+}
+
+/** Glossary-guided translation: approved UZI terms are given to the translator (experiment). */
+@Composable
+private fun GlossaryTranslationSwitch() {
+    val on by DubbingSettings.glossaryInTranslation.collectAsStateWithLifecycle()
+    SpeechRuleSwitch(
+        "Tarjimada UZI lug\u2018atini ishlatish (sinov)",
+        "Masalan, \"transducer\" o\u2018rniga tarjimonga \"datchik\" beriladi. Yangi tarjimalarga ta\u2019sir qiladi.",
+        on,
+        "glossary_in_translation_switch",
+        DubbingSettings::setGlossaryInTranslation,
+    )
 }
 
 private const val PERCENT_PER_UNIT = 100f

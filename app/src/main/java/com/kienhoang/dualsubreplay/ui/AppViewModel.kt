@@ -366,6 +366,7 @@ class AppViewModel internal constructor(
                     storedCaptionFormat(
                         preferences.getString(CAPTION_FORMAT_PREFERENCE, null),
                         preferences.getBoolean(SPLIT_LONG_SENTENCES_PREFERENCE, true),
+                        BUILD_PREFERS_WHOLE_SENTENCE,
                     ),
                 lockOverlayToVideo =
                     storedFeatureEnabled(
@@ -997,7 +998,7 @@ class AppViewModel internal constructor(
                 customColorsEnabled = true,
                 originalVisibility = CaptionVisibility.ALWAYS,
                 translatedVisibility = CaptionVisibility.ALWAYS,
-                captionFormat = CaptionFormat.SHORT_PHRASES,
+                captionFormat = defaultCaptionFormat(BUILD_PREFERS_WHOLE_SENTENCE),
                 lockOverlayToVideo = false,
                 preloadModelsEnabled = true,
                 naturalSubtitlesEnabled = true,

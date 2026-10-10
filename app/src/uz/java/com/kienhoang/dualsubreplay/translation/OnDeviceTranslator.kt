@@ -1,6 +1,10 @@
 package com.kienhoang.dualsubreplay.translation
 
 import com.kienhoang.dualsubreplay.BuildConfig
+import com.kienhoang.dualsubreplay.data.UziGlossaryStore
+import com.kienhoang.dualsubreplay.data.glossaryApplies
+import com.kienhoang.dualsubreplay.data.glossaryGuidedSource
+import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -103,7 +107,22 @@ class OnDeviceTranslator(
     private suspend fun translateText(
         languages: TranslationPair,
         text: String,
-    ): String = cached(languages, text) ?: translateOnline(languages, text)
+    ): String {
+        // With the glossary switch on, the translator gets the approved Uzbek terms; the cache key is
+        // that guided text, so plain and guided translations never mix.
+        val source = guidedSource(languages, text)
+        return cached(languages, source) ?: translateOnline(languages, source)
+    }
+
+    private fun guidedSource(
+        languages: TranslationPair,
+        text: String,
+    ): String {
+        if (!DubbingSettings.glossaryInTranslation.value) return text
+        if (!glossaryApplies(languages.source, languages.target)) return text
+        val glossary = UziGlossaryStore.glossary.value ?: return text
+        return glossaryGuidedSource(glossary, text)
+    }
 
     private fun isPrefixOf(
         text: String,

@@ -106,7 +106,7 @@ internal fun VoiceTestControls() {
 }
 
 @Composable
-private fun SpeechRuleSwitch(
+internal fun SpeechRuleSwitch(
     title: String,
     hint: String,
     checked: Boolean,

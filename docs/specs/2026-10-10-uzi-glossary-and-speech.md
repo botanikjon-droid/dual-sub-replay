@@ -63,3 +63,12 @@ Help an Uzbek ultrasound (UZI) doctor follow English lectures:
 
 ## Open items for the doctor
 See `docs/glossary/review-2026-10-10.md` for glossary entries that look medically doubtful (not changed).
+
+## Field feedback 1 (2026-10-10): translation quality
+Report from the doctor, with screenshots of a real ultrasound lecture:
+- **Short-phrase rows did not match their translation.** The uz translator returns no row-prefix translations, so each Uzbek sentence was split across the rows by length. Uzbek word order (verb last) then put words under the wrong English row.
+  - Fix: the uz build now defaults to the existing "Whole sentence" caption format (`BUILD_PREFERS_WHOLE_SENTENCE`; reset-to-defaults also uses it). The user can still pick short phrases. The doctor confirmed on a phone that "Whole sentence" removes the mismatch.
+- **Google picks its own word for UZI terms** ("transducer" → "transduser", "liver shots" → "jigar zarbalari").
+  - Experiment: "Tarjimada UZI lug‘atini ishlatish (sinov)", off by default. It replaces each non-common glossary term in the text sent to the translator with its approved Uzbek term (`glossaryGuidedSource`), so the translator inflects it in context.
+  - The English caption is unchanged, and the cache key is the guided text.
+  - Unverified against live gtx; to be judged on a phone.

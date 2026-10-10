@@ -337,13 +337,7 @@ internal fun glossaryChecksForRow(
 internal fun glossaryAcronymExpansions(entries: List<GlossaryEntry>): Map<String, String> {
     val result = linkedMapOf<String, String>()
     entries.forEach { entry ->
-        val spoken =
-            PARENTHESES
-                .replace(entry.uzbek, " ")
-                .split('/')
-                .first()
-                .replace(Regex("\\s+"), " ")
-                .trim()
+        val spoken = uzbekPrimaryTerm(entry.uzbek)
         entry.forms
             .filter { form ->
                 form.length in 2..8 && form.none(Char::isLowerCase) && form.none(Char::isWhitespace) &&
@@ -352,4 +346,37 @@ internal fun glossaryAcronymExpansions(entries: List<GlossaryEntry>): Map<String
             .forEach { result.putIfAbsent(it, spoken) }
     }
     return result
+}
+
+/** "umumiy o‘t yo‘li (xoledox)" -> "umumiy o‘t yo‘li"; "polikistik tuxumdonlar / PCOS" -> the first. */
+internal fun uzbekPrimaryTerm(uzbek: String): String =
+    PARENTHESES
+        .replace(uzbek, " ")
+        .split('/')
+        .first()
+        .replace(Regex("\\s+"), " ")
+        .trim()
+
+/**
+ * The English caption with each glossary term (common words excepted) replaced by its approved
+ * Uzbek term, for the optional glossary-guided translation: the translator then inflects the Uzbek
+ * term in context ("datchik" -> "datchik yordamida") instead of choosing its own word. Only the text
+ * sent to the translator changes; the English caption on screen stays as it is.
+ */
+internal fun glossaryGuidedSource(
+    glossary: UziGlossary,
+    english: String,
+): String {
+    val matches = glossary.findTerms(english)
+    if (matches.isEmpty()) return english
+    val builder = StringBuilder(english.length)
+    var cursor = 0
+    matches.forEach { match ->
+        val uzbek = uzbekPrimaryTerm(match.entry.uzbek)
+        builder.append(english, cursor, match.start)
+        builder.append(uzbek.ifEmpty { match.text })
+        cursor = match.end
+    }
+    builder.append(english, cursor, english.length)
+    return builder.toString()
 }

@@ -19,9 +19,22 @@ enum class CaptionFormat(
 internal fun storedCaptionFormat(
     raw: String?,
     legacySplit: Boolean = true,
+    // The Uzbek build: Uzbek word order differs from English, so short rows cannot be paired.
+    preferWholeSentence: Boolean = false,
 ): CaptionFormat =
     CaptionFormat.entries.firstOrNull { it.storageValue == raw }
-        ?: if (raw == null && !legacySplit) CaptionFormat.WHOLE_SENTENCE else CaptionFormat.SHORT_PHRASES
+        ?: if (raw == null && (preferWholeSentence || !legacySplit)) CaptionFormat.WHOLE_SENTENCE else CaptionFormat.SHORT_PHRASES
+
+/** The default format of this build: whole sentences in the Uzbek build, short phrases elsewhere. */
+internal fun defaultCaptionFormat(preferWholeSentence: Boolean): CaptionFormat =
+    if (preferWholeSentence) CaptionFormat.WHOLE_SENTENCE else CaptionFormat.SHORT_PHRASES
+
+/**
+ * The Uzbek build translates online and cannot place row breaks inside an Uzbek sentence (verbs come
+ * last), so its sentences are shown whole unless the user picks short phrases.
+ */
+internal val BUILD_PREFERS_WHOLE_SENTENCE: Boolean
+    get() = com.kienhoang.dualsubreplay.BuildConfig.DISTRIBUTION == "uz"
 
 /** Both presentations share source words; translation is applied only after grouping. */
 internal fun captionDisplaySegments(

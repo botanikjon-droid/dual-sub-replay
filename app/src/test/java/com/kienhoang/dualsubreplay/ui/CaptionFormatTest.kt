@@ -14,6 +14,11 @@ class CaptionFormatTest {
         assertEquals(CaptionFormat.WHOLE_SENTENCE, storedCaptionFormat(null, false))
         CaptionFormat.entries.forEach { assertEquals(it, storedCaptionFormat(it.storageValue)) }
         assertEquals(CaptionFormat.SHORT_PHRASES, storedCaptionFormat("unknown"))
+        // The Uzbek build shows whole sentences until the user picks another format.
+        assertEquals(CaptionFormat.WHOLE_SENTENCE, storedCaptionFormat(null, preferWholeSentence = true))
+        assertEquals(CaptionFormat.SHORT_PHRASES, storedCaptionFormat("short_phrases", preferWholeSentence = true))
+        assertEquals(CaptionFormat.WHOLE_SENTENCE, defaultCaptionFormat(true))
+        assertEquals(CaptionFormat.SHORT_PHRASES, defaultCaptionFormat(false))
     }
 
     @Test fun bothFormatsRetainExactUnevenWordTimesIncludingRepeatedWords() {

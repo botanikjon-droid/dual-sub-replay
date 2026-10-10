@@ -184,3 +184,32 @@ class UziGlossaryRowTest {
         assertEquals(listOf(true, true), glossaryChecksForRow(glossary, row).map { it.approvedTermUsed })
     }
 }
+
+class GlossaryGuidedSourceTest {
+    private val glossary = UziGlossary(parseUziGlossary(File("src/main/assets/$UZI_GLOSSARY_ASSET").readText()).entries)
+
+    @Test
+    fun approvedTermsReplaceEnglishTermsOnly() {
+        assertEquals(
+            "I'm going to start by using the ca1 to 7 datchik",
+            glossaryGuidedSource(glossary, "I'm going to start by using the ca1 to 7 transducer"),
+        )
+        assertEquals(
+            "Compare the jigar venasi with the darvoza venasi.",
+            glossaryGuidedSource(glossary, "Compare the hepatic veins with the portal vein."),
+        )
+        // Common words (liver, lesion) and text without terms are left alone.
+        assertEquals("The liver has a lesion.", glossaryGuidedSource(glossary, "The liver has a lesion."))
+        assertEquals(
+            "A gipoexogen tugun near the umumiy o‘t yo‘li.",
+            glossaryGuidedSource(glossary, "A hypoechoic nodule near the common bile duct."),
+        )
+    }
+
+    @Test
+    fun primaryTermDropsParenthesesAndAlternatives() {
+        assertEquals("umumiy o‘t yo‘li", uzbekPrimaryTerm("umumiy o‘t yo‘li (xoledox)"))
+        assertEquals("polikistik tuxumdonlar", uzbekPrimaryTerm("polikistik tuxumdonlar / PCOS"))
+        assertEquals("energetik Doppler", uzbekPrimaryTerm("energetik (power) Doppler"))
+    }
+}
