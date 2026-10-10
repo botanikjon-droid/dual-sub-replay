@@ -129,6 +129,13 @@ class OnDeviceTranslator(
                 if (error is GeminiTooSlow) {
                     // Only this sentence goes to Google; Gemini keeps translating the following ones.
                     DubbingSettings.publishTranslatorStatus("Gemini kechikdi: bu gap Google bilan tarjima qilindi.")
+                } else if (error is GeminiQuotaExhausted) {
+                    // Asking before the quota returns would only waste requests.
+                    geminiPausedUntil = error.untilMs
+                    val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.ROOT).format(java.util.Date(error.untilMs))
+                    DubbingSettings.publishTranslatorStatus(
+                        "Gemini bepul limiti tugadi; soat $time dan keyin yana uriniladi. Hozir Google Translate ishlatilmoqda.",
+                    )
                 } else {
                     // No key, no quota or no network: Google Translate takes over, and Gemini rests a minute
                     // so every sentence does not wait for the same failure.
@@ -190,7 +197,7 @@ class OnDeviceTranslator(
             cache.put(pair.source, pair.target, sentence, translated)
             withContext(Dispatchers.IO) { diskCache?.put(pair.source, pair.target, sentence, translated) }
         }
-        DubbingSettings.publishTranslatorStatus("Gemini: ${batch.sentences.size} ta gap tarjima qilindi.")
+        DubbingSettings.publishTranslatorStatus("Gemini (${gemini.workingModel}): ${batch.sentences.size} ta gap tarjima qilindi.")
     }
 
     /** Gemini did not answer in time for this sentence; it keeps working on the next ones. */

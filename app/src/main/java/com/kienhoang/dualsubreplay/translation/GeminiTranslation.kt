@@ -23,11 +23,23 @@ internal val TRANSLATION_PROVIDERS = listOf(TRANSLATION_PROVIDER_GOOGLE, TRANSLA
 
 internal const val GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
-/** Tried in order; a model the key cannot use (HTTP 404) moves on to the next one. */
-internal val GEMINI_MODELS = listOf("gemini-flash-latest", "gemini-3.8-flash", "gemini-flash-lite-latest")
+/**
+ * Tried in order. The free tier counts requests per model and day (the doctor's key: 20 a day for
+ * gemini-3.8-flash), so a model whose quota is used up (HTTP 429) or that the key cannot use (HTTP 404)
+ * moves on to the next one, each with its own free quota.
+ */
+internal val GEMINI_MODELS =
+    listOf(
+        "gemini-flash-latest",
+        "gemini-flash-lite-latest",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-3-flash-preview",
+    )
 
-/** Sentences per background request: about 10 requests for a 15-minute lecture. */
-internal const val GEMINI_BATCH_SIZE = 25
+/** Sentences per background request: about 4 to 6 requests for a 15-minute lecture, to spare the daily quota. */
+internal const val GEMINI_BATCH_SIZE = 50
 
 /**
  * Sentences per request while playback waits for one (the first sentence of a video, or after a seek):
@@ -39,7 +51,7 @@ internal const val GEMINI_FIRST_BATCH_SIZE = 6
 internal const val GEMINI_CONTEXT_BEFORE = 3
 
 /** When one of the next sentences is not translated yet, the next batch is fetched in advance. */
-internal const val GEMINI_PREFETCH_AHEAD = 20
+internal const val GEMINI_PREFETCH_AHEAD = 30
 
 /** The sentences to translate in one request, and the ones before them given only as context. */
 internal data class SentenceBatch(
@@ -248,3 +260,57 @@ internal suspend fun <T> withFallback(
         onFailure(error)
         fallback()
     }
+
+/** "Please retry in 5h3m52.5s." or `"retryDelay": "18s"` in a 429 reply, as milliseconds; null if absent. */
+internal fun parseRetryDelayMs(message: String?): Long? {
+    val text = message ?: return null
+    val match =
+        Regex("retry in ((?:\\d+h)?(?:\\d+m)?(?:[\\d.]+s)?)", RegexOption.IGNORE_CASE).find(text)?.groupValues?.get(1)
+            ?: Regex("\"retryDelay\"\\s*:\\s*\"([\\d.]+s)\"").find(text)?.groupValues?.get(1)
+            ?: return null
+    var total = 0.0
+    Regex("([\\d.]+)([hms])").findAll(match).forEach { part ->
+        val value = part.groupValues[1].toDoubleOrNull() ?: return@forEach
+        total +=
+            when (part.groupValues[2]) {
+                "h" -> value * MS_PER_HOUR
+                "m" -> value * MS_PER_MINUTE
+                else -> value * MS_PER_SECOND
+            }
+    }
+    return total.toLong().takeIf { it > 0 }
+}
+
+/** Which Gemini models may be asked now; a used-up or unknown model rests until its time is over. */
+internal class GeminiModelQuota(
+    private val models: List<String> = GEMINI_MODELS,
+) {
+    private val restingUntil = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+    fun available(nowMs: Long): List<String> = models.filter { (restingUntil[it] ?: 0L) <= nowMs }
+
+    fun rest(
+        model: String,
+        untilMs: Long,
+    ) {
+        restingUntil[model] = untilMs
+    }
+
+    /** When the first resting model may be asked again. */
+    fun nextRetryMs(): Long = restingUntil.values.minOrNull() ?: 0L
+}
+
+/** Every Gemini model is out of free quota (or unusable) until [untilMs]; Google translates meanwhile. */
+internal class GeminiQuotaExhausted(
+    val untilMs: Long,
+) : java.io.IOException("Gemini free quota used up")
+
+/** A 429 without a retry time rests the model this long. */
+internal const val GEMINI_DEFAULT_REST_MS = 60L * 60 * 1000
+
+/** A model the key cannot use (404) is not asked again today. */
+internal const val GEMINI_UNKNOWN_MODEL_REST_MS = 24L * 60 * 60 * 1000
+
+private const val MS_PER_HOUR = 3_600_000.0
+private const val MS_PER_MINUTE = 60_000.0
+private const val MS_PER_SECOND = 1_000.0

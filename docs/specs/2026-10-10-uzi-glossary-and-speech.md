@@ -116,3 +116,18 @@ The doctor confirmed Gemini translates on his phone, but the video waited. Chang
   - Sentences already in flight are never requested twice.
 - **Tests:** `GeminiBatchSchedulerTest`, 4 tests with a fake Gemini, run 10 times locally, all passed.
 - **Unverified:** real timing on the phone.
+
+## Field feedback 5 (2026-10-10): free quota used up
+The doctor's status line showed:
+
+> HTTP 429 … generate_content_free_tier_requests, limit: 20, model: gemini-3.8-flash. Please retry in 5h3m52s
+
+The free tier allows 20 requests per model per day.
+- **Fewer requests:** background batches now hold 50 sentences (were 25) and start 30 sentences ahead.
+- **Model fallback:** `GEMINI_MODELS` lists several Flash and Flash-Lite models, each with its own free quota.
+  - A 429 rests that model for the reply's retry time (`parseRetryDelayMs`; 1 h if none is given).
+  - A 404 rests it for a day (`GeminiModelQuota`).
+  - The next model is then tried.
+- **When every model is resting:** `GeminiQuotaExhausted` pauses Gemini until the first model may be asked again, and the status line names that time. Google translates meanwhile.
+- **Status line:** it now names the model that answered.
+- **Unverified:** which of these model IDs the key accepts, and their free limits.

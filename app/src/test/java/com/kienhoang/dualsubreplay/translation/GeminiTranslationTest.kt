@@ -125,6 +125,33 @@ class GeminiTranslationTest {
     }
 
     @Test
+    fun theRetryTimeOfA429IsRead() {
+        val doctorsReply =
+            "HTTP 429 - You exceeded your current quota. * Quota exceeded for metric: " +
+                "generate_content_free_tier_requests, limit: 20, model: gemini-3.8-flash Please retry in 5h3m52.552520235s."
+        assertEquals(((5 * 60 + 3) * 60 + 52.552520235).times(1000).toLong(), parseRetryDelayMs(doctorsReply))
+        assertEquals(18_000L, parseRetryDelayMs("{\"retryDelay\": \"18s\"}"))
+        assertEquals(90_000L, parseRetryDelayMs("Please retry in 1m30s"))
+        assertEquals(null, parseRetryDelayMs("HTTP 429 - Resource exhausted"))
+        assertEquals(null, parseRetryDelayMs(null))
+    }
+
+    @Test
+    fun aUsedUpModelRestsAndTheNextOneIsTried() {
+        val quota = GeminiModelQuota(listOf("a", "b", "c"))
+        assertEquals(listOf("a", "b", "c"), quota.available(nowMs = 0))
+        quota.rest("a", untilMs = 1_000)
+        quota.rest("c", untilMs = 500)
+        assertEquals(listOf("b"), quota.available(nowMs = 100))
+        assertEquals(500L, quota.nextRetryMs())
+        // After its rest a model is asked again.
+        assertEquals(listOf("b", "c"), quota.available(nowMs = 600))
+        assertEquals(listOf("a", "b", "c"), quota.available(nowMs = 1_000))
+        // Each model of the free tier has its own quota, so there is more than one to fall back to.
+        assertTrue(GEMINI_MODELS.size > 1 && GEMINI_MODELS.toSet().size == GEMINI_MODELS.size)
+    }
+
+    @Test
     fun geminiIsUsedOnlyWhenChosenWithAKeyForEnglishToUzbek() {
         assertTrue(geminiEnabled("gemini", "key", "en", "uz", pausedUntilMs = 0, nowMs = 10))
         assertFalse(geminiEnabled("google", "key", "en", "uz", 0, 10))

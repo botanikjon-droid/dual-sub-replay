@@ -95,8 +95,11 @@ internal class OnlineTranslationChain(
 internal class GeminiBatchTranslator(
     private val apiKey: () -> String,
 ) {
-    /** The first model that answered; later requests start with it. */
-    @Volatile private var workingModel: String? = null
+    /** The model that answered last; later requests start with it. */
+    @Volatile var workingModel: String? = null
+        private set
+
+    private val quota = GeminiModelQuota()
 
     /** Cleared when a model rejects the low-thinking setting, so it is not sent again. */
     @Volatile private var lowThinking = true
@@ -108,17 +111,25 @@ internal class GeminiBatchTranslator(
     ): List<String> {
         val key = apiKey().trim()
         if (key.isEmpty()) throw IOException("Gemini API key is not set.")
-        var lastError: IOException = IOException("No Gemini model answered.")
-        for (model in listOfNotNull(workingModel) + GEMINI_MODELS.filter { it != workingModel }) {
+        val available = quota.available(System.currentTimeMillis())
+        val models = listOfNotNull(workingModel?.takeIf { it in available }) + available.filter { it != workingModel }
+        for (model in models) {
             try {
                 return parseGeminiTranslations(call(model, key, batch, glossary), batch.sentences.size).also { workingModel = model }
             } catch (error: HttpStatusException) {
-                // A model this key cannot use: try the next one. Anything else is a real failure.
-                if (error.code != HTTP_NOT_FOUND) throw error
-                lastError = error
+                // Out of free quota (429) or not usable with this key (404): rest this model and try the
+                // next one, which has its own quota. Anything else is a real failure.
+                val restMs =
+                    when (error.code) {
+                        HTTP_TOO_MANY_REQUESTS -> parseRetryDelayMs(error.message) ?: GEMINI_DEFAULT_REST_MS
+                        HTTP_NOT_FOUND -> GEMINI_UNKNOWN_MODEL_REST_MS
+                        else -> throw error
+                    }
+                quota.rest(model, System.currentTimeMillis() + restMs)
+                if (model == workingModel) workingModel = null
             }
         }
-        throw lastError
+        throw GeminiQuotaExhausted(quota.nextRetryMs())
     }
 
     private fun call(
@@ -158,6 +169,7 @@ private const val READ_TIMEOUT_MS = 15_000
 /** A batch of 25 sentences takes Gemini longer than one gtx sentence. */
 private const val GEMINI_READ_TIMEOUT_MS = 60_000
 private const val HTTP_NOT_FOUND = 404
+private const val HTTP_TOO_MANY_REQUESTS = 429
 private const val USER_AGENT = "Mozilla/5.0 (Linux; Android) DualSubReplay"
 private const val FORM_CONTENT_TYPE = "application/x-www-form-urlencoded; charset=UTF-8"
 private const val JSON_CONTENT_TYPE = "application/json; charset=UTF-8"
