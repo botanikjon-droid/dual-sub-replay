@@ -19,11 +19,12 @@ class UziGlossaryTest {
     @Test
     fun assetHoldsEveryReviewedTerm() {
         assertEquals(emptyList<String>(), parsed.errors)
-        assertEquals(227, parsed.entries.size)
-        assertEquals(172, parsed.entries.count { it.status == GlossaryStatus.APPROVED })
-        assertEquals(55, parsed.entries.count { it.status == GlossaryStatus.CORRECTED })
+        assertEquals(228, parsed.entries.size)
+        assertEquals(171, parsed.entries.count { it.status == GlossaryStatus.APPROVED })
+        assertEquals(56, parsed.entries.count { it.status == GlossaryStatus.CORRECTED })
+        assertEquals(1, parsed.entries.count { it.status == GlossaryStatus.NEW })
         assertEquals(20, parsed.entries.count { it.general })
-        assertEquals((1..227).toList(), parsed.entries.map { it.id })
+        assertEquals((1..228).toList(), parsed.entries.map { it.id })
         assertTrue(parsed.entries.all { it.uzbek.isNotBlank() })
     }
 
@@ -33,7 +34,7 @@ class UziGlossaryTest {
         assertEquals("rezistivlik indeksi (RI)", entry("resistive index").uzbek)
         assertEquals("(PSV − EDV) / PSV.", entry("resistive index").note)
         assertEquals("vaqt bo‘yicha kuchaytirishni kompensatsiya qilish (TGC)", entry("time gain compensation").uzbek)
-        assertEquals("siljish to‘lqini elastografiyasi (SWE)", entry("shear wave elastography").uzbek)
+        assertEquals("to‘lqin siljish elastografiyasi (SWE)", entry("shear wave elastography").uzbek)
     }
 
     @Test

@@ -82,7 +82,7 @@ class UzbekSpeechPipelineTest {
     fun acronymsComeFromTheGlossary() {
         assertEquals("rezistivlik indeksi", acronyms["RI"])
         assertEquals("vaqt bo‘yicha kuchaytirishni kompensatsiya qilish", acronyms["TGC"])
-        assertEquals("siljish to‘lqini elastografiyasi", acronyms["SWE"])
+        assertEquals("to‘lqin siljish elastografiyasi", acronyms["SWE"])
         assertEquals("umumiy o‘t yo‘li", acronyms["CBD"])
         // Its Uzbek name already contains the abbreviation, so it is never expanded.
         assertTrue("TAPSE" !in acronyms && "TI-RADS" !in acronyms && "METAVIR" !in acronyms)

@@ -8,7 +8,7 @@ id	english	expected_uzbek	expected_terms
 4	Simple cysts are anechoic with posterior acoustic enhancement.	Oddiy kistalar anexogen bo‘lib, distal akustik kuchayish beradi.	simple cyst; anechoic; posterior acoustic enhancement
 5	Gallstones are hyperechoic and cast an acoustic shadow.	O‘t toshlari giperexogen va akustik soya beradi.	gallstone; hyperechoic; acoustic shadowing
 6	Increase the gain or adjust the TGC to balance the image.	Tasvirni muvozanatlash uchun kuchaytirishni oshiring yoki TGC ni sozlang.	time gain compensation
-7	Shear wave elastography measures liver stiffness in kilopascals.	Siljish to‘lqini elastografiyasi jigar qattiqligini kilopaskalda o‘lchaydi.	shear wave elastography; liver stiffness; kilopascal
+7	Shear wave elastography measures liver stiffness in kilopascals.	To‘lqin siljish elastografiyasi jigar qattiqligini kilopaskalda o‘lchaydi.	shear wave elastography; liver stiffness; kilopascal
 8	A liver stiffness of 12 kPa suggests advanced fibrosis.	Jigar qattiqligining 12 kPa bo‘lishi rivojlangan fibrozdan dalolat beradi.	liver stiffness; kilopascal; fibrosis
 9	The resistive index of the renal artery is 0.7.	Buyrak arteriyasining rezistivlik indeksi 0,7 ga teng.	resistive index
 10	Color Doppler shows flow, while power Doppler is more sensitive to slow flow.	Rangli Doppler oqimni ko‘rsatadi, energetik (power) Doppler esa sekin oqimga sezgirroq.	color Doppler; power Doppler

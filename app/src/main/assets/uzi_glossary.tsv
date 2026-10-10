@@ -63,8 +63,8 @@ id	category	english	aliases	uzbek	note	status	general
 60	Doppler	thrombosis		tromboz	Tomir ichida qon laxtasi hosil bo‘lishi.	approved	0
 61	Doppler	thrombus	thrombi	tromb	Qon laxtasi.	approved	0
 62	Elastografiya	elastography		elastografiya	To‘qima qattiqligini baholash usuli.	approved	0
-63	Elastografiya	shear wave elastography	shear-wave elastography; shearwave elastography	siljish to‘lqini elastografiyasi (SWE)	To‘qima qattiqligini siljish to‘lqinlari yordamida miqdoriy baholaydi; natija odatda kPa yoki m/s da ifodalanadi.	corrected	0
-64	Elastografiya	SWE		siljish to‘lqini elastografiyasi (SWE)		approved	0
+63	Elastografiya	shear wave elastography	shear-wave elastography; shearwave elastography	to‘lqin siljish elastografiyasi (SWE)	To‘qima qattiqligini siljish to‘lqinlari yordamida miqdoriy baholaydi; natija odatda kPa yoki m/s da ifodalanadi.	corrected	0
+64	Elastografiya	SWE		to‘lqin siljish elastografiyasi (SWE)		corrected	0
 65	Elastografiya	strain elastography		deformatsion elastografiya (strain elastografiya)	To‘qimaning deformatsiyasini baholab, qattiqlikni asosan nisbiy tarzda ko‘rsatadi.	corrected	0
 66	Elastografiya	liver stiffness		jigar qattiqligi	Fibroz darajasi bilan bog‘liq ko‘rsatkich.	approved	0
 67	Elastografiya	kilopascal	kilopascals; kPa	kilopaskal (kPa)	Qattiqlik o‘lchov birligi.	approved	0
@@ -228,3 +228,4 @@ id	category	english	aliases	uzbek	note	status	general
 225	Exokardiografiya	diastolic function	diastolic dysfunction	diastolik funksiya	Yurak qorinchalarining diastola vaqtida bo‘shashishi va to‘lish xususiyatlarini ifodalaydi.	corrected	0
 226	Exokardiografiya	E/A ratio	E over A	E/A nisbati		approved	0
 227	Exokardiografiya	interventricular septum	septum	qorinchalararo to‘siq		approved	0
+228	Tasvir va exogenlik	imaging		tasvir	Ultratovush yordamida olingan tasvir yoki tasvir olish jarayoni (masalan, "elastography imaging" — elastografiya tasviri).	new	0
