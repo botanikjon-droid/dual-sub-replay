@@ -98,6 +98,9 @@ internal class GeminiBatchTranslator(
     /** The first model that answered; later requests start with it. */
     @Volatile private var workingModel: String? = null
 
+    /** Cleared when a model rejects the low-thinking setting, so it is not sent again. */
+    @Volatile private var lowThinking = true
+
     @Throws(IOException::class)
     fun translate(
         batch: SentenceBatch,
@@ -105,19 +108,10 @@ internal class GeminiBatchTranslator(
     ): List<String> {
         val key = apiKey().trim()
         if (key.isEmpty()) throw IOException("Gemini API key is not set.")
-        val body = geminiRequestBody(batch, glossary)
         var lastError: IOException = IOException("No Gemini model answered.")
         for (model in listOfNotNull(workingModel) + GEMINI_MODELS.filter { it != workingModel }) {
             try {
-                val reply =
-                    request(
-                        "$GEMINI_API_URL/$model:generateContent",
-                        body,
-                        contentType = JSON_CONTENT_TYPE,
-                        headers = mapOf("x-goog-api-key" to key),
-                        readTimeoutMs = GEMINI_READ_TIMEOUT_MS,
-                    )
-                return parseGeminiTranslations(reply, batch.sentences.size).also { workingModel = model }
+                return parseGeminiTranslations(call(model, key, batch, glossary), batch.sentences.size).also { workingModel = model }
             } catch (error: HttpStatusException) {
                 // A model this key cannot use: try the next one. Anything else is a real failure.
                 if (error.code != HTTP_NOT_FOUND) throw error
@@ -125,6 +119,30 @@ internal class GeminiBatchTranslator(
             }
         }
         throw lastError
+    }
+
+    private fun call(
+        model: String,
+        key: String,
+        batch: SentenceBatch,
+        glossary: List<GlossaryEntry>,
+    ): String {
+        fun post(thinking: Boolean) =
+            request(
+                "$GEMINI_API_URL/$model:generateContent",
+                geminiRequestBody(batch, glossary, lowThinking = thinking),
+                contentType = JSON_CONTENT_TYPE,
+                headers = mapOf("x-goog-api-key" to key),
+                readTimeoutMs = GEMINI_READ_TIMEOUT_MS,
+            )
+        if (!lowThinking) return post(thinking = false)
+        return try {
+            post(thinking = true)
+        } catch (error: HttpStatusException) {
+            if (!isThinkingConfigRejected(error.code, error.message)) throw error
+            lowThinking = false
+            post(thinking = false)
+        }
     }
 }
 

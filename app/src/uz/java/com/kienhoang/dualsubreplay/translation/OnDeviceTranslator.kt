@@ -162,7 +162,8 @@ class OnDeviceTranslator(
             cached(pair, text) ?: geminiLock.withLock {
                 // A prefetch may have translated it while this call waited.
                 cached(pair, text) ?: run {
-                    fetchGeminiBatch(pair, text)
+                    // Playback is waiting: a small batch answers quickly; the big ones follow in the background.
+                    fetchGeminiBatch(pair, text, GEMINI_FIRST_BATCH_SIZE)
                     cached(pair, text)
                 }
             }
@@ -174,8 +175,10 @@ class OnDeviceTranslator(
     private suspend fun fetchGeminiBatch(
         pair: TranslationPair,
         text: String,
+        size: Int = GEMINI_BATCH_SIZE,
     ) {
-        val batch = sentenceBatch(TranslationLookahead.sentences, text) { cache.get(pair.source, pair.target, it) != null }
+        val batch =
+            sentenceBatch(TranslationLookahead.sentences, text, size = size) { cache.get(pair.source, pair.target, it) != null }
         val glossary = glossaryForBatch(UziGlossaryStore.glossary.value, batch.sentences)
         val translations = withContext(Dispatchers.IO) { gemini.translate(batch, glossary) }
         batch.sentences.zip(translations).forEach { (sentence, translated) ->

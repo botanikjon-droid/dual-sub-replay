@@ -98,3 +98,11 @@ The doctor asked for better sentence translation; Google Translate translates wo
   - whether the models are reachable from Uzbekistan;
   - free-tier quota on long videos;
   - translation quality, to be judged by the doctor.
+
+## Field feedback 3 (2026-10-10): Gemini works but is slow
+The doctor confirmed Gemini translates on his phone, but the video waited. Changes:
+- While playback waits, a small batch is requested (`GEMINI_FIRST_BATCH_SIZE` = 6); the 25-sentence batches run only in the background.
+- The background batch starts when any of the next 20 sentences is untranslated (was 8).
+- `thinkingConfig.thinkingLevel = "low"` is sent, because thinking is most of a Flash model's wait. If a model rejects the field (HTTP 400 naming "thinking"), it is retried without it and not sent again.
+- `gemini-flash-latest` is tried first: the doctor's key works with it, which saves a possible 404 round trip.
+- Unverified: real latency on the phone.

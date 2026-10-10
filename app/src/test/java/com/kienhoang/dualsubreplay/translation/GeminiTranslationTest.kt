@@ -76,6 +76,10 @@ class GeminiTranslationTest {
         val config = body.getJSONObject("generationConfig")
         assertEquals("application/json", config.getString("responseMimeType"))
         assertEquals("ARRAY", config.getJSONObject("responseSchema").getString("type"))
+        // Little thinking by default (it is most of the wait); left out when the model rejects it.
+        assertEquals("low", config.getJSONObject("thinkingConfig").getString("thinkingLevel"))
+        val plain = JSONObject(geminiRequestBody(batch, emptyList(), lowThinking = false)).getJSONObject("generationConfig")
+        assertFalse(plain.has("thinkingConfig"))
         assertTrue(
             body
                 .getJSONObject("systemInstruction")
@@ -104,6 +108,20 @@ class GeminiTranslationTest {
         }
         assertFails("refused") { parseGeminiTranslations("{\"promptFeedback\":{\"blockReason\":\"OTHER\"}}", 1) }
         assertFails("no translation") { parseGeminiTranslations("{\"candidates\":[]}", 1) }
+    }
+
+    @Test
+    fun onlyARejectedThinkingSettingIsRetriedWithoutIt() {
+        assertTrue(isThinkingConfigRejected(400, "HTTP 400 - Invalid JSON payload: unknown name \"thinkingLevel\""))
+        assertFalse(isThinkingConfigRejected(400, "HTTP 400 - API key not valid."))
+        assertFalse(isThinkingConfigRejected(429, "HTTP 429 - thinking quota"))
+    }
+
+    @Test
+    fun theWaitingRequestIsSmallerThanTheBackgroundOne() {
+        assertTrue(GEMINI_FIRST_BATCH_SIZE < GEMINI_BATCH_SIZE)
+        assertEquals(GEMINI_FIRST_BATCH_SIZE, sentenceBatch(video, "sentence 1", size = GEMINI_FIRST_BATCH_SIZE).sentences.size)
+        assertEquals("gemini-flash-latest", GEMINI_MODELS.first())
     }
 
     @Test

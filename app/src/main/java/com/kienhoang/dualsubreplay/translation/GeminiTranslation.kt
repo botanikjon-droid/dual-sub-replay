@@ -24,16 +24,22 @@ internal val TRANSLATION_PROVIDERS = listOf(TRANSLATION_PROVIDER_GOOGLE, TRANSLA
 internal const val GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
 /** Tried in order; a model the key cannot use (HTTP 404) moves on to the next one. */
-internal val GEMINI_MODELS = listOf("gemini-3.8-flash", "gemini-flash-latest", "gemini-flash-lite-latest")
+internal val GEMINI_MODELS = listOf("gemini-flash-latest", "gemini-3.8-flash", "gemini-flash-lite-latest")
 
-/** Sentences per request: about 10 requests for a 15-minute lecture. */
+/** Sentences per background request: about 10 requests for a 15-minute lecture. */
 internal const val GEMINI_BATCH_SIZE = 25
+
+/**
+ * Sentences per request while playback waits for one (the first sentence of a video, or after a seek):
+ * a small batch answers in a few seconds, and the larger batches follow in the background.
+ */
+internal const val GEMINI_FIRST_BATCH_SIZE = 6
 
 /** Sentences said just before the batch, sent only as context. */
 internal const val GEMINI_CONTEXT_BEFORE = 3
 
 /** When one of the next sentences is not translated yet, the next batch is fetched in advance. */
-internal const val GEMINI_PREFETCH_AHEAD = 8
+internal const val GEMINI_PREFETCH_AHEAD = 20
 
 /** The sentences to translate in one request, and the ones before them given only as context. */
 internal data class SentenceBatch(
@@ -116,12 +122,19 @@ internal fun geminiUserPrompt(
         .toString()
 }
 
-/** A generateContent request asking for a JSON array of strings. */
+/**
+ * A generateContent request asking for a JSON array of strings. With [lowThinking] the model is asked
+ * to think little before answering: translation needs no long reasoning, and thinking is most of the
+ * wait. A model that does not know the setting is asked again without it.
+ */
 internal fun geminiRequestBody(
     batch: SentenceBatch,
     glossary: List<GlossaryEntry>,
+    lowThinking: Boolean = true,
 ): String {
     val stringArray = JSONObject().put("type", "ARRAY").put("items", JSONObject().put("type", "STRING"))
+    val config = JSONObject().put("responseMimeType", "application/json").put("responseSchema", stringArray)
+    if (lowThinking) config.put("thinkingConfig", JSONObject().put("thinkingLevel", "low"))
     return JSONObject()
         .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", geminiSystemInstruction()))))
         .put(
@@ -131,10 +144,8 @@ internal fun geminiRequestBody(
                     .put("role", "user")
                     .put("parts", JSONArray().put(JSONObject().put("text", geminiUserPrompt(batch, glossary)))),
             ),
-        ).put(
-            "generationConfig",
-            JSONObject().put("responseMimeType", "application/json").put("responseSchema", stringArray),
-        ).toString()
+        ).put("generationConfig", config)
+        .toString()
 }
 
 /** The translations in a generateContent reply; anything but [expected] strings is an error. */
@@ -204,6 +215,12 @@ internal suspend fun sentenceTexts(
 }
 
 private const val SENTENCE_READ_CHUNK = 256
+
+/** A 400 reply about the thinking setting: the model does not support it, so ask without it. */
+internal fun isThinkingConfigRejected(
+    code: Int,
+    message: String?,
+): Boolean = code == 400 && message.orEmpty().contains("thinking", ignoreCase = true)
 
 /** Gemini translates only when chosen, given a key, English to Uzbek, and not resting after a failure. */
 internal fun geminiEnabled(
