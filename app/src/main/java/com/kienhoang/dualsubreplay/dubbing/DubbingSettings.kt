@@ -2,6 +2,8 @@ package com.kienhoang.dualsubreplay.dubbing
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDERS
+import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GOOGLE
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -26,6 +28,8 @@ internal object DubbingSettings {
     private const val KEY_SPEECH_UNITS = "speech_units"
     private const val KEY_SPEECH_ACRONYMS = "speech_acronyms"
     private const val KEY_GLOSSARY_IN_TRANSLATION = "glossary_in_translation"
+    private const val KEY_TRANSLATION_PROVIDER = "translation_provider"
+    private const val KEY_GEMINI_API_KEY = "gemini_api_key"
     private const val DEFAULT_VIDEO_VOLUME = 20
     private const val DEFAULT_MAX_TEMPO_PERCENT = 150
 
@@ -39,6 +43,9 @@ internal object DubbingSettings {
     private val _stats = MutableStateFlow(DubbingStats())
     private val _speechOptions = MutableStateFlow(SpeechOptions())
     private val _glossaryInTranslation = MutableStateFlow(true)
+    private val _translationProvider = MutableStateFlow(TRANSLATION_PROVIDER_GOOGLE)
+    private val _geminiApiKey = MutableStateFlow("")
+    private val _translatorStatus = MutableStateFlow("")
     private var preferences: SharedPreferences? = null
 
     val available: StateFlow<Boolean> = _available
@@ -62,6 +69,15 @@ internal object DubbingSettings {
 
     /** Send approved UZI glossary terms to the translator in place of the English terms (on by default). */
     val glossaryInTranslation: StateFlow<Boolean> = _glossaryInTranslation
+
+    /** "google" (keyless Google Translate) or "gemini" (the user's own Gemini API key). */
+    val translationProvider: StateFlow<String> = _translationProvider
+
+    /** The user's Gemini API key: kept only in this app's private preferences, never in the code. */
+    val geminiApiKey: StateFlow<String> = _geminiApiKey
+
+    /** What the translator last did, for the settings card ("Gemini: 25 gap", or why it fell back). */
+    val translatorStatus: StateFlow<String> = _translatorStatus
 
     /** What the dub did in the current video, for the settings card. */
     val stats: StateFlow<DubbingStats> = _stats
@@ -90,7 +106,25 @@ internal object DubbingSettings {
                 expandAcronyms = saved.getBoolean(KEY_SPEECH_ACRONYMS, false),
             )
         _glossaryInTranslation.value = saved.getBoolean(KEY_GLOSSARY_IN_TRANSLATION, true)
+        _translationProvider.value =
+            saved.getString(KEY_TRANSLATION_PROVIDER, null)?.takeIf { it in TRANSLATION_PROVIDERS } ?: TRANSLATION_PROVIDER_GOOGLE
+        _geminiApiKey.value = saved.getString(KEY_GEMINI_API_KEY, null).orEmpty()
         _available.value = true
+    }
+
+    fun setTranslationProvider(provider: String) {
+        if (provider !in TRANSLATION_PROVIDERS) return
+        _translationProvider.value = provider
+        preferences?.edit()?.putString(KEY_TRANSLATION_PROVIDER, provider)?.apply()
+    }
+
+    fun setGeminiApiKey(key: String) {
+        _geminiApiKey.value = key.trim()
+        preferences?.edit()?.putString(KEY_GEMINI_API_KEY, _geminiApiKey.value)?.apply()
+    }
+
+    fun publishTranslatorStatus(status: String) {
+        _translatorStatus.value = status
     }
 
     fun setGlossaryInTranslation(value: Boolean) {

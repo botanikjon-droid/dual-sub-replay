@@ -78,3 +78,23 @@ The doctor saw no change: the switch only affected translations made after it wa
 - `AppViewModel.translationSettings()` now also emits when the switch changes, so the open video is translated again.
 - Following the doctor's request, glossary-guided translation is now **on by default**. It can still be switched off.
 - Unverified on a phone until the next build is installed.
+
+## Gemini translator (optional, uz build)
+The doctor asked for better sentence translation; Google Translate translates word by word ("I've had a great patient" became "bemorni boshdan kechirdim"). He chose the Gemini API free tier.
+- **Settings** ("O‘zbekcha ovoz" card):
+  - "Tarjimon": Google Translate (bepul) or Gemini.
+  - "Gemini API kaliti": a password field. The key is kept only in the app's private `dubbing` preferences; it is never in the code, the repository or the CI.
+  - A status line shows what the translator last did, or why it fell back.
+- **Batching:** `TranslationLookahead.sentences` holds the open video's sentences (`sentenceTexts`, filled by AppViewModel in the uz build). A cache miss sends that sentence and up to 24 following untranslated ones (`sentenceBatch`, `GEMINI_BATCH_SIZE` = 25) in one `generateContent` request.
+  - The request also carries the 3 previous sentences as context and the approved glossary terms found in the batch (`glossaryForBatch`, primary Uzbek term only).
+  - The model must return a JSON array with one translation per sentence (`responseSchema`).
+  - When one of the next 8 sentences is untranslated, the following batch is fetched in the background.
+- **Models:** `gemini-3.8-flash`, then `gemini-flash-latest`, then `gemini-flash-lite-latest`. A model the key cannot use (HTTP 404) moves on to the next one.
+- **Fallback:** if the key is missing, or Gemini fails (quota, network, wrong count, unreadable reply), the sentence is translated by the existing Google path (`withFallback`), and Gemini rests for 60 s.
+- **Cache and re-translation:** Gemini results are cached apart from Google's (`en+gemini-v1`). Changing the translator re-translates the open video.
+- **Unit tests:** `GeminiTranslationTest` covers batching, context, the glossary, the request body, reply parsing and errors, the enable rule and the fallback. All pass locally (with a local org.json stand-in; CI uses the real one).
+- **Unverified:**
+  - a live Gemini call: the sandbox cannot reach generativelanguage.googleapis.com;
+  - whether the models are reachable from Uzbekistan;
+  - free-tier quota on long videos;
+  - translation quality, to be judged by the doctor.

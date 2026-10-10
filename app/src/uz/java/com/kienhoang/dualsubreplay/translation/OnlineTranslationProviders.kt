@@ -1,5 +1,6 @@
 package com.kienhoang.dualsubreplay.translation
 
+import com.kienhoang.dualsubreplay.data.GlossaryEntry
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -87,9 +88,61 @@ internal class OnlineTranslationChain(
     }
 }
 
+/**
+ * The optional Gemini translator: several sentences per request, with context and glossary terms.
+ * The key comes from the user's own settings and is sent only in a request header.
+ */
+internal class GeminiBatchTranslator(
+    private val apiKey: () -> String,
+) {
+    /** The first model that answered; later requests start with it. */
+    @Volatile private var workingModel: String? = null
+
+    @Throws(IOException::class)
+    fun translate(
+        batch: SentenceBatch,
+        glossary: List<GlossaryEntry>,
+    ): List<String> {
+        val key = apiKey().trim()
+        if (key.isEmpty()) throw IOException("Gemini API key is not set.")
+        val body = geminiRequestBody(batch, glossary)
+        var lastError: IOException = IOException("No Gemini model answered.")
+        for (model in listOfNotNull(workingModel) + GEMINI_MODELS.filter { it != workingModel }) {
+            try {
+                val reply =
+                    request(
+                        "$GEMINI_API_URL/$model:generateContent",
+                        body,
+                        contentType = JSON_CONTENT_TYPE,
+                        headers = mapOf("x-goog-api-key" to key),
+                        readTimeoutMs = GEMINI_READ_TIMEOUT_MS,
+                    )
+                return parseGeminiTranslations(reply, batch.sentences.size).also { workingModel = model }
+            } catch (error: HttpStatusException) {
+                // A model this key cannot use: try the next one. Anything else is a real failure.
+                if (error.code != HTTP_NOT_FOUND) throw error
+                lastError = error
+            }
+        }
+        throw lastError
+    }
+}
+
+/** An HTTP error status, kept as an IOException so callers that only know IOException still work. */
+internal class HttpStatusException(
+    val code: Int,
+    message: String,
+) : IOException(message)
+
 private const val CONNECT_TIMEOUT_MS = 10_000
 private const val READ_TIMEOUT_MS = 15_000
+
+/** A batch of 25 sentences takes Gemini longer than one gtx sentence. */
+private const val GEMINI_READ_TIMEOUT_MS = 60_000
+private const val HTTP_NOT_FOUND = 404
 private const val USER_AGENT = "Mozilla/5.0 (Linux; Android) DualSubReplay"
+private const val FORM_CONTENT_TYPE = "application/x-www-form-urlencoded; charset=UTF-8"
+private const val JSON_CONTENT_TYPE = "application/json; charset=UTF-8"
 
 private fun httpGet(url: String): String = request(url, body = null)
 
@@ -101,16 +154,20 @@ private fun httpPost(
 private fun request(
     url: String,
     body: String?,
+    contentType: String = FORM_CONTENT_TYPE,
+    headers: Map<String, String> = emptyMap(),
+    readTimeoutMs: Int = READ_TIMEOUT_MS,
 ): String {
     val connection = URL(url).openConnection() as HttpURLConnection
     try {
         connection.connectTimeout = CONNECT_TIMEOUT_MS
-        connection.readTimeout = READ_TIMEOUT_MS
+        connection.readTimeout = readTimeoutMs
         connection.setRequestProperty("User-Agent", USER_AGENT)
+        headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
         if (body != null) {
             connection.requestMethod = "POST"
             connection.doOutput = true
-            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+            connection.setRequestProperty("Content-Type", contentType)
             connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
         }
         val code = connection.responseCode
@@ -118,7 +175,7 @@ private fun request(
         val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
         if (code !in 200..299) {
             // Google Cloud explains rejected keys and quotas in its JSON error body.
-            throw IOException("HTTP $code${apiErrorMessage(text)?.let { " - $it" }.orEmpty()}")
+            throw HttpStatusException(code, "HTTP $code${apiErrorMessage(text)?.let { " - $it" }.orEmpty()}")
         }
         return text
     } finally {

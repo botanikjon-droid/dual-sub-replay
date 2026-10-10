@@ -1195,16 +1195,17 @@ class AppViewModel internal constructor(
     }
 
     /**
-     * The caption format and target language to translate with. The UZI glossary switch changes what the
-     * translator is given, so flipping it emits again and re-translates the open video.
+     * The caption format and target language to translate with. The UZI glossary switch and the uz
+     * build's translator choice change what is sent, so changing either re-translates the open video.
      */
     private fun translationSettings() =
         combine(
             _state.map { it.captionFormat to it.targetLanguage },
             com.kienhoang.dualsubreplay.dubbing.DubbingSettings.glossaryInTranslation,
-        ) { formatAndTarget, glossary -> formatAndTarget to glossary }
+            com.kienhoang.dualsubreplay.dubbing.DubbingSettings.translationProvider,
+        ) { formatAndTarget, glossary, provider -> Triple(formatAndTarget, glossary, provider) }
             .distinctUntilChanged()
-            .map { (formatAndTarget, _) -> formatAndTarget }
+            .map { (formatAndTarget, _, _) -> formatAndTarget }
 
     private suspend fun runStoredTranslation(
         rawStore: SubtitleStore,
@@ -1252,6 +1253,11 @@ class AppViewModel internal constructor(
                         format = format,
                         natural = natural,
                     )
+                // The uz build's Gemini translator sends the coming sentences together, so it needs them.
+                if (BUILD_PREFERS_WHOLE_SENTENCE) {
+                    com.kienhoang.dualsubreplay.translation.TranslationLookahead.sentences =
+                        com.kienhoang.dualsubreplay.translation.sentenceTexts(checkNotNull(displayStore))
+                }
             }
             try {
                 translator.withSession(sourceLanguage, targetLanguage, onDownloadingChange = { downloading ->

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -25,8 +26,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GEMINI
+import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GOOGLE
 
 /** The "Uzbek voice" card at the top of the settings; shown only in a build with a voice. */
 @Composable
@@ -68,6 +72,7 @@ internal fun DubbingSettingsCard() {
                 PacingControls()
             }
             VideoQualityControls()
+            TranslatorControls()
             GlossaryTranslationSwitch()
         }
     }
@@ -161,6 +166,47 @@ private fun VideoQualityControls() {
             )
         }
     }
+}
+
+/** Which translator works: keyless Google Translate, or Gemini with the user's own key. */
+@Composable
+private fun TranslatorControls() {
+    val provider by DubbingSettings.translationProvider.collectAsStateWithLifecycle()
+    val key by DubbingSettings.geminiApiKey.collectAsStateWithLifecycle()
+    val status by DubbingSettings.translatorStatus.collectAsStateWithLifecycle()
+    Text("Tarjimon", modifier = Modifier.padding(top = 10.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(
+            selected = provider == TRANSLATION_PROVIDER_GOOGLE,
+            onClick = { DubbingSettings.setTranslationProvider(TRANSLATION_PROVIDER_GOOGLE) },
+            label = { Text("Google Translate (bepul)") },
+            modifier = Modifier.testTag("translator_google"),
+        )
+        FilterChip(
+            selected = provider == TRANSLATION_PROVIDER_GEMINI,
+            onClick = { DubbingSettings.setTranslationProvider(TRANSLATION_PROVIDER_GEMINI) },
+            label = { Text("Gemini") },
+            modifier = Modifier.testTag("translator_gemini"),
+        )
+    }
+    if (provider == TRANSLATION_PROVIDER_GEMINI) {
+        OutlinedTextField(
+            value = key,
+            onValueChange = DubbingSettings::setGeminiApiKey,
+            label = { Text("Gemini API kaliti") },
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp).testTag("gemini_api_key"),
+        )
+        Hint(
+            if (key.isBlank()) {
+                "Kalitni aistudio.google.com dan oling. Kalit faqat shu telefonda saqlanadi. Kalitsiz Google Translate ishlaydi."
+            } else {
+                "Gemini bir nechta gapni birga, UZI lug\u2018ati bilan tarjima qiladi. Xato bo\u2018lsa, Google Translate ishlaydi."
+            },
+        )
+    }
+    if (status.isNotBlank()) Hint(status, Modifier.padding(top = 4.dp).testTag("translator_status"))
 }
 
 /** Glossary-guided translation: approved UZI terms are given to the translator. */

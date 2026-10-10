@@ -5,16 +5,22 @@ import com.kienhoang.dualsubreplay.data.UziGlossaryStore
 import com.kienhoang.dualsubreplay.data.glossaryApplies
 import com.kienhoang.dualsubreplay.data.glossaryGuidedSource
 import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 
 /**
  * The "uz" build's translator. Neither ML Kit nor Bergamot can translate Uzbek, so this
- * variant translates online: Google Cloud Translation when a key was supplied at build
- * time, otherwise the keyless gtx fallback. It keeps the exact public API of the other
+ * variant translates online: Gemini when the user chose it and entered their own key (falling
+ * back to the others on any failure), else Google Cloud Translation when a key was supplied at
+ * build time, otherwise the keyless gtx fallback. It keeps the exact public API of the other
  * variants, so AppViewModel and the UI do not know which provider answered.
  */
 class OnDeviceTranslator(
@@ -26,6 +32,13 @@ class OnDeviceTranslator(
     private val diskCache =
         cacheDirectory?.let { TranslationDiskCache(File(it.parentFile, "${it.name}-$CACHE_VERSION")) }
     private val cache = TranslationCache()
+    private val gemini = GeminiBatchTranslator { DubbingSettings.geminiApiKey.value }
+    private val geminiLock = Mutex()
+    private val prefetchScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    @Volatile private var prefetching = false
+
+    @Volatile private var geminiPausedUntil = 0L
     private val online =
         OnlineTranslationChain(
             buildList {
@@ -108,10 +121,89 @@ class OnDeviceTranslator(
         languages: TranslationPair,
         text: String,
     ): String {
-        // With the glossary switch on, the translator gets the approved Uzbek terms; the cache key is
-        // that guided text, so plain and guided translations never mix.
-        val source = guidedSource(languages, text)
-        return cached(languages, source) ?: translateOnline(languages, source)
+        // With the glossary switch on, Google gets the approved Uzbek terms; the cache key is that
+        // guided text, so plain and guided translations never mix.
+        suspend fun google(): String {
+            val source = guidedSource(languages, text)
+            return cached(languages, source) ?: translateOnline(languages, source)
+        }
+        if (!usesGemini(languages)) return google()
+        return withFallback(
+            primary = { translateWithGemini(languages, text) },
+            onFailure = { error ->
+                // No key, no quota or no network: Google Translate takes over, and Gemini rests a minute
+                // so every sentence does not wait for the same failure.
+                geminiPausedUntil = System.currentTimeMillis() + GEMINI_PAUSE_AFTER_FAILURE_MS
+                DubbingSettings.publishTranslatorStatus("Gemini ishlamadi (${error.message}). Google Translate ishlatilmoqda.")
+            },
+            fallback = { google() },
+        )
+    }
+
+    private fun usesGemini(languages: TranslationPair): Boolean =
+        geminiEnabled(
+            DubbingSettings.translationProvider.value,
+            DubbingSettings.geminiApiKey.value,
+            languages.source,
+            languages.target,
+            geminiPausedUntil,
+            System.currentTimeMillis(),
+        )
+
+    /** Gemini results are cached apart from Google's, under the plain English sentence. */
+    private fun geminiPair(languages: TranslationPair) = TranslationPair("${languages.source}$GEMINI_CACHE_SUFFIX", languages.target)
+
+    private suspend fun translateWithGemini(
+        languages: TranslationPair,
+        text: String,
+    ): String {
+        val pair = geminiPair(languages)
+        val hit =
+            cached(pair, text) ?: geminiLock.withLock {
+                // A prefetch may have translated it while this call waited.
+                cached(pair, text) ?: run {
+                    fetchGeminiBatch(pair, text)
+                    cached(pair, text)
+                }
+            }
+        prefetchGeminiAfter(pair, text)
+        return hit ?: throw IOException("Gemini skipped the sentence.")
+    }
+
+    /** One request for [text] and the sentences after it that are not translated yet. */
+    private suspend fun fetchGeminiBatch(
+        pair: TranslationPair,
+        text: String,
+    ) {
+        val batch = sentenceBatch(TranslationLookahead.sentences, text) { cache.get(pair.source, pair.target, it) != null }
+        val glossary = glossaryForBatch(UziGlossaryStore.glossary.value, batch.sentences)
+        val translations = withContext(Dispatchers.IO) { gemini.translate(batch, glossary) }
+        batch.sentences.zip(translations).forEach { (sentence, translated) ->
+            cache.put(pair.source, pair.target, sentence, translated)
+            withContext(Dispatchers.IO) { diskCache?.put(pair.source, pair.target, sentence, translated) }
+        }
+        DubbingSettings.publishTranslatorStatus("Gemini: ${batch.sentences.size} ta gap tarjima qilindi.")
+    }
+
+    /** Fetches the next batch in the background before playback reaches it, so the video does not wait. */
+    private fun prefetchGeminiAfter(
+        pair: TranslationPair,
+        text: String,
+    ) {
+        if (prefetching) return
+        val next =
+            sentencesAfter(TranslationLookahead.sentences, text).firstOrNull { cache.get(pair.source, pair.target, it) == null }
+                ?: return
+        prefetching = true
+        prefetchScope.launch {
+            try {
+                geminiLock.withLock { if (cached(pair, next) == null) fetchGeminiBatch(pair, next) }
+            } catch (ignored: IOException) {
+                // The sentence is fetched again, or falls back to Google, when playback reaches it.
+            } finally {
+                prefetching = false
+            }
+        }
     }
 
     private fun guidedSource(
@@ -177,6 +269,8 @@ class OnDeviceTranslator(
     private companion object {
         // Bump when the provider or its output changes, to drop stale cached translations.
         const val CACHE_VERSION = "uz-online-v1"
+        const val GEMINI_CACHE_SUFFIX = "+gemini-v1"
+        const val GEMINI_PAUSE_AFTER_FAILURE_MS = 60_000L
         const val MAX_SKIPPED_IN_A_ROW = 3
     }
 }
