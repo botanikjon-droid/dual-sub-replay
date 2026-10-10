@@ -106,3 +106,13 @@ The doctor confirmed Gemini translates on his phone, but the video waited. Chang
 - `thinkingConfig.thinkingLevel = "low"` is sent, because thinking is most of a Flash model's wait. If a model rejects the field (HTTP 400 naming "thinking"), it is retried without it and not sent again.
 - `gemini-flash-latest` is tried first: the doctor's key works with it, which saves a possible 404 round trip.
 - Unverified: real latency on the phone.
+
+## Field feedback 4 (2026-10-10): still about a minute of waiting
+- **Cause:** the background batch held a lock, and a sentence the video needed waited for that whole request, however long the free tier took.
+- **Fix:** `GeminiBatchScheduler`.
+  - A needed sentence joins the batch already fetching it, or starts a small batch.
+  - It is waited for at most `GEMINI_WAIT_MS` = 6 s. If Gemini has not answered by then, that one sentence goes to Google and Gemini keeps working on the next ones; this kind of timeout does not pause Gemini.
+  - At most 2 requests run at once.
+  - Sentences already in flight are never requested twice.
+- **Tests:** `GeminiBatchSchedulerTest`, 4 tests with a fake Gemini, run 10 times locally, all passed.
+- **Unverified:** real timing on the phone.

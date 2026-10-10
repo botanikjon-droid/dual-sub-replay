@@ -9,9 +9,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
@@ -33,10 +30,8 @@ class OnDeviceTranslator(
         cacheDirectory?.let { TranslationDiskCache(File(it.parentFile, "${it.name}-$CACHE_VERSION")) }
     private val cache = TranslationCache()
     private val gemini = GeminiBatchTranslator { DubbingSettings.geminiApiKey.value }
-    private val geminiLock = Mutex()
     private val prefetchScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    @Volatile private var prefetching = false
+    private val schedulers = HashMap<TranslationPair, GeminiBatchScheduler>()
 
     @Volatile private var geminiPausedUntil = 0L
     private val online =
@@ -131,10 +126,15 @@ class OnDeviceTranslator(
         return withFallback(
             primary = { translateWithGemini(languages, text) },
             onFailure = { error ->
-                // No key, no quota or no network: Google Translate takes over, and Gemini rests a minute
-                // so every sentence does not wait for the same failure.
-                geminiPausedUntil = System.currentTimeMillis() + GEMINI_PAUSE_AFTER_FAILURE_MS
-                DubbingSettings.publishTranslatorStatus("Gemini ishlamadi (${error.message}). Google Translate ishlatilmoqda.")
+                if (error is GeminiTooSlow) {
+                    // Only this sentence goes to Google; Gemini keeps translating the following ones.
+                    DubbingSettings.publishTranslatorStatus("Gemini kechikdi: bu gap Google bilan tarjima qilindi.")
+                } else {
+                    // No key, no quota or no network: Google Translate takes over, and Gemini rests a minute
+                    // so every sentence does not wait for the same failure.
+                    geminiPausedUntil = System.currentTimeMillis() + GEMINI_PAUSE_AFTER_FAILURE_MS
+                    DubbingSettings.publishTranslatorStatus("Gemini ishlamadi (${error.message}). Google Translate ishlatilmoqda.")
+                }
             },
             fallback = { google() },
         )
@@ -158,27 +158,32 @@ class OnDeviceTranslator(
         text: String,
     ): String {
         val pair = geminiPair(languages)
-        val hit =
-            cached(pair, text) ?: geminiLock.withLock {
-                // A prefetch may have translated it while this call waited.
-                cached(pair, text) ?: run {
-                    // Playback is waiting: a small batch answers quickly; the big ones follow in the background.
-                    fetchGeminiBatch(pair, text, GEMINI_FIRST_BATCH_SIZE)
-                    cached(pair, text)
-                }
-            }
-        prefetchGeminiAfter(pair, text)
-        return hit ?: throw IOException("Gemini skipped the sentence.")
+        val scheduler = schedulerFor(pair)
+        cached(pair, text)?.let { hit ->
+            scheduler.prefetchAfter(text)
+            return hit
+        }
+        if (!scheduler.awaitTranslation(text)) throw GeminiTooSlow()
+        return cached(pair, text) ?: throw IOException("Gemini skipped the sentence.")
     }
 
-    /** One request for [text] and the sentences after it that are not translated yet. */
+    private fun schedulerFor(pair: TranslationPair): GeminiBatchScheduler =
+        synchronized(schedulers) {
+            schedulers.getOrPut(pair) {
+                GeminiBatchScheduler(
+                    scope = prefetchScope,
+                    sentences = { TranslationLookahead.sentences },
+                    isTranslated = { cache.get(pair.source, pair.target, it) != null },
+                    fetch = { batch -> fetchGeminiBatch(pair, batch) },
+                )
+            }
+        }
+
+    /** One Gemini request; its translations go to the caches the scheduler reads. */
     private suspend fun fetchGeminiBatch(
         pair: TranslationPair,
-        text: String,
-        size: Int = GEMINI_BATCH_SIZE,
+        batch: SentenceBatch,
     ) {
-        val batch =
-            sentenceBatch(TranslationLookahead.sentences, text, size = size) { cache.get(pair.source, pair.target, it) != null }
         val glossary = glossaryForBatch(UziGlossaryStore.glossary.value, batch.sentences)
         val translations = withContext(Dispatchers.IO) { gemini.translate(batch, glossary) }
         batch.sentences.zip(translations).forEach { (sentence, translated) ->
@@ -188,26 +193,8 @@ class OnDeviceTranslator(
         DubbingSettings.publishTranslatorStatus("Gemini: ${batch.sentences.size} ta gap tarjima qilindi.")
     }
 
-    /** Fetches the next batch in the background before playback reaches it, so the video does not wait. */
-    private fun prefetchGeminiAfter(
-        pair: TranslationPair,
-        text: String,
-    ) {
-        if (prefetching) return
-        val next =
-            sentencesAfter(TranslationLookahead.sentences, text).firstOrNull { cache.get(pair.source, pair.target, it) == null }
-                ?: return
-        prefetching = true
-        prefetchScope.launch {
-            try {
-                geminiLock.withLock { if (cached(pair, next) == null) fetchGeminiBatch(pair, next) }
-            } catch (ignored: IOException) {
-                // The sentence is fetched again, or falls back to Google, when playback reaches it.
-            } finally {
-                prefetching = false
-            }
-        }
-    }
+    /** Gemini did not answer in time for this sentence; it keeps working on the next ones. */
+    private class GeminiTooSlow : IOException("javob kechikdi")
 
     private fun guidedSource(
         languages: TranslationPair,
