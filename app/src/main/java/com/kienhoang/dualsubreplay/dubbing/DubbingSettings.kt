@@ -38,7 +38,7 @@ internal object DubbingSettings {
     private val _maxTempoPercent = MutableStateFlow(DEFAULT_MAX_TEMPO_PERCENT)
     private val _stats = MutableStateFlow(DubbingStats())
     private val _speechOptions = MutableStateFlow(SpeechOptions())
-    private val _glossaryInTranslation = MutableStateFlow(false)
+    private val _glossaryInTranslation = MutableStateFlow(true)
     private var preferences: SharedPreferences? = null
 
     val available: StateFlow<Boolean> = _available
@@ -60,7 +60,7 @@ internal object DubbingSettings {
     /** Experimental pronunciation rules (units, abbreviations); both off until a doctor confirms them by ear. */
     val speechOptions: StateFlow<SpeechOptions> = _speechOptions
 
-    /** Send approved UZI glossary terms to the translator in place of the English terms (experiment). */
+    /** Send approved UZI glossary terms to the translator in place of the English terms (on by default). */
     val glossaryInTranslation: StateFlow<Boolean> = _glossaryInTranslation
 
     /** What the dub did in the current video, for the settings card. */
@@ -89,7 +89,7 @@ internal object DubbingSettings {
                 readUnits = saved.getBoolean(KEY_SPEECH_UNITS, false),
                 expandAcronyms = saved.getBoolean(KEY_SPEECH_ACRONYMS, false),
             )
-        _glossaryInTranslation.value = saved.getBoolean(KEY_GLOSSARY_IN_TRANSLATION, false)
+        _glossaryInTranslation.value = saved.getBoolean(KEY_GLOSSARY_IN_TRANSLATION, true)
         _available.value = true
     }
 

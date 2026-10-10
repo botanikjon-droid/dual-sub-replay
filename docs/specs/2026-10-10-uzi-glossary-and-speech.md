@@ -72,3 +72,9 @@ Report from the doctor, with screenshots of a real ultrasound lecture:
   - Experiment: "Tarjimada UZI lug‘atini ishlatish (sinov)", off by default. It replaces each non-common glossary term in the text sent to the translator with its approved Uzbek term (`glossaryGuidedSource`), so the translator inflects it in context.
   - The English caption is unchanged, and the cache key is the guided text.
   - Unverified against live gtx; to be judged on a phone.
+
+## Field feedback 2 (2026-10-10): glossary terms not used
+The doctor saw no change: the switch only affected translations made after it was turned on, and the open video kept its earlier ones.
+- `AppViewModel.translationSettings()` now also emits when the switch changes, so the open video is translated again.
+- Following the doctor's request, glossary-guided translation is now **on by default**. It can still be switched off.
+- Unverified on a phone until the next build is installed.

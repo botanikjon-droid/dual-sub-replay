@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -1152,7 +1153,7 @@ class AppViewModel internal constructor(
                         )
                     }
 
-                    _state.map { it.captionFormat to it.targetLanguage }.distinctUntilChanged().collectLatest { (format, target) ->
+                    translationSettings().collectLatest { (format, target) ->
                         runStoredTranslation(checkNotNull(rawStore), videoId, generation, track.languageCode, target, format, natural)
                     }
                 } catch (error: Exception) {
@@ -1192,6 +1193,18 @@ class AppViewModel internal constructor(
         // Do not retain every raw cue across the long-lived translation coroutine.
         return track.copy(cues = emptyList())
     }
+
+    /**
+     * The caption format and target language to translate with. The UZI glossary switch changes what the
+     * translator is given, so flipping it emits again and re-translates the open video.
+     */
+    private fun translationSettings() =
+        combine(
+            _state.map { it.captionFormat to it.targetLanguage },
+            com.kienhoang.dualsubreplay.dubbing.DubbingSettings.glossaryInTranslation,
+        ) { formatAndTarget, glossary -> formatAndTarget to glossary }
+            .distinctUntilChanged()
+            .map { (formatAndTarget, _) -> formatAndTarget }
 
     private suspend fun runStoredTranslation(
         rawStore: SubtitleStore,

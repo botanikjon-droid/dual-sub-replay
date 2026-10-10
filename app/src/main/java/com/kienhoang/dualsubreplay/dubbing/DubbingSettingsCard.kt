@@ -163,13 +163,13 @@ private fun VideoQualityControls() {
     }
 }
 
-/** Glossary-guided translation: approved UZI terms are given to the translator (experiment). */
+/** Glossary-guided translation: approved UZI terms are given to the translator. */
 @Composable
 private fun GlossaryTranslationSwitch() {
     val on by DubbingSettings.glossaryInTranslation.collectAsStateWithLifecycle()
     SpeechRuleSwitch(
-        "Tarjimada UZI lug\u2018atini ishlatish (sinov)",
-        "Masalan, \"transducer\" o\u2018rniga tarjimonga \"datchik\" beriladi. Yangi tarjimalarga ta\u2019sir qiladi.",
+        "Tarjimada UZI lug\u2018atini ishlatish",
+        "Masalan, \"transducer\" o\u2018rniga tarjimonga \"datchik\" beriladi. O\u2018zgartirilsa, ochiq video qayta tarjima qilinadi.",
         on,
         "glossary_in_translation_switch",
         DubbingSettings::setGlossaryInTranslation,
