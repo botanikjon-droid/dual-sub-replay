@@ -16,6 +16,9 @@ jobs:
   verify-build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Write access only for the uz-latest pre-release step below, which runs on the doctor's fork only.
+    permissions:
+      contents: write
 
     steps:
       - name: Check out source
@@ -102,6 +105,22 @@ jobs:
           path: DualSub-Replay-uz.apk
           if-no-files-found: error
           retention-days: 30
+
+      # The doctor's fork only, never for pull requests: the Uzbek APK as a plain file at a fixed link
+      # (releases/download/uz-latest/DualSub-Replay-uz.apk), with no ZIP and no GitHub sign-in. The tag
+      # is not a v<version> tag, so tools/automatic_release.py ignores this pre-release.
+      - name: Publish the Uzbek APK as the uz-latest pre-release
+        if: github.repository == 'botanikjon-droid/dual-sub-replay' && github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          notes="Uzbek build of ${GITHUB_REF_NAME} at ${GITHUB_SHA::7} (run ${GITHUB_RUN_NUMBER}). Download DualSub-Replay-uz.apk and install it."
+          # Recreated each time so the tag follows the newest build; the download link stays the same.
+          gh release delete uz-latest --cleanup-tag --yes 2>/dev/null || true
+          gh release create uz-latest DualSub-Replay-uz.apk \
+            --prerelease --title "DualSub UZ (latest)" --notes "$notes" --target "$GITHUB_SHA"
 
       - name: Build optimized release APK with test signing
         run: |
