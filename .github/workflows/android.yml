@@ -270,6 +270,22 @@ jobs:
           -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
           --no-parallel --max-workers=2 --stacktrace
 
+      # Logs and report artifacts need a GitHub sign-in to read; annotations do not, so the
+      # failing tests are also listed there.
+      - name: List failed device tests as annotations
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          import glob
+          import xml.etree.ElementTree as ET
+          for path in glob.glob("app/build/outputs/androidTest-results/managedDevice/**/*.xml", recursive=True):
+              for case in ET.parse(path).getroot().iter("testcase"):
+                  for problem in case.findall("failure") + case.findall("error"):
+                      lines = (problem.text or problem.get("message") or "").strip().splitlines()
+                      summary = " | ".join(line.strip() for line in lines[:8])[:900]
+                      print(f"::error title={case.get('classname')}.{case.get('name')}::{summary}")
+          PY
+
       - name: Upload managed-device reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
