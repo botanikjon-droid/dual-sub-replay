@@ -151,6 +151,8 @@ internal fun CompactSubtitleCard(
                         onReplay,
                     )
                 }
+                // UZI terms with their approved Uzbek; only for English captions translated into Uzbek.
+                GlossaryTermRow(segment, resolvedSourceLanguage, targetLanguage, fontScale)
             }
         }
     }

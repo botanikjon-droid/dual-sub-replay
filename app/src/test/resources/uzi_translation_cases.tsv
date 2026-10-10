@@ -1,0 +1,36 @@
+# 30 sample ultrasound-lecture captions (written for the test, NOT taken from a real video).
+# expected_uzbek is a reference translation using the approved glossary terms; a doctor should review it.
+# expected_terms: glossary English terms (entry "english" column) found in the caption, in order; common words (J=Ha) are not listed.
+id	english	expected_uzbek	expected_terms
+1	The common bile duct measures 4 mm and is not dilated.	Umumiy o‘t yo‘li 4 mm, kengayish yo‘q.	common bile duct; dilatation
+2	Compare the hepatic veins with the main portal vein.	Jigar venalarini asosiy darvoza venasi bilan solishtiring.	hepatic vein; main portal vein
+3	A hypoechoic nodule is seen in the right lobe of the thyroid.	Qalqonsimon bezning o‘ng bo‘lagida gipoexogen tugun ko‘rinadi.	hypoechoic; nodule
+4	Simple cysts are anechoic with posterior acoustic enhancement.	Oddiy kistalar anexogen bo‘lib, distal akustik kuchayish beradi.	simple cyst; anechoic; posterior acoustic enhancement
+5	Gallstones are hyperechoic and cast an acoustic shadow.	O‘t toshlari giperexogen va akustik soya beradi.	gallstone; hyperechoic; acoustic shadowing
+6	Increase the gain or adjust the TGC to balance the image.	Tasvirni muvozanatlash uchun kuchaytirishni oshiring yoki TGC ni sozlang.	time gain compensation
+7	Shear wave elastography measures liver stiffness in kilopascals.	Siljish to‘lqini elastografiyasi jigar qattiqligini kilopaskalda o‘lchaydi.	shear wave elastography; liver stiffness; kilopascal
+8	A liver stiffness of 12 kPa suggests advanced fibrosis.	Jigar qattiqligining 12 kPa bo‘lishi rivojlangan fibrozdan dalolat beradi.	liver stiffness; kilopascal; fibrosis
+9	The resistive index of the renal artery is 0.7.	Buyrak arteriyasining rezistivlik indeksi 0,7 ga teng.	resistive index
+10	Color Doppler shows flow, while power Doppler is more sensitive to slow flow.	Rangli Doppler oqimni ko‘rsatadi, energetik (power) Doppler esa sekin oqimga sezgirroq.	color Doppler; power Doppler
+11	Spectral Doppler gives the peak systolic velocity and the end diastolic velocity.	Spektral Doppler sistolik cho‘qqi tezligi va diastola oxiridagi tezlikni beradi.	spectral Doppler; peak systolic velocity; end diastolic velocity
+12	Aliasing appears when the pulse repetition frequency is too low.	Impulslar takrorlanish chastotasi juda past bo‘lsa, aliasing paydo bo‘ladi.	aliasing; pulse repetition frequency
+13	Hepatofugal flow in the portal vein is a sign of portal hypertension.	Darvoza venasidagi gepatofugal oqim portal gipertenziya belgisidir.	hepatofugal flow; portal vein; portal hypertension
+14	The lesion is well defined, but the mass next to it has irregular margins.	O‘choq aniq chegarali, lekin uning yonidagi hosila notekis chegaraga ega.	well defined; irregular margins
+15	Not every tumor is malignant; a hemangioma is usually benign.	Har bir o‘sma xavfli emas; gemangioma odatda xavfsiz bo‘ladi.	tumor; malignant; hemangioma; benign
+16	Microcalcifications in a thyroid nodule raise the TI-RADS score.	Qalqonsimon bez tugunidagi mikrokalsifikatlar TI-RADS tasnifi bo‘yicha xavf balini oshiradi.	microcalcification; thyroid nodule; TI-RADS
+17	A taller than wide nodule is suspicious.	Eniga nisbatan balandroq tugun shubhali hisoblanadi.	taller than wide; nodule
+18	Measure the crown rump length to date the pregnancy.	Homiladorlik muddatini aniqlash uchun tepa-dumg‘aza uzunligini o‘lchang.	crown rump length
+19	The biparietal diameter and femur length are within normal limits.	Biparietal diametr va son suyagi uzunligi me’yor chegarasida.	biparietal diameter; femur length
+20	Oligohydramnios means a low amniotic fluid index.	Oligogidramnion amniotik suyuqlik indeksining pastligini bildiradi.	oligohydramnios; amniotic fluid index
+21	Placenta previa covers the internal os of the cervix.	Platsenta previada yo‘ldosh bachadon bo‘ynining ichki og‘zini yopadi.	placenta previa
+22	The endometrial thickness is 8 mm.	Endometriy qalinligi 8 mm.	endometrial thickness
+23	A dominant follicle is seen in the left ovary.	Chap tuxumdonda dominant follikul ko‘rinadi.	dominant follicle
+24	Free fluid in the pouch of Douglas may suggest an ectopic pregnancy.	Douglas bo‘shlig‘idagi erkin suyuqlik bachadondan tashqari homiladorlikdan dalolat berishi mumkin.	free fluid; pouch of Douglas; ectopic pregnancy
+25	Through the anterior fontanelle we assess the lateral ventricles.	Oldingi katta liqildoq orqali yon qorinchalarni baholaymiz.	anterior fontanelle; lateral ventricle
+26	Intraventricular hemorrhage starts in the germinal matrix.	Qorinchalar ichiga qon quyilishi germinal matriksdan boshlanadi.	intraventricular hemorrhage; germinal matrix
+27	Ventriculomegaly may progress to hydrocephalus.	Ventrikulomegaliya gidrosefaliyaga o‘tishi mumkin.	ventriculomegaly; hydrocephalus
+28	The ejection fraction of the left ventricle is reduced.	Chap qorinchaning otish fraksiyasi pasaygan.	ejection fraction; left ventricle
+29	Mitral regurgitation is graded with color Doppler.	Mitral regurgitatsiya rangli Doppler yordamida baholanadi.	mitral regurgitation; color Doppler
+30	Use a linear probe for the thyroid and a curvilinear probe for the abdomen.	Qalqonsimon bez uchun chiziqli datchik, qorin uchun konveks datchikdan foydalaning.	linear probe; curvilinear probe
+31	B-mode shows echotexture; heterogeneous echotexture suggests diffuse disease.	B-rejim exotuzilmani ko‘rsatadi; geterogen exotuzilma diffuz kasallikdan dalolat beradi.	B-mode; echotexture; heterogeneous; echotexture; diffuse
+32	Reverberation and mirror image artifacts are not real structures.	Reverberatsiya va ko‘zgu artefaktlari haqiqiy tuzilmalar emas.	reverberation; mirror image artifact

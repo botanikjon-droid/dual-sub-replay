@@ -64,6 +64,7 @@ internal fun DubbingSettingsCard() {
             }
             if (enabled) {
                 VoiceControls()
+                VoiceTestControls()
                 PacingControls()
             }
             VideoQualityControls()

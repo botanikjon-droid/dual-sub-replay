@@ -35,6 +35,7 @@ internal fun WordLearningDialog(
     existingWord: com.kienhoang.dualsubreplay.data.SavedWord? = null,
     onSpeechSettings: (() -> Unit)? = null,
     onSpeakPart: (AnalyzedToken) -> Unit = {},
+    glossaryEntry: com.kienhoang.dualsubreplay.data.GlossaryEntry? = null,
 ) {
     var meaning by remember(selection) { mutableStateOf(existingWord?.meaning.orEmpty()) }
     var loading by remember(selection) { mutableStateOf(true) }
@@ -75,6 +76,18 @@ internal fun WordLearningDialog(
                 WordCardHeader(selection.token.text, onSpeak, onDismiss)
                 Column(Modifier.padding(end = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     WordCardDetails(selection, speechMessage, onSpeechSettings)
+                    glossaryEntry?.let { entry ->
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().testTag("word_glossary_entry"),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                        ) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text("UZI lug\u2018ati", style = MaterialTheme.typography.labelMedium)
+                                GlossaryEntryDetails(entry)
+                            }
+                        }
+                    }
                     if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
                     OutlinedTextField(
                         meaning,

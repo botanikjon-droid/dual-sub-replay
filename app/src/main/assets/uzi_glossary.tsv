@@ -1,0 +1,230 @@
+# UZI glossary v1. Generated from UZI_atamalari_tekshirilgan.xlsx by tools/glossary/convert_uzi_glossary.py.
+# Do not edit by hand: fix the workbook and run the converter again.
+id	category	english	aliases	uzbek	note	status	general
+1	Tasvir va exogenlik	anechoic	anechogenic	anexogen	Ultratovush aks-sadosi deyarli qaytmaydigan, odatda suyuqlikda ko‘rinadigan qora tasvir.	corrected	0
+2	Tasvir va exogenlik	hypoechoic	hypoechogenic	gipoexogen	Atrofdagi to‘qimaga nisbatan pastroq echogenlikka ega, ya’ni qoraroq ko‘rinadi.	corrected	0
+3	Tasvir va exogenlik	isoechoic	isoechogenic	izoexogen	Atrofdagi to‘qimaga nisbatan echogenligi bir xil.	corrected	0
+4	Tasvir va exogenlik	hyperechoic	hyperechogenic; echogenic	giperexogen	Atrofdagi to‘qimaga nisbatan yuqoriroq echogenlikka ega, ya’ni yorqinroq ko‘rinadi.	corrected	0
+5	Tasvir va exogenlik	echogenicity		echogenlik	To‘qimaning ultratovushni qaytarish darajasi; B-rejim tasvirida uning nisbiy yorqinligini belgilaydi.	corrected	0
+6	Tasvir va exogenlik	echotexture	echo texture	exotuzilma	To‘qimaning ichki ultratovush tasviri va tuzilish xususiyatlari.	corrected	0
+7	Tasvir va exogenlik	heterogeneous	heterogenous; inhomogeneous	geterogen	Ichki echotuzilmasi bir xil emas, turli echogenlikdagi qismlardan iborat.	corrected	0
+8	Tasvir va exogenlik	homogeneous	homogenous	gomogen	Ichki echotuzilmasi bir xil yoki bir maromda ko‘rinadi.	corrected	0
+9	Tasvir va exogenlik	echogenic focus	echogenic foci	echogen o‘choq	Atrofdagi to‘qimaga nisbatan yorqin ko‘rinadigan kichik o‘choq yoki soha.	corrected	0
+10	Tasvir va exogenlik	B-mode	B mode; brightness mode	B-rejim (2D)	Kulrang shkaladagi asosiy tasvir rejimi.	approved	0
+11	Tasvir va exogenlik	M-mode	M mode	M-rejim	Harakatni vaqt o‘qi bo‘yicha ko‘rsatadi.	approved	0
+12	Tasvir va exogenlik	harmonic imaging	tissue harmonic imaging	garmonik tasvir	Tasvir sifatini oshiradigan rejim.	approved	0
+13	Tasvir va exogenlik	contrast-enhanced ultrasound	contrast enhanced ultrasound	kontrastli ultratovush	Kontrast modda qon oqimini baholash.	approved	0
+14	Tasvir va exogenlik	CEUS		kontrastli ultratovush (CEUS)		approved	0
+15	Artefakt va fizika	acoustic shadowing	acoustic shadow; posterior shadowing	akustik soya	Zich tuzilma (tosh, kalsifikat) orqasida ovoz o‘tmasdan hosil bo‘lgan qora zona.	approved	0
+16	Artefakt va fizika	posterior acoustic enhancement	posterior enhancement; through transmission; distal enhancement	distal akustik kuchayish	Suyuqlikli tuzilma orqasida tasvirning yorqinlashishi.	approved	0
+17	Artefakt va fizika	reverberation	reverberation artifact	reverberatsiya (artefakt)	Takroriy aks-sado tufayli paydo bo‘ladigan qator-qator yolg‘on chiziqlar.	approved	0
+18	Artefakt va fizika	comet tail artifact	comet tail; comet-tail	"kometa dumi" artefakti	Kichik zich tuzilma ostida qisqa yorqin chiziq.	approved	0
+19	Artefakt va fizika	mirror image artifact	mirror artifact	ko‘zgu artefakti	Kuchli aks ettiruvchi sirt ortida tuzilmaning ikkinchi "nusxasi" paydo bo‘lishi.	approved	0
+20	Artefakt va fizika	edge shadowing	refraction shadowing	chekka soyasi (refraksion soya)	Dumaloq tuzilma chekkalari ortidagi nozik qora chiziqlar.	approved	0
+21	Artefakt va fizika	side lobe artifact	side lobe	yon nurlar artefakti	Asosiy nurdan tashqari yon nurlar sabab paydo bo‘ladigan yolg‘on aks.	approved	0
+22	Artefakt va fizika	artifact	artefact	artefakt	Haqiqiy tuzilmaga mos kelmaydigan tasvir belgisi.	approved	0
+23	Artefakt va fizika	attenuation		so‘nish (susayish)	Ovoz energiyasining to‘qima ichida kamayishi.	approved	0
+24	Artefakt va fizika	time gain compensation	TGC	vaqt bo‘yicha kuchaytirishni kompensatsiya qilish (TGC)	Chuqurlik oshgani sari ultratovush signali susayishini hisobga olib, turli chuqurliklarda signal kuchayishini alohida sozlash orqali tasvir yorqinligini muvozanatlaydi.	corrected	0
+25	Artefakt va fizika	transducer	probe	datchik (zond)	Ultratovush to‘lqinini chiqaruvchi va qabul qiluvchi qism.	approved	0
+26	Artefakt va fizika	curvilinear probe	curved array; convex probe; curvilinear transducer	konveks datchik	Qorin bo‘shlig‘i uchun odatiy past chastotali datchik.	approved	0
+27	Artefakt va fizika	linear probe	linear array; linear transducer	chiziqli datchik	Yuza tuzilmalar (qalqonsimon bez, tomirlar) uchun yuqori chastotali datchik.	approved	0
+28	Artefakt va fizika	transvaginal probe	endovaginal probe; endocavitary probe	transvaginal datchik		approved	0
+29	Artefakt va fizika	phased array probe	sector probe; phased array transducer	fazali massivli (sektorli) datchik	Yurak va tor akustik darchalar orqali tekshirishda qo‘llanadi; nur sektorsimon maydonda tarqaladi.	corrected	0
+30	Artefakt va fizika	frequency	frequencies	chastota	Yuqori chastota yaxshi ruxsat beradi, lekin chuqurroq kirmaydi.	approved	1
+31	Artefakt va fizika	gain		kuchaytirish (gain)	Umumiy tasvir yorqinligi sozlamasi.	approved	1
+32	Artefakt va fizika	depth		chuqurlik	Tasvir chuqurligi sozlamasi.	approved	1
+33	Artefakt va fizika	focus	focal zone	fokus	Nur eng tor bo‘lgan chuqurlik.	approved	1
+34	Artefakt va fizika	resolution		fazoviy ajratish qobiliyati	Bir-biriga yaqin joylashgan ikki tuzilmani alohida ko‘rsatish qobiliyati.	corrected	1
+35	Artefakt va fizika	axial resolution		aksial ajratish qobiliyati	Ultratovush nuri yo‘nalishi bo‘ylab bir-biriga yaqin tuzilmalarni ajrata olish qobiliyati.	corrected	0
+36	Artefakt va fizika	lateral resolution		lateral ajratish qobiliyati	Ultratovush nuriga ko‘ndalang yo‘nalishda bir-biriga yaqin tuzilmalarni ajrata olish qobiliyati.	corrected	0
+37	Artefakt va fizika	penetration		penetratsiya (chuqurlikka kirib borish)	Ultratovush signalining to‘qimalar ichiga yetarli chuqurlikkacha kirib, qaytgan signalni qabul qilish imkoniyati.	corrected	1
+38	Doppler	Doppler	doppler	Doppler	Harakatdagi (qon) oqimini baholash usuli.	approved	1
+39	Doppler	color Doppler	colour Doppler; color flow	rangli Doppler	Oqim yo‘nalishi va tezligini rang bilan ko‘rsatadi.	approved	0
+40	Doppler	power Doppler	energy Doppler	energetik (power) Doppler	Oqim signalining energiyasiga sezgir; sekin va mayda tomirlardagi oqimni yaxshi ko‘rsatadi, odatda oqim yo‘nalishini ko‘rsatmaydi.	corrected	0
+41	Doppler	spectral Doppler		spektral Doppler	Tezlik-vaqt grafigi.	approved	0
+42	Doppler	pulsed wave Doppler	pulsed Doppler; PW Doppler	impulsli Doppler (PW)	Tanlangan chuqurlikdagi tezlikni o‘lchaydi.	approved	0
+43	Doppler	continuous wave Doppler	CW Doppler	doimiy to‘lqinli Doppler (CW)	Yuqori tezliklarni o‘lchaydi, chuqurlikni ajratmaydi.	approved	0
+44	Doppler	aliasing		aliasing (o‘ralish artefakti)	Nyquist chegarasi oshib ketganda Doppler spektri yoki rangli oqimning noto‘g‘ri tomonga o‘ralib ko‘rinishi.	corrected	0
+45	Doppler	pulse repetition frequency	PRF	impulslar takrorlanish chastotasi (PRF)	Tezlik shkalasini belgilaydi.	approved	0
+46	Doppler	Doppler angle	angle of insonation; insonation angle	Doppler burchagi	Nur va tomir o‘qi orasidagi burchak; o‘lchov uchun odatda 60 darajadan oshmagani ma’qul.	approved	0
+47	Doppler	resistive index	resistivity index; RI; resistance index	rezistivlik indeksi (RI)	(PSV − EDV) / PSV.	corrected	0
+48	Doppler	pulsatility index	PI; pulsatile index	pulsatsiya indeksi (PI)	(Sistolik cho‘qqi - diastola oxiri tezligi) / o‘rtacha tezlik.	approved	0
+49	Doppler	peak systolic velocity	PSV	sistolik cho‘qqi tezligi (PSV)		approved	0
+50	Doppler	end diastolic velocity	EDV; end-diastolic velocity	diastola oxiridagi tezlik (EDV)		approved	0
+51	Doppler	time averaged maximum velocity	TAMV; time-averaged maximum velocity	vaqt bo‘yicha o‘rtacha maksimal tezlik (TAMV)		approved	0
+52	Doppler	hepatopetal flow		gepatopetal oqim	Jigarga qarab yo‘nalgan oqim (darvoza venasida normal).	approved	0
+53	Doppler	hepatofugal flow		gepatofugal oqim	Jigardan teskari yo‘nalgan oqim.	approved	0
+54	Doppler	turbulent flow		turbulent oqim	Tartibsiz, uyurmali oqim.	approved	0
+55	Doppler	laminar flow		laminar oqim	Tartibli, qatlamli oqim.	approved	0
+56	Doppler	flow		oqim		approved	1
+57	Doppler	velocity	velocities	tezlik		approved	1
+58	Doppler	stenosis	stenoses	stenoz	Tomir yoki yo‘lning torayishi.	approved	0
+59	Doppler	occlusion		okklyuziya	Tomirning butunlay yopilishi.	approved	0
+60	Doppler	thrombosis		tromboz	Tomir ichida qon laxtasi hosil bo‘lishi.	approved	0
+61	Doppler	thrombus	thrombi	tromb	Qon laxtasi.	approved	0
+62	Elastografiya	elastography		elastografiya	To‘qima qattiqligini baholash usuli.	approved	0
+63	Elastografiya	shear wave elastography	shear-wave elastography; shearwave elastography	siljish to‘lqini elastografiyasi (SWE)	To‘qima qattiqligini siljish to‘lqinlari yordamida miqdoriy baholaydi; natija odatda kPa yoki m/s da ifodalanadi.	corrected	0
+64	Elastografiya	SWE		siljish to‘lqini elastografiyasi (SWE)		approved	0
+65	Elastografiya	strain elastography		deformatsion elastografiya (strain elastografiya)	To‘qimaning deformatsiyasini baholab, qattiqlikni asosan nisbiy tarzda ko‘rsatadi.	corrected	0
+66	Elastografiya	liver stiffness		jigar qattiqligi	Fibroz darajasi bilan bog‘liq ko‘rsatkich.	approved	0
+67	Elastografiya	kilopascal	kilopascals; kPa	kilopaskal (kPa)	Qattiqlik o‘lchov birligi.	approved	0
+68	Elastografiya	METAVIR		METAVIR shkalasi	Jigar fibrozini F0 dan F4 gacha baholash tizimi.	approved	0
+69	Elastografiya	fibrosis		fibroz	Biriktiruvchi to‘qimaning ko‘payishi.	approved	0
+70	Elastografiya	cirrhosis		sirroz	Jigarning fibroz va regenerativ tugunlar bilan qayta tuzilishi; rivojlangan bosqichda odatda qaytmas surunkali jarayon.	corrected	0
+71	Elastografiya	steatosis	hepatic steatosis	steatoz	Jigarda yog‘ to‘planishi.	approved	0
+72	Elastografiya	fatty liver	fatty infiltration	yog‘li jigar (jigar steatozi)	Jigar hujayralarida yog‘ to‘planishi bilan kechadigan holat.	corrected	0
+73	Elastografiya	portal hypertension		portal gipertenziya	Darvoza venasi tizimida bosimning oshishi.	approved	0
+74	Elastografiya	ascites		assit	Qorin bo‘shlig‘ida erkin suyuqlik to‘planishi.	approved	0
+75	Elastografiya	hepatomegaly		gepatomegaliya	Jigarning kattalashishi.	approved	0
+76	Elastografiya	splenomegaly		splenomegaliya	Taloqning kattalashishi.	approved	0
+77	Qorin bo‘shlig‘i a’zolari	portal vein		darvoza venasi		approved	0
+78	Qorin bo‘shlig‘i a’zolari	main portal vein		asosiy darvoza venasi		approved	0
+79	Qorin bo‘shlig‘i a’zolari	hepatic vein	hepatic veins	jigar venasi		approved	0
+80	Qorin bo‘shlig‘i a’zolari	hepatic artery		jigar arteriyasi		approved	0
+81	Qorin bo‘shlig‘i a’zolari	inferior vena cava	IVC	pastki kovak vena		approved	0
+82	Qorin bo‘shlig‘i a’zolari	common bile duct	CBD; bile duct	umumiy o‘t yo‘li (xoledox)		approved	0
+83	Qorin bo‘shlig‘i a’zolari	intrahepatic bile duct	intrahepatic bile ducts; intrahepatic ducts	jigar ichi o‘t yo‘llari		approved	0
+84	Qorin bo‘shlig‘i a’zolari	gallbladder	gall bladder	o‘t pufagi		approved	0
+85	Qorin bo‘shlig‘i a’zolari	gallstone	gallstones; cholelithiasis	o‘t toshi (xolelitiaz)	O‘t pufagi yoki o‘t yo‘llarida toshlar mavjudligi; UZI da ko‘pincha giperexogen va akustik soya beruvchi hosila ko‘rinadi.	corrected	0
+86	Qorin bo‘shlig‘i a’zolari	biliary sludge	sludge	o‘t loyqasi (sludge)	O‘t pufagi tubida cho‘kma.	approved	0
+87	Qorin bo‘shlig‘i a’zolari	cholecystitis		xolesistit	O‘t pufagi yallig‘lanishi.	approved	0
+88	Qorin bo‘shlig‘i a’zolari	polyp	polyps	polip	Devordan bo‘shliqqa o‘sib chiqqan hosila.	approved	0
+89	Qorin bo‘shlig‘i a’zolari	pancreatic duct	duct of Wirsung	oshqozon osti bezi yo‘li (Virsung yo‘li)		approved	0
+90	Qorin bo‘shlig‘i a’zolari	pancreatitis		pankreatit	Oshqozon osti bezi yallig‘lanishi.	approved	0
+91	Qorin bo‘shlig‘i a’zolari	renal pelvis		buyrak jomi		approved	0
+92	Qorin bo‘shlig‘i a’zolari	renal cortex		buyrak po‘stloq qavati		approved	0
+93	Qorin bo‘shlig‘i a’zolari	renal pyramid	renal pyramids	buyrak piramidasi		approved	0
+94	Qorin bo‘shlig‘i a’zolari	hydronephrosis		gidronefroz	Buyrak jomi va kosachalari kengayishi.	approved	0
+95	Qorin bo‘shlig‘i a’zolari	kidney stone	renal calculus; nephrolithiasis; renal stone	buyrak toshi (nefrolitiaz)		approved	0
+96	Qorin bo‘shlig‘i a’zolari	adrenal gland	adrenal glands	buyrak usti bezi		approved	0
+97	Qorin bo‘shlig‘i a’zolari	urinary bladder		siydik pufagi		approved	0
+98	Qorin bo‘shlig‘i a’zolari	lymph node	lymph nodes; lymphadenopathy	limfa tuguni	Limfa tizimining tugunli tuzilmasi. 'Lymphadenopathy' esa limfa tugunlarining patologik kattalashishi/o‘zgarishini anglatadi.	corrected	0
+99	Qorin bo‘shlig‘i a’zolari	free fluid	free fluid in the abdomen	erkin suyuqlik		approved	0
+100	Qorin bo‘shlig‘i a’zolari	appendix	appendicitis	chuvalchangsimon o‘simta (appendiks)	Appendix — chuvalchangsimon o‘simta; appendicitis esa uning yallig‘lanishi.	corrected	0
+101	Qorin bo‘shlig‘i a’zolari	liver		jigar		approved	1
+102	Qorin bo‘shlig‘i a’zolari	spleen		taloq		approved	1
+103	Qorin bo‘shlig‘i a’zolari	pancreas		oshqozon osti bezi (pankreas)		approved	1
+104	Qorin bo‘shlig‘i a’zolari	kidney	kidneys	buyrak		approved	1
+105	Qorin bo‘shlig‘i a’zolari	aorta		aorta		approved	1
+106	Umumiy patologiya	cyst	cysts	kista		approved	0
+107	Umumiy patologiya	simple cyst		oddiy kista	Odatda anexogen, yupqa va silliq devorli bo‘ladi, orqasida posterior/distal akustik kuchayish kuzatiladi.	corrected	0
+108	Umumiy patologiya	complex cyst	complex mass	murakkab kista	Ichki septalar, qalin yoki notekis devor, ichki debris yoki qattiq komponent kabi murakkablik belgilariga ega kista.	corrected	0
+109	Umumiy patologiya	hemangioma		gemangioma	Qon tomir kelib chiqishli, ko‘pincha xavfsiz jigar hosilasi; UZI ko‘rinishi turlicha bo‘lishi mumkin.	corrected	0
+110	Umumiy patologiya	hepatocellular carcinoma	HCC	gepatotsellulyar karsinoma (HCC)		approved	0
+111	Umumiy patologiya	metastasis	metastases; metastatic	metastaz		approved	0
+112	Umumiy patologiya	mass	masses	hosila (massa)		approved	1
+113	Umumiy patologiya	lesion	lesions	o‘choq		approved	1
+114	Umumiy patologiya	nodule	nodules	tugun		approved	0
+115	Umumiy patologiya	calcification	calcifications	kalsifikat		approved	0
+116	Umumiy patologiya	microcalcification	microcalcifications	mikrokalsifikat	Mayda yorqin nuqtalar, ko‘pincha soya bermaydi.	approved	0
+117	Umumiy patologiya	abscess	abscesses	abssess		approved	0
+118	Umumiy patologiya	hematoma	haematoma	gematoma		approved	0
+119	Umumiy patologiya	effusion	pleural effusion; pericardial effusion	efuziya (suyuqlik yig‘ilishi)	Plevra, perikard yoki boshqa bo‘shliqlarda suyuqlik to‘planishi.	corrected	0
+120	Umumiy patologiya	tumor	tumour; neoplasm	o‘sma		approved	0
+121	Umumiy patologiya	benign		xavfsiz (benign)		approved	0
+122	Umumiy patologiya	malignant	malignancy	xavfli (malign)	Malign — xavfli; 'malignancy' esa xavfli o‘sma/xavflilik holatini bildiradi.	corrected	0
+123	Umumiy patologiya	irregular margins	irregular margin; spiculated margins	notekis chegara		approved	0
+124	Umumiy patologiya	well defined	well-defined; well circumscribed	aniq chegarali		approved	0
+125	Umumiy patologiya	ill defined	ill-defined; poorly defined	noaniq chegarali		approved	0
+126	Umumiy patologiya	diffuse		diffuz	Butun a’zoga tarqalgan o‘zgarish.	approved	0
+127	Umumiy patologiya	focal		o‘choqli (fokal)	Bir joyga chegaralangan o‘zgarish.	approved	0
+128	Umumiy patologiya	dilatation	dilation; dilated	kengayish		approved	0
+129	Umumiy patologiya	atrophy		atrofiya		approved	0
+130	Umumiy patologiya	hypertrophy		gipertrofiya		approved	0
+131	Umumiy patologiya	edema	oedema	shish (shishlik)		approved	0
+132	Qalqonsimon bez	thyroid nodule	thyroid nodules	qalqonsimon bez tuguni		approved	0
+133	Qalqonsimon bez	thyroid		qalqonsimon bez		approved	1
+134	Qalqonsimon bez	isthmus		istmus (bez ko‘prigi)		approved	0
+135	Qalqonsimon bez	goiter	goitre	bo‘qoq (zob)		approved	0
+136	Qalqonsimon bez	thyroiditis		tireoidit	Qalqonsimon bez yallig‘lanishi.	approved	0
+137	Qalqonsimon bez	TI-RADS	TIRADS; ACR TI-RADS	TI-RADS tasnifi	Tugunlarning xavf darajasini baholash tizimi.	approved	0
+138	Qalqonsimon bez	taller than wide	taller-than-wide	eniga nisbatan balandroq	Tugunning old-orqa o‘lchami ko‘ndalang o‘lchamidan katta; qalqonsimon bez tugunlarini baholashda muhim belgi.	corrected	0
+139	Qalqonsimon bez	halo		halo	Tugun atrofidagi ingichka hoshiya.	approved	0
+140	Qalqonsimon bez	parathyroid	parathyroid gland	qalqonsimon bez oldi bezi (paratireoid bez)	Qalqonsimon bez orqasida joylashadigan, odatda paratireoid gormon ishlab chiqaruvchi bezlar.	corrected	0
+141	Akusherlik	fetus	fetal; foetus	homila		approved	0
+142	Akusherlik	embryo		embrion		approved	0
+143	Akusherlik	gestational age		homiladorlik muddati		approved	0
+144	Akusherlik	gestational sac		homila xaltasi (gestatsion xalta)		approved	0
+145	Akusherlik	crown rump length	crown-rump length; CRL	tepa-dumg‘aza uzunligi (CRL)	Erta muddatda homiladorlik muddatini aniqlash o‘lchami.	approved	0
+146	Akusherlik	biparietal diameter	BPD	biparietal diametr (BPD)	Homila boshining ikki tepa suyagi orasidagi ko‘ndalang o‘lcham.	corrected	0
+147	Akusherlik	head circumference	HC	bosh aylanasi (HC)		approved	0
+148	Akusherlik	abdominal circumference	AC	qorin aylanasi (AC)		approved	0
+149	Akusherlik	femur length	FL	son suyagi uzunligi (FL)		approved	0
+150	Akusherlik	estimated fetal weight	EFW	homilaning taxminiy vazni (EFW)		approved	0
+151	Akusherlik	amniotic fluid	amniotic fluid volume	homila suvi (amnion suyuqligi)	Homilani o‘rab turgan amniotik suyuqlik; uning miqdori baholanadi.	corrected	0
+152	Akusherlik	amniotic fluid index	AFI	amniotik suyuqlik indeksi (AFI)		approved	0
+153	Akusherlik	oligohydramnios		oligogidramnion	Homila suvining kamligi.	approved	0
+154	Akusherlik	polyhydramnios		polihidramnion	Homila suvining ko‘pligi.	approved	0
+155	Akusherlik	placenta	placental	yo‘ldosh (platsenta)	Homiladorlik davrida ona va homila o‘rtasida almashinuvni ta’minlaydigan a’zo.	corrected	0
+156	Akusherlik	placenta previa		platsenta previa (yo‘ldoshning past joylashuvi/ichki og‘izga nisbatan joylashuvi)	Yo‘ldoshning bachadonning pastki qismida joylashib, bachadon bo‘yni ichki og‘ziga qisman yoki to‘liq yaqinlashishi/yopishi.	corrected	0
+157	Akusherlik	placental abruption		platsentaning barvaqt ko‘chishi		approved	0
+158	Akusherlik	umbilical cord		kindik tizimchasi	Homilani yo‘ldosh bilan bog‘laydigan tuzilma; odatda uchta tomirdan iborat.	corrected	0
+159	Akusherlik	nuchal translucency	NT	bo‘yin burmasi shaffofligi (NT)	Birinchi trimestr skriningida homila bo‘ynining orqa qismidagi suyuqlik to‘planishi qalinligini o‘lchash ko‘rsatkichi.	corrected	0
+160	Akusherlik	cervical length		bachadon bo‘yni uzunligi		approved	0
+161	Akusherlik	fetal heart rate	FHR	homila yurak urishi (FHR)		approved	0
+162	Akusherlik	breech	breech presentation	chanoq bilan kelish		approved	0
+163	Akusherlik	cephalic presentation	cephalic	bosh bilan kelish		approved	0
+164	Akusherlik	transverse lie		ko‘ndalang joylashuv		approved	0
+165	Akusherlik	intrauterine growth restriction	IUGR; fetal growth restriction	homilaning o‘sishdan orqada qolishi (FGR)	Homilaning kutilgan o‘sishiga nisbatan kichik bo‘lishi; zamonaviy terminologiyada fetal growth restriction (FGR) afzal.	corrected	0
+166	Akusherlik	ectopic pregnancy		bachadondan tashqari homiladorlik		approved	0
+167	Akusherlik	twin pregnancy	twins	egizak homiladorlik		approved	0
+168	Akusherlik	anomaly scan	anatomy scan	homila anatomik skriningi (anatomy scan)	Homilaning anatomik tuzilmalari va mumkin bo‘lgan tug‘ma nuqsonlarini baholash uchun o‘tkaziladigan ultratovush tekshiruvi.	corrected	0
+169	Ginekologiya	endometrium	endometrial	endometriy		approved	0
+170	Ginekologiya	endometrial thickness		endometriy qalinligi		approved	0
+171	Ginekologiya	myometrium		miometriy		approved	0
+172	Ginekologiya	fibroid	fibroids; leiomyoma; uterine fibroid	bachadon miomasi (leyomioma)	Bachadon silliq mushak va biriktiruvchi to‘qimasidan kelib chiqadigan yaxshi sifatli o‘sma.	corrected	0
+173	Ginekologiya	adenomyosis		adenomioz		approved	0
+174	Ginekologiya	uterus	uterine	bachadon		approved	1
+175	Ginekologiya	ovary	ovaries; ovarian	tuxumdon		approved	1
+176	Ginekologiya	follicle	follicles	follikul		approved	0
+177	Ginekologiya	dominant follicle		dominant follikul		approved	0
+178	Ginekologiya	corpus luteum		sariq tana		approved	0
+179	Ginekologiya	ovarian cyst		tuxumdon kistasi		approved	0
+180	Ginekologiya	hemorrhagic cyst	haemorrhagic cyst	gemorragik kista		approved	0
+181	Ginekologiya	endometrioma		endometrioma		approved	0
+182	Ginekologiya	dermoid cyst	mature teratoma; teratoma	dermoid kista (yetuk teratoma)		approved	0
+183	Ginekologiya	polycystic ovary	polycystic ovaries; PCOS	polikistik tuxumdonlar / PCOS	Polikistik tuxumdonlar ko‘rinishi PCOS bilan bir xil tushuncha emas; PCOS — klinik va laborator mezonlar asosidagi sindrom.	corrected	0
+184	Ginekologiya	pouch of Douglas	cul-de-sac; cul de sac	Douglas bo‘shlig‘i		approved	0
+185	Ginekologiya	hydrosalpinx		gidrosalpinks		approved	0
+186	Ginekologiya	fallopian tube	fallopian tubes	bachadon nayi		approved	0
+187	Ginekologiya	intrauterine device	IUD	bachadon ichi vositasi (BIV, spiral)	Homiladorlikdan saqlanish uchun bachadon bo‘shlig‘iga joylashtiriladigan vosita; IUD.	corrected	0
+188	Ginekologiya	O-RADS	ORADS	O-RADS tasnifi	Tuxumdon va adneksal hosilalarning malignlik xavfini baholash va boshqarishga yordam beradigan standartlashtirilgan tizim.	corrected	0
+189	Ginekologiya	retroverted uterus	retroverted	bachadonning orqaga egilishi		approved	0
+190	Ginekologiya	anteverted uterus	anteverted	bachadonning oldinga egilishi		approved	0
+191	Ginekologiya	transvaginal ultrasound	transvaginal scan	transvaginal ultratovush tekshiruvi		approved	0
+192	Ginekologiya	transabdominal ultrasound	transabdominal scan	transabdominal ultratovush tekshiruvi		approved	0
+193	Neyrosonografiya	neurosonography	cranial ultrasound; head ultrasound	neyrosonografiya	Chaqaloq bosh miyasini, odatda katta liqildoq orqali, ultratovush yordamida tekshirish.	corrected	0
+194	Neyrosonografiya	lateral ventricle	lateral ventricles	yon qorinchalar		approved	0
+195	Neyrosonografiya	ventriculomegaly		ventrikulomegaliya	Qorinchalarning kengayishi.	approved	0
+196	Neyrosonografiya	intraventricular hemorrhage	IVH; intraventricular haemorrhage	qorinchalar ichiga qon quyilishi (IVH)		approved	0
+197	Neyrosonografiya	periventricular leukomalacia	PVL	periventrikulyar leykomalyatsiya (PVL)		approved	0
+198	Neyrosonografiya	anterior fontanelle	fontanelle; fontanel	oldingi katta liqildoq	Chaqaloq bosh miyasi neyrosonografiyasi uchun asosiy akustik darcha.	corrected	0
+199	Neyrosonografiya	choroid plexus		xoroid chigal		approved	0
+200	Neyrosonografiya	choroid plexus cyst		xoroid chigal kistasi		approved	0
+201	Neyrosonografiya	corpus callosum		qadoqsimon tana		approved	0
+202	Neyrosonografiya	cerebellum	cerebellar	miyacha		approved	0
+203	Neyrosonografiya	cisterna magna		katta sisterna		approved	0
+204	Neyrosonografiya	hydrocephalus		gidrosefaliya	Miya qorinchalari kengayishi va miya-orqa miya suyuqligi aylanishi yoki so‘rilishining buzilishi bilan bog‘liq holat.	corrected	0
+205	Neyrosonografiya	germinal matrix	germinal matrix hemorrhage	germinal matriks	Asosan muddatidan oldin tug‘ilgan chaqaloqlarda uchraydigan, qon ketishga moyil embrional hujayralarga boy soha.	corrected	0
+206	Neyrosonografiya	cavum septum pellucidum		shaffof to‘siq bo‘shlig‘i		approved	0
+207	Neyrosonografiya	third ventricle		uchinchi qorincha		approved	0
+208	Neyrosonografiya	fourth ventricle		to‘rtinchi qorincha		approved	0
+209	Neyrosonografiya	periventricular echogenicity	periventricular flare	periventrikulyar echogenlik	Yon qorinchalar atrofidagi miya to‘qimasining ultratovushda echogenligi; oshishi klinik kontekstda baholanadi.	corrected	0
+210	Neyrosonografiya	brain parenchyma	parenchyma	miya parenximasi		approved	0
+211	Neyrosonografiya	midline shift		o‘rta chiziqning siljishi		approved	0
+212	Exokardiografiya	ejection fraction	EF; LVEF	otish fraksiyasi (EF)	Chap qorinchaning bir qisqarishda chiqaradigan qon hajmining diastola oxiridagi hajmga nisbati; odatda foizda ifodalanadi.	corrected	0
+213	Exokardiografiya	left ventricle	LV; left ventricular	chap qorincha		approved	0
+214	Exokardiografiya	right ventricle	RV; right ventricular	o‘ng qorincha		approved	0
+215	Exokardiografiya	left atrium	LA; left atrial	chap bo‘lmacha		approved	0
+216	Exokardiografiya	mitral valve		mitral klapan		approved	0
+217	Exokardiografiya	mitral regurgitation	mitral insufficiency	mitral regurgitatsiya	Sistolada qonning chap qorinchadan chap bo‘lmachaga mitral klapan orqali teskari oqishi.	corrected	0
+218	Exokardiografiya	aortic stenosis		aorta klapani stenozi	Aorta klapani sohasining torayishi, natijada chap qorinchadan aortaga qon chiqishiga qarshilik ortadi.	corrected	0
+219	Exokardiografiya	tricuspid regurgitation		trikuspidal regurgitatsiya		approved	0
+220	Exokardiografiya	pulmonary hypertension		o‘pka gipertenziyasi		approved	0
+221	Exokardiografiya	wall motion abnormality	wall motion abnormalities; hypokinesis	devor harakati buzilishi (gipokineziya)		approved	0
+222	Exokardiografiya	strain	global longitudinal strain; GLS	strain (deformatsiya)	Miokard tolalarining nisbiy deformatsiyasini ifodalovchi ko‘rsatkich; GLS — global longitudinal strain.	corrected	0
+223	Exokardiografiya	TAPSE		TAPSE (trikuspidal halqa sistolik ekskursiyasi)	O‘ng qorincha bo‘ylama sistolik funksiyasini baholovchi ko‘rsatkich.	corrected	0
+224	Exokardiografiya	gradient	pressure gradient	gradient (bosim farqi)		approved	1
+225	Exokardiografiya	diastolic function	diastolic dysfunction	diastolik funksiya	Yurak qorinchalarining diastola vaqtida bo‘shashishi va to‘lish xususiyatlarini ifodalaydi.	corrected	0
+226	Exokardiografiya	E/A ratio	E over A	E/A nisbati		approved	0
+227	Exokardiografiya	interventricular septum	septum	qorinchalararo to‘siq		approved	0

@@ -89,3 +89,6 @@ same voice documents that a plain apostrophe mangles it. Not verified by ear her
   403 clock-skew retry, errors, cache), ktlint (0 new), detekt (0), tools/tests, full/fdroid
   compile of the dubbing code against android.jar.
 - Unverified: Gradle build, live Microsoft service, real phone audio and video ducking.
+
+## Follow-up (2026-10-10)
+The speech text is now built by `prepareUzbekSpeech` with a traced rule list, optional unit/abbreviation rules and a voice test in settings. See [UZI glossary and traceable Uzbek speech](2026-10-10-uzi-glossary-and-speech.md).

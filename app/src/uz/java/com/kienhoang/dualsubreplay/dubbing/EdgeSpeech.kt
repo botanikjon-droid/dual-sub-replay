@@ -1,6 +1,9 @@
 package com.kienhoang.dualsubreplay.dubbing
 
 import android.content.Context
+import android.util.Log
+import com.kienhoang.dualsubreplay.data.UziGlossaryStore
+import com.kienhoang.dualsubreplay.data.glossaryAcronymExpansions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -37,7 +40,18 @@ internal fun createDubbingVoice(context: Context): DubbingVoice? {
             DubbingVoiceOption(EDGE_VOICE_MADINA, "Madina (ayol)"),
         ),
     )
-    return EdgeDubbingVoice(File(context.cacheDir, "dub-uz-v1"))
+    val directory = File(context.cacheDir, "dub-uz-v1")
+    val voice = EdgeDubbingVoice(directory)
+    // The settings card's voice test: the same sentence with any voice, through the same cache.
+    DubbingVoiceSample.synthesize = { voiceId, prepared -> voice.synthesizePrepared(voiceId, prepared) }
+    DubbingVoiceSample.acronyms = ::currentGlossaryAcronyms
+    return voice
+}
+
+/** The glossary's abbreviations for the optional "read abbreviations in full" rule. */
+private fun currentGlossaryAcronyms(): Map<String, String> {
+    val glossary = UziGlossaryStore.glossary.value ?: return emptyMap()
+    return glossaryAcronymExpansions(glossary.entries)
 }
 
 internal const val EDGE_TRUSTED_CLIENT_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4"
@@ -120,11 +134,23 @@ internal class EdgeDubbingVoice(
     private var writesSinceTrim = 0
 
     override suspend fun synthesize(text: String): DubClip =
+        synthesizePrepared(
+            voiceOf(),
+            // The subtitle stays as it is; only the voice's copy gets the pronunciation rules.
+            DubbingSettings.speechOptions.value.let { options ->
+                prepareUzbekSpeech(text, options, if (options.expandAcronyms) currentGlossaryAcronyms() else emptyMap())
+            },
+        )
+
+    /** Speaks [prepared].tts; the clip cache key is the voice and that exact text. */
+    suspend fun synthesizePrepared(
+        voice: String,
+        prepared: PreparedSpeech,
+    ): DubClip =
         withContext(Dispatchers.IO) {
             directory.mkdirs()
-            val voice = voiceOf()
-            // The voice only says oʻ and gʻ correctly with their official apostrophe.
-            val spoken = uzbekSpeechText(text)
+            val spoken = prepared.tts
+            if (prepared.applied.isNotEmpty()) Log.d(TAG, "speech rules ${prepared.ruleSummary()}: ${prepared.display} -> $spoken")
             val file = File(directory, "${sha1("$voice\n$spoken")}.mp3")
             if (file.length() == 0L) {
                 val audio =
@@ -228,6 +254,7 @@ internal class EdgeDubbingVoice(
         const val CACHE_MAX_BYTES = 50L * 1024 * 1024
         const val CACHE_TRIM_TO_BYTES = 40L * 1024 * 1024
         const val HTTP_FORBIDDEN = 403
+        const val TAG = "EdgeSpeech"
         val EDGE_USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
                 "Chrome/${EDGE_CHROMIUM_VERSION.substringBefore('.')}.0.0.0 Safari/537.36 " +

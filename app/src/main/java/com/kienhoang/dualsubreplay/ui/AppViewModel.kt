@@ -264,6 +264,8 @@ class AppViewModel internal constructor(
     init {
         // Japanese word analysis downloads its dictionary here the first time Japanese is shown.
         JapaneseMorphology.useStore(JapaneseDictionaryStore(File(application.filesDir, "japanese-dictionary")))
+        // The UZI glossary (small asset) for term hints when English captions are shown in Uzbek.
+        com.kienhoang.dualsubreplay.data.UziGlossaryStore.load(application, viewModelScope)
     }
 
     private val immersionTracker = ImmersionTimeTracker()
@@ -915,8 +917,23 @@ class AppViewModel internal constructor(
         }
     }
 
+    /** An approved UZI glossary term wins over the online word translation. */
     internal suspend fun translateSelection(selection: LearningWordSelection): String =
-        translator.translateSingle(selection.wordLanguage, selection.meaningLanguage, selection.token.text)
+        glossaryEntryFor(selection)?.uzbek
+            ?: translator.translateSingle(selection.wordLanguage, selection.meaningLanguage, selection.token.text)
+
+    /** The glossary term covering a tapped English word or phrase ("vein" inside "portal vein"), if any. */
+    internal fun glossaryEntryFor(selection: LearningWordSelection): com.kienhoang.dualsubreplay.data.GlossaryEntry? {
+        if (selection.translated) return null
+        if (!com.kienhoang.dualsubreplay.data.glossaryApplies(selection.wordLanguage, selection.meaningLanguage)) return null
+        val glossary = com.kienhoang.dualsubreplay.data.UziGlossaryStore.glossary.value ?: return null
+        val text = selection.segment?.originalText
+        val parts = selection.parts.ifEmpty { listOf(selection.token) }
+        val start = parts.minOf { it.startIndex }
+        val end = parts.maxOf { it.endIndex }
+        val inCaption = text?.takeIf { start in 0..end && end <= it.length }?.let { glossary.termAt(it, start, end)?.entry }
+        return inCaption ?: glossary.lookup(selection.token.text)
+    }
 
     internal suspend fun saveWord(
         selection: LearningWordSelection,

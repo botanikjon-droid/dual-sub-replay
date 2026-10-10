@@ -23,6 +23,8 @@ internal object DubbingSettings {
     private const val KEY_VIDEO_QUALITY = "video_quality"
     private const val KEY_HOLD_VIDEO = "hold_video"
     private const val KEY_MAX_TEMPO = "max_tempo_percent"
+    private const val KEY_SPEECH_UNITS = "speech_units"
+    private const val KEY_SPEECH_ACRONYMS = "speech_acronyms"
     private const val DEFAULT_VIDEO_VOLUME = 20
     private const val DEFAULT_MAX_TEMPO_PERCENT = 150
 
@@ -34,6 +36,7 @@ internal object DubbingSettings {
     private val _holdVideo = MutableStateFlow(true)
     private val _maxTempoPercent = MutableStateFlow(DEFAULT_MAX_TEMPO_PERCENT)
     private val _stats = MutableStateFlow(DubbingStats())
+    private val _speechOptions = MutableStateFlow(SpeechOptions())
     private var preferences: SharedPreferences? = null
 
     val available: StateFlow<Boolean> = _available
@@ -51,6 +54,9 @@ internal object DubbingSettings {
 
     /** The fastest the dub may speak to fit its sentence, in percent (150 = 1.5x). */
     val maxTempoPercent: StateFlow<Int> = _maxTempoPercent
+
+    /** Experimental pronunciation rules (units, abbreviations); both off until a doctor confirms them by ear. */
+    val speechOptions: StateFlow<SpeechOptions> = _speechOptions
 
     /** What the dub did in the current video, for the settings card. */
     val stats: StateFlow<DubbingStats> = _stats
@@ -73,7 +79,21 @@ internal object DubbingSettings {
         _holdVideo.value = saved.getBoolean(KEY_HOLD_VIDEO, true)
         _maxTempoPercent.value =
             saved.getInt(KEY_MAX_TEMPO, DEFAULT_MAX_TEMPO_PERCENT).takeIf { it in TEMPO_PERCENTS } ?: DEFAULT_MAX_TEMPO_PERCENT
+        _speechOptions.value =
+            SpeechOptions(
+                readUnits = saved.getBoolean(KEY_SPEECH_UNITS, false),
+                expandAcronyms = saved.getBoolean(KEY_SPEECH_ACRONYMS, false),
+            )
         _available.value = true
+    }
+
+    fun setSpeechOptions(options: SpeechOptions) {
+        _speechOptions.value = options
+        preferences
+            ?.edit()
+            ?.putBoolean(KEY_SPEECH_UNITS, options.readUnits)
+            ?.putBoolean(KEY_SPEECH_ACRONYMS, options.expandAcronyms)
+            ?.apply()
     }
 
     fun setEnabled(value: Boolean) {
