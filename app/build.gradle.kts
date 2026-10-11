@@ -19,6 +19,7 @@ val hasReleaseSigning = releaseSigningValues.all { !it.isNullOrBlank() }
 val requireReleaseSigning = providers.gradleProperty("requireReleaseSigning").orNull == "true"
 val testReleaseSigning = providers.gradleProperty("testReleaseSigning").orNull == "true"
 val previewVersionCode = providers.gradleProperty("previewVersionCode").orNull?.toIntOrNull()
+val uzDebugKeystoreFile = providers.environmentVariable("UZ_DEBUG_KEYSTORE_FILE").orNull?.takeIf { it.isNotBlank() }
 val previewVersionNameSuffix = providers.gradleProperty("previewVersionNameSuffix").orNull.orEmpty()
 val previewApplicationIdSuffix = providers.gradleProperty("previewApplicationIdSuffix").orNull.orEmpty()
 
@@ -157,6 +158,16 @@ android {
     }
 
     signingConfigs {
+        // The doctor's fork signs debug builds with a fixed key that CI decodes from a secret, so
+        // every Uzbek APK can update the installed app (the cached default debug key gets lost).
+        if (uzDebugKeystoreFile != null) {
+            getByName("debug") {
+                storeFile = file(uzDebugKeystoreFile)
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
         if (hasReleaseSigning) {
             create("production") {
                 storeFile = file(requireNotNull(releaseStoreFile))

@@ -16,6 +16,9 @@ jobs:
   verify-build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # The certificate of the fixed Uzbek key in the UZ_DEBUG_KEYSTORE_B64 secret (a fingerprint, not a secret).
+      UZ_EXPECTED_CERT_SHA256: fc0959506e81edbc27b420a2f515517179854bcce6060260fa5d850c1cd65dd1
     # Write access only for the uz-latest pre-release step below, which runs on the doctor's fork only.
     permissions:
       contents: write
@@ -58,13 +61,21 @@ jobs:
           UZ_DEBUG_KEYSTORE_B64: ${{ secrets.UZ_DEBUG_KEYSTORE_B64 }}
         run: |
           set -euo pipefail
-          if [ -n "${UZ_DEBUG_KEYSTORE_B64:-}" ]; then
-            mkdir -p ~/.android
-            printf '%s' "$UZ_DEBUG_KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
-            echo "Signing with the fixed Uzbek key from UZ_DEBUG_KEYSTORE_B64."
-          else
-            echo "::warning title=No fixed Uzbek signing key::Add the UZ_DEBUG_KEYSTORE_B64 secret, or the APK may be signed with a random key."
+          if [ -z "${UZ_DEBUG_KEYSTORE_B64:-}" ]; then
+            echo "::warning title=No fixed Uzbek signing key::Add the UZ_DEBUG_KEYSTORE_B64 secret, or the APK gets a random key."
+            exit 0
           fi
+          keystore="$RUNNER_TEMP/uz-debug.keystore"
+          printf '%s' "$UZ_DEBUG_KEYSTORE_B64" | tr -d ' \r\n' | base64 -d > "$keystore"
+          cert=$(keytool -list -v -keystore "$keystore" -storepass android -alias androiddebugkey 2>/dev/null \
+            | sed -n 's/^.*SHA256: //p' | head -n 1 | tr -d ':' | tr 'A-F' 'a-f')
+          if [ "$cert" != "$UZ_EXPECTED_CERT_SHA256" ]; then
+            echo "::error title=UZ_DEBUG_KEYSTORE_B64 is not the expected key::Its certificate is '${cert:-unreadable}'. Paste the whole UZ_DEBUG_KEYSTORE_B64.txt again."
+            exit 1
+          fi
+          # app/build.gradle.kts signs debug builds with this file when the variable is set.
+          echo "UZ_DEBUG_KEYSTORE_FILE=$keystore" >> "$GITHUB_ENV"
+          echo "Signing with the fixed Uzbek key ($cert)."
 
       - name: Test release automation
         run: python3 -m unittest discover -s tools/tests -p 'test_*.py' -v
@@ -131,8 +142,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          # The certificate of the fixed Uzbek key in UZ_DEBUG_KEYSTORE_B64 (a fingerprint, not a secret).
-          UZ_EXPECTED_CERT_SHA256: fc0959506e81edbc27b420a2f515517179854bcce6060260fa5d850c1cd65dd1
         run: |
           set -euo pipefail
           # Android only updates an app signed with the same key, so an APK signed with any other key
