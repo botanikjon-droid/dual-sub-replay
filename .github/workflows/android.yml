@@ -49,6 +49,23 @@ jobs:
           path: ~/.android/debug.keystore
           key: dual-sub-replay-preview-signing-v1
 
+      # The doctor's fork: sign with a fixed key kept in a repository secret, so every Uzbek APK can
+      # update the installed app. The cached debug key above is lost now and then, which gives a new
+      # random key that Android refuses as a conflicting package.
+      - name: Use the fixed Uzbek signing key
+        if: github.repository == 'botanikjon-droid/dual-sub-replay'
+        env:
+          UZ_DEBUG_KEYSTORE_B64: ${{ secrets.UZ_DEBUG_KEYSTORE_B64 }}
+        run: |
+          set -euo pipefail
+          if [ -n "${UZ_DEBUG_KEYSTORE_B64:-}" ]; then
+            mkdir -p ~/.android
+            printf '%s' "$UZ_DEBUG_KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
+            echo "Signing with the fixed Uzbek key from UZ_DEBUG_KEYSTORE_B64."
+          else
+            echo "::warning title=No fixed Uzbek signing key::Add the UZ_DEBUG_KEYSTORE_B64 secret, or the APK may be signed with a random key."
+          fi
+
       - name: Test release automation
         run: python3 -m unittest discover -s tools/tests -p 'test_*.py' -v
 
@@ -114,16 +131,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          # The certificate of the build installed on the doctor's phone (not a secret).
-          UZ_EXPECTED_CERT_SHA256: 027f64dd8d1a112dd6c06c26f26ce845d27ae60c5169570bdc184399bcfff66b
+          # The certificate of the fixed Uzbek key in UZ_DEBUG_KEYSTORE_B64 (a fingerprint, not a secret).
+          UZ_EXPECTED_CERT_SHA256: fc0959506e81edbc27b420a2f515517179854bcce6060260fa5d850c1cd65dd1
         run: |
           set -euo pipefail
-          # Android only updates an app signed with the same key. If the cached debug key was not
-          # restored, Gradle made a new one, and the doctor's phone would refuse the APK.
+          # Android only updates an app signed with the same key, so an APK signed with any other key
+          # (for example a random one when the secret is missing) is never published.
           cert=$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs DualSub-Replay-uz.apk \
             | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1)
           if [ "$cert" != "$UZ_EXPECTED_CERT_SHA256" ]; then
-            echo "::error title=Uzbek APK signed with another key::Got $cert, the installed app uses $UZ_EXPECTED_CERT_SHA256. Not published; re-run the workflow."
+            echo "::error title=Uzbek APK signed with another key::Got $cert, expected $UZ_EXPECTED_CERT_SHA256 (the UZ_DEBUG_KEYSTORE_B64 key). Not published; check that secret."
             exit 1
           fi
           notes="Uzbek build of ${GITHUB_REF_NAME} at ${GITHUB_SHA::7} (run ${GITHUB_RUN_NUMBER}). Download DualSub-Replay-uz.apk and install it."
