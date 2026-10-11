@@ -114,8 +114,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          # The certificate of the build installed on the doctor's phone (not a secret).
+          UZ_EXPECTED_CERT_SHA256: 027f64dd8d1a112dd6c06c26f26ce845d27ae60c5169570bdc184399bcfff66b
         run: |
           set -euo pipefail
+          # Android only updates an app signed with the same key. If the cached debug key was not
+          # restored, Gradle made a new one, and the doctor's phone would refuse the APK.
+          cert=$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs DualSub-Replay-uz.apk \
+            | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1)
+          if [ "$cert" != "$UZ_EXPECTED_CERT_SHA256" ]; then
+            echo "::error title=Uzbek APK signed with another key::Got $cert, the installed app uses $UZ_EXPECTED_CERT_SHA256. Not published; re-run the workflow."
+            exit 1
+          fi
           notes="Uzbek build of ${GITHUB_REF_NAME} at ${GITHUB_SHA::7} (run ${GITHUB_RUN_NUMBER}). Download DualSub-Replay-uz.apk and install it."
           # Recreated each time so the tag follows the newest build; the download link stays the same.
           gh release delete uz-latest --cleanup-tag --yes 2>/dev/null || true
