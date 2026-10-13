@@ -2,6 +2,7 @@ package com.kienhoang.dualsubreplay.dubbing
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.kienhoang.dualsubreplay.translation.CLAUDE_MODELS
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDERS
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GOOGLE
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +31,9 @@ internal object DubbingSettings {
     private const val KEY_GLOSSARY_IN_TRANSLATION = "glossary_in_translation"
     private const val KEY_TRANSLATION_PROVIDER = "translation_provider"
     private const val KEY_GEMINI_API_KEY = "gemini_api_key"
+    private const val KEY_CLAUDE_API_KEY = "claude_api_key"
+    private const val KEY_CLAUDE_MODEL = "claude_model"
+    private const val KEY_CLAUDE_AUTO = "claude_auto"
     private const val DEFAULT_VIDEO_VOLUME = 20
     private const val DEFAULT_MAX_TEMPO_PERCENT = 150
 
@@ -46,6 +50,9 @@ internal object DubbingSettings {
     private val _translationProvider = MutableStateFlow(TRANSLATION_PROVIDER_GOOGLE)
     private val _geminiApiKey = MutableStateFlow("")
     private val _translatorStatus = MutableStateFlow("")
+    private val _claudeApiKey = MutableStateFlow("")
+    private val _claudeModel = MutableStateFlow(CLAUDE_MODELS.first().id)
+    private val _claudeAuto = MutableStateFlow(false)
     private var preferences: SharedPreferences? = null
 
     val available: StateFlow<Boolean> = _available
@@ -79,6 +86,15 @@ internal object DubbingSettings {
     /** What the translator last did, for the settings card ("Gemini: 25 gap", or why it fell back). */
     val translatorStatus: StateFlow<String> = _translatorStatus
 
+    /** The user's Claude API key for "Claude bilan tarjima": only in this app's private preferences. */
+    val claudeApiKey: StateFlow<String> = _claudeApiKey
+
+    /** The Claude model that translates lessons (one of [CLAUDE_MODELS]). */
+    val claudeModel: StateFlow<String> = _claudeModel
+
+    /** Translate every newly opened lesson with Claude in the background (off by default: it costs money). */
+    val claudeAuto: StateFlow<Boolean> = _claudeAuto
+
     /** What the dub did in the current video, for the settings card. */
     val stats: StateFlow<DubbingStats> = _stats
     var voices: List<DubbingVoiceOption> = emptyList()
@@ -109,6 +125,7 @@ internal object DubbingSettings {
         _translationProvider.value =
             saved.getString(KEY_TRANSLATION_PROVIDER, null)?.takeIf { it in TRANSLATION_PROVIDERS } ?: TRANSLATION_PROVIDER_GOOGLE
         _geminiApiKey.value = saved.getString(KEY_GEMINI_API_KEY, null).orEmpty()
+        loadClaude(saved)
         _available.value = true
     }
 
@@ -121,6 +138,29 @@ internal object DubbingSettings {
     fun setGeminiApiKey(key: String) {
         _geminiApiKey.value = key.trim()
         preferences?.edit()?.putString(KEY_GEMINI_API_KEY, _geminiApiKey.value)?.apply()
+    }
+
+    private fun loadClaude(saved: SharedPreferences) {
+        _claudeApiKey.value = saved.getString(KEY_CLAUDE_API_KEY, null).orEmpty()
+        _claudeModel.value =
+            saved.getString(KEY_CLAUDE_MODEL, null)?.takeIf { id -> CLAUDE_MODELS.any { it.id == id } } ?: CLAUDE_MODELS.first().id
+        _claudeAuto.value = saved.getBoolean(KEY_CLAUDE_AUTO, false)
+    }
+
+    fun setClaudeApiKey(key: String) {
+        _claudeApiKey.value = key.trim()
+        preferences?.edit()?.putString(KEY_CLAUDE_API_KEY, _claudeApiKey.value)?.apply()
+    }
+
+    fun setClaudeModel(id: String) {
+        if (CLAUDE_MODELS.none { it.id == id }) return
+        _claudeModel.value = id
+        preferences?.edit()?.putString(KEY_CLAUDE_MODEL, id)?.apply()
+    }
+
+    fun setClaudeAuto(value: Boolean) {
+        _claudeAuto.value = value
+        preferences?.edit()?.putBoolean(KEY_CLAUDE_AUTO, value)?.apply()
     }
 
     fun publishTranslatorStatus(status: String) {

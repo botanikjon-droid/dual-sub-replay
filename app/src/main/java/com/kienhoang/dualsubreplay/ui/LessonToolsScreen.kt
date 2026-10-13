@@ -82,6 +82,9 @@ internal fun LessonToolsScreen(
     importTranslation: suspend (String) -> Int,
     onClearImport: () -> Unit,
     onDismiss: () -> Unit,
+    claudeRun: ClaudeRunState = ClaudeRunState(),
+    onClaudeTranslate: () -> Unit = {},
+    onClaudeCancel: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
@@ -229,6 +232,14 @@ internal fun LessonToolsScreen(
                         },
                     )
 
+                    ClaudeTranslateCard(
+                        activeVideoId = activeVideoId,
+                        run = claudeRun,
+                        onTranslate = onClaudeTranslate,
+                        onCancel = onClaudeCancel,
+                    )
+                    LearnedGlossaryCard()
+
                     LessonCard(title = "Tarjima subtitrini yuklash", icon = Icons.Default.Translate) {
                         Hint(
                             when {
@@ -314,7 +325,7 @@ private fun SubtitleOutCard(
 }
 
 @Composable
-private fun LessonCard(
+internal fun LessonCard(
     title: String,
     icon: ImageVector,
     content: @Composable ColumnScope.() -> Unit,
@@ -336,7 +347,7 @@ private fun LessonCard(
 }
 
 @Composable
-private fun Hint(text: String) {
+internal fun Hint(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 

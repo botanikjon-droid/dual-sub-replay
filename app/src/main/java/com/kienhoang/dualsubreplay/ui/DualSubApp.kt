@@ -202,6 +202,7 @@ private fun LessonToolsHost(
     viewModel: AppViewModel,
     onDismiss: () -> Unit,
 ) {
+    val claudeRun by viewModel.claudeRun.collectAsStateWithLifecycle()
     LessonToolsScreen(
         activeVideoId = state.activeVideoId,
         importedTranslationCues = state.importedTranslationCues,
@@ -211,6 +212,9 @@ private fun LessonToolsHost(
         importTranslation = { viewModel.importTranslation(it) },
         onClearImport = viewModel::clearImportedTranslation,
         onDismiss = onDismiss,
+        claudeRun = claudeRun,
+        onClaudeTranslate = viewModel::translateLessonWithClaude,
+        onClaudeCancel = viewModel::cancelClaudeTranslation,
     )
 }
 

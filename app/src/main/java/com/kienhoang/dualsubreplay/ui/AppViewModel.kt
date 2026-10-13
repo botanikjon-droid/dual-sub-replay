@@ -296,7 +296,26 @@ class AppViewModel internal constructor(
         JapaneseMorphology.useStore(JapaneseDictionaryStore(File(application.filesDir, "japanese-dictionary")))
         // The UZI glossary (small asset) for term hints when English captions are shown in Uzbek.
         com.kienhoang.dualsubreplay.data.UziGlossaryStore.load(application, viewModelScope)
+        // Terms Claude suggested and the doctor approved, kept across lessons.
+        viewModelScope.launch { com.kienhoang.dualsubreplay.data.LearnedGlossaryStore.load(application) }
     }
+
+    /** "Claude bilan tarjima": translates the open lesson with the doctor's own Claude API key. */
+    private val claude =
+        ClaudeLessonCoordinator(
+            scope = viewModelScope,
+            segmentsFor = { videoId -> lessonSegments(videoId).second },
+            importSrt = { text, videoId -> importTranslation(text, videoId) },
+            notify = { Toast.makeText(getApplication(), it, Toast.LENGTH_LONG).show() },
+        )
+    internal val claudeRun: StateFlow<ClaudeRunState> get() = claude.state
+
+    fun translateLessonWithClaude() {
+        val videoId = _state.value.activeVideoId ?: return
+        claude.start(videoId)
+    }
+
+    fun cancelClaudeTranslation() = claude.cancel()
 
     private val immersionTracker = ImmersionTimeTracker()
     private val immersionAccumulator = ImmersionAccumulator()
@@ -566,6 +585,18 @@ class AppViewModel internal constructor(
     internal suspend fun subtitleExport(): SubtitleExport {
         val current = _state.value
         val videoId = current.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        val (title, segments) = lessonSegments(videoId)
+        return SubtitleExport(
+            videoId = videoId,
+            title = title,
+            cueCount = segments.size,
+            text = withContext(Dispatchers.Default) { formatSrt(segments) },
+        )
+    }
+
+    /** A lesson's title and its sentences as the app shows them (the SubtitleMerger rows), for export and Claude. */
+    private suspend fun lessonSegments(videoId: String): Pair<String?, List<SubtitleSegment>> {
+        val current = _state.value
         val track =
             withContext(Dispatchers.IO) {
                 captionProvider.fetch(videoId, preferredCaptionLanguages(current.sourcePreference))
@@ -575,12 +606,7 @@ class AppViewModel internal constructor(
                 SubtitleMerger.merge(track.cues, enhancedNaturalFlow = current.naturalSubtitlesEnabled)
             }
         if (segments.isEmpty()) throw IllegalStateException("Bu videoning subtitrida matn yo\u2018q.")
-        return SubtitleExport(
-            videoId = videoId,
-            title = track.title,
-            cueCount = segments.size,
-            text = withContext(Dispatchers.Default) { formatSrt(segments) },
-        )
+        return track.title to segments
     }
 
     /**
@@ -1420,6 +1446,7 @@ class AppViewModel internal constructor(
     ) {
         var displayStore: SubtitleStore? = null
         if (!restoreImportedTranslation(videoId, generation)) return
+        claude.onLessonLoaded(videoId, targetLanguage, hasStoredTranslation = importedTranslation?.first == videoId)
         liveCaptionTracker.reset()
         captionHighlightResolver.reset()
         _state.update {
