@@ -475,6 +475,10 @@ private fun DualSubExperience(
                 showSettings = true
             },
             onDismiss = { showQuickSettings = false },
+            onOpenLessonTools = {
+                showQuickSettings = false
+                showLessonTools = true
+            },
         )
     }
     if (showSettings) {
@@ -526,6 +530,10 @@ private fun DualSubExperience(
                 onResetSettings()
             },
             onDismiss = { showSettings = false },
+            onOpenLessonTools = {
+                showSettings = false
+                showLessonTools = true
+            },
         )
     }
 }
