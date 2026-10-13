@@ -602,6 +602,18 @@ class AppViewModel internal constructor(
 
     private fun importedTranslationFile(videoId: String): File = File(importedTranslationDirectory, "$videoId.srt")
 
+    /** Loads the video's stored translation, if any. Returns false when a newer load replaced this one. */
+    private suspend fun restoreImportedTranslation(
+        videoId: String,
+        generation: Long,
+    ): Boolean {
+        val imported = withContext(Dispatchers.IO) { runCatching { readImportedTranslation(videoId) }.getOrNull() }
+        if (!isCurrentLoad(_state.value, videoId, generation)) return false
+        importedTranslation = imported?.let { videoId to it }
+        _state.update { it.copy(importedTranslationCues = imported?.size ?: 0) }
+        return true
+    }
+
     private fun readImportedTranslation(videoId: String): List<RawCaptionCue>? {
         val file = importedTranslationFile(videoId)
         if (!file.isFile || file.length() > MAX_IMPORTED_TRANSLATION_BYTES) return null
@@ -1218,10 +1230,6 @@ class AppViewModel internal constructor(
             viewModelScope.launch {
                 var rawStore: SubtitleStore? = null
                 try {
-                    val imported = withContext(Dispatchers.IO) { runCatching { readImportedTranslation(videoId) }.getOrNull() }
-                    if (!isCurrentLoad(_state.value, videoId, generation)) return@launch
-                    importedTranslation = imported?.let { videoId to it }
-                    _state.update { it.copy(importedTranslationCues = imported?.size ?: 0) }
                     val preferredLanguages = preferredCaptionLanguages(_state.value.sourcePreference)
                     val natural = _state.value.naturalSubtitlesEnabled
                     val track =
@@ -1317,6 +1325,7 @@ class AppViewModel internal constructor(
         natural: Boolean,
     ) {
         var displayStore: SubtitleStore? = null
+        if (!restoreImportedTranslation(videoId, generation)) return
         liveCaptionTracker.reset()
         captionHighlightResolver.reset()
         _state.update {
