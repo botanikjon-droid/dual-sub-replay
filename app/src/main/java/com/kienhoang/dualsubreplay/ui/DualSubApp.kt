@@ -214,6 +214,7 @@ private fun LessonToolsHost(
         onDismiss = onDismiss,
         claudeRun = claudeRun,
         onClaudeTranslate = viewModel::translateLessonWithClaude,
+        onGeminiTranslate = viewModel::translateLessonWithGemini,
         onClaudeCancel = viewModel::cancelClaudeTranslation,
     )
 }

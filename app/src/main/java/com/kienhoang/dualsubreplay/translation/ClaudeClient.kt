@@ -78,36 +78,43 @@ internal data class ClaudeLessonResult(
     val uncertain: List<ClaudeUncertainty>,
 )
 
+/** One engine's answer to one chunk; Claude and Gemini implement it. */
+internal fun interface LessonBackend {
+    @Throws(IOException::class)
+    suspend fun translate(
+        userPrompt: String,
+        chunk: ClaudeChunk,
+    ): ClaudeChunkResult
+}
+
 /**
- * Translates a whole lesson chunk by chunk. A reply that is cut short or misses items is retried
- * as two smaller chunks; a busy service is retried after a pause; a wrong key or model stops the
- * run with its reason. [terms] is asked again before every chunk, so terms Claude suggested in an
- * earlier chunk (or the doctor approved meanwhile) are used in the next ones.
+ * Translates a whole lesson chunk by chunk with [backend]. A reply that is cut short or misses items
+ * is retried as two smaller chunks; other failures stop the run with their reason. [terms] is asked
+ * again before every chunk, so terms suggested in an earlier chunk (or approved meanwhile) are used
+ * in the next ones. [chunkSize] is small for Claude (cheap retries) and the whole lesson for Gemini
+ * (one request of the free daily quota per lesson).
  */
-internal class ClaudeLessonTranslator(
-    private val transport: ClaudeTransport = HttpClaudeTransport,
-    private val retryPausesMs: List<Long> = listOf(3_000L, 10_000L, 30_000L),
+internal class LessonTranslator(
+    private val backend: LessonBackend,
+    private val chunkSize: Int = CLAUDE_CHUNK_SIZE,
 ) {
     suspend fun translate(
-        apiKey: String,
-        model: String,
         sentences: List<String>,
         glossaryFor: (List<String>) -> List<GlossaryEntry>,
         terms: () -> List<LearnedTerm>,
         onChunk: suspend (ClaudeChunkResult, ClaudeProgress) -> Unit,
     ): ClaudeLessonResult {
-        require(apiKey.isNotBlank()) { "Claude API kalitini kiriting." }
         val finished = linkedMapOf<Int, String>()
         val newTerms = mutableListOf<LearnedTerm>()
         val uncertain = mutableListOf<ClaudeUncertainty>()
-        val queue = ArrayDeque(claudeChunks(sentences))
+        val queue = ArrayDeque(claudeChunks(sentences, chunkSize))
         while (queue.isNotEmpty()) {
             val chunk = queue.removeFirst()
             val texts = chunk.sentences
             val prompt = claudeUserPrompt(chunk, sentences, finished, glossaryFor(texts), learnedTermsIn(terms(), texts))
             val result =
                 try {
-                    parseClaudeReply(sendWithRetry(apiKey, claudeRequestBody(model, prompt)), chunk)
+                    backend.translate(prompt, chunk)
                 } catch (error: ClaudeReplyException) {
                     val halves = splitClaudeChunk(chunk) ?: throw error
                     halves.asReversed().forEach(queue::addFirst)
@@ -120,11 +127,25 @@ internal class ClaudeLessonTranslator(
         }
         return ClaudeLessonResult(finished, newTerms, uncertain)
     }
+}
 
-    private suspend fun sendWithRetry(
-        apiKey: String,
-        body: String,
-    ): String {
+/** Claude: forced tool call; a busy service is retried after a pause, a wrong key or model is not. */
+internal class ClaudeBackend(
+    private val apiKey: String,
+    private val model: String,
+    private val transport: ClaudeTransport = HttpClaudeTransport,
+    private val retryPausesMs: List<Long> = listOf(3_000L, 10_000L, 30_000L),
+) : LessonBackend {
+    init {
+        require(apiKey.isNotBlank()) { "Claude API kalitini kiriting." }
+    }
+
+    override suspend fun translate(
+        userPrompt: String,
+        chunk: ClaudeChunk,
+    ): ClaudeChunkResult = parseClaudeReply(sendWithRetry(claudeRequestBody(model, userPrompt)), chunk)
+
+    private suspend fun sendWithRetry(body: String): String {
         var attempt = 0
         while (true) {
             try {

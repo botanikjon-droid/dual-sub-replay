@@ -202,7 +202,9 @@ private fun TranslatorControls() {
             if (key.isBlank()) {
                 "Kalitni aistudio.google.com dan oling. Kalit faqat shu telefonda saqlanadi. Kalitsiz Google Translate ishlaydi."
             } else {
-                "Gemini bir nechta gapni birga, UZI lug\u2018ati bilan tarjima qiladi. Xato bo\u2018lsa, Google Translate ishlaydi."
+                "Gemini har bir darsni butunligicha, UZI lug\u2018ati bilan bitta so\u2018rovda tarjima qiladi " +
+                    "(\u201CDars\u201D ekranida o\u2018zgartiriladi). " +
+                    "Tayyor bo\u2018lguncha va xato bo\u2018lsa Google Translate ishlaydi."
             },
         )
     }

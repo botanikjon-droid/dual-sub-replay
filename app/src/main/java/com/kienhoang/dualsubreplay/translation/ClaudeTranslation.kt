@@ -74,23 +74,31 @@ internal fun splitClaudeChunk(
     )
 }
 
-/** The doctor's medical-uzbek-translator skill, as instructions for the API. */
-internal fun claudeSystemPrompt(): String =
+/**
+ * The doctor's medical-uzbek-translator skill as instructions, shared by Claude and Gemini; only the
+ * last line (how to answer) differs between them.
+ */
+internal fun lessonSystemPrompt(answerInstruction: String): String =
     """
-    You are a medical translator. You translate English ultrasound (UZI) video lectures into Uzbek (Latin script) for an Uzbek ultrasound doctor. The text is YouTube automatic captions that the app has already joined into sentences; each item has an index "i".
+    You are an experienced medical translator and ultrasound (UZI) specialist. You translate English ultrasound video lectures into Uzbek (Latin script) for Uzbek ultrasound doctors who will read the text as subtitles and hear it read aloud. The input is YouTube automatic captions that the app has already joined into sentences; each item has an index "i" and is shown on screen at its own time.
 
     Work in this order:
-    1. Read "context_before", the items and "context_after" together and rebuild the full English sentences in your head. Automatic captions have no punctuation and a sentence can continue into the next item.
-    2. Find misheard words (ASR errors) from the medical context. Examples seen before: "a trophic" = atrophic, "Fri browsing" = fibrosing, "bankers head" = pancreas head, "hypo a coach in the city" = hypoechogenicity, "omental borsa" = omental bursa, "además" = edematous, "column" after left-sided = colon. Fix one only when the context clearly supports it. When several readings are possible, translate the most likely one and report the item in "uncertain" with the options; never present a guess as certain.
-    3. Translate each item into natural, grammatical Uzbek, as an Uzbek doctor would say it, not word by word: subject first, verb at the end of the sentence. Do not copy English word order.
-    4. Each item's Uzbek text must stand on its own on screen. When a sentence runs over two items, move words between the two Uzbek texts so that neither ends or starts with a dangling word (no lone "va", "bu", "bo‘lib,", "ikkita", or a genitive cut from its noun). Every item still gets a non-empty translation and keeps its own index; never merge, drop or reorder items.
-    5. Keep the medical meaning exactly: anatomy, pathology names, numbers, measurements and units (mm, cm/s, kPa, MHz), device names and abbreviations (RI, TGC, SWE, CBD). Add no diagnosis, detail or explanation that is not in the source.
-    6. Terms: "glossary" (doctor-approved) and "approved_terms" are mandatory; use the Uzbek term and add the Uzbek suffixes the sentence needs. "suggested_terms" are earlier suggestions not yet approved; use them for consistency unless the context clearly needs another word. The same structure must have the same Uzbek name throughout.
-    7. Write o‘ and g‘ with the ‘ mark (U+2018) and the glottal stop with ’ (U+2019); never use a plain apostrophe.
-    8. In "new_terms", list ultrasound or medical terms you translated that are in none of the term lists, with the Uzbek term you used (base form). Skip common words. In "uncertain", list misheard or doubtful places.
+    1. Read "context_before", all items and "context_after" together and rebuild the full English sentences in your head. Automatic captions have no punctuation, and a sentence can continue into the next item.
+    2. Find misheard words (ASR errors) from the medical context. Examples seen before: "a trophic" = atrophic, "Fri browsing" = fibrosing, "bankers head" = pancreas head, "hypo a coach in the city" = hypoechogenicity, "omental borsa" = omental bursa, "además" = edematous, "column" after left-sided = colon, "a situs" = ascites, "entry luminal" = intraluminal, "life altering video" = live ultrasound video. Fix a word only when the context clearly supports it. When several readings are possible, translate the most likely one and report the item in "uncertain" with the options; never present a guess as certain.
+    3. Translate the meaning into natural, grammatical Uzbek, as an experienced Uzbek ultrasound doctor would say it to colleagues, not word by word. Uzbek order: subject, then objects and adverbials, verb at the end. Never copy English word order.
+       Bad: "o‘tkir pankreatit tashxisi ikkita / quyidagi uchta mezondan kamida ikkitasi bajarilganda qo‘yiladi"
+       Good: "O‘tkir pankreatit tashxisi quyidagi uchta mezonning / ikkitasi bajarilganda qo‘yiladi: ..."
+    4. Every item's Uzbek text must read as a meaningful piece on its own screen. When one sentence runs over several items, distribute the Uzbek sentence over them by meaning: no item may start or end with a dangling word (a lone "va", "bu", "esa", "bo‘lib,", "ikkita", or a genitive word cut from its noun). Move words between neighbouring items when needed. Every item still gets a non-empty translation under its own index; never merge, drop, add or reorder items.
+    5. Keep the medical meaning exactly: anatomy, pathology names, numbers, measurements and units (mm, cm/s, kPa, MHz), probe positions, device names and abbreviations (RI, PI, TGC, SWE, CBD). Add no diagnosis, detail or explanation that is not in the source. Lists (criteria, signs) keep one grammatical form for every member.
+    6. Register: clear spoken medical Uzbek. Use established Uzbek medical words (jigar, taloq, buyrak, o‘t pufagi, oshqozon osti bezi, gipoexogen, giperexogen, anexogen, izoexogen, ko‘ndalang kesim, bo‘ylama kesim, datchik). Use Russian-style loan terms only where Uzbek doctors use them. Translate the lecturer's informal remarks ("take a look", "here you see") naturally ("e’tibor bering", "bu yerda ko‘ryapsiz"); translate course advertisements briefly.
+    7. Terms: "glossary" (doctor-approved) and "approved_terms" are mandatory; use the Uzbek term and add the Uzbek suffixes the sentence needs. "suggested_terms" are earlier suggestions not yet approved; use them for consistency unless the context clearly needs another word. The same structure must keep the same Uzbek name in the whole lesson.
+    8. Write o‘ and g‘ with the ‘ mark (U+2018) and the glottal stop with ’ (U+2019); never a plain apostrophe. No Cyrillic letters.
+    9. In "new_terms", list ultrasound or medical terms you translated that are in none of the term lists, with the Uzbek term you used (base form) and a short note when useful. Skip common words. In "uncertain", list misheard or doubtful places (index, what was heard, options, reason).
 
-    Answer only by calling the submit_translation tool.
+    $answerInstruction
     """.trimIndent()
+
+internal fun claudeSystemPrompt(): String = lessonSystemPrompt("Answer only by calling the submit_translation tool.")
 
 /** The user message: the terms that apply, the context and the chunk's items, as JSON. */
 internal fun claudeUserPrompt(
@@ -220,7 +228,15 @@ internal fun parseClaudeReply(
         val block = content.optJSONObject(index) ?: continue
         if (block.optString("type") == "tool_use" && block.optString("name") == CLAUDE_TOOL_NAME) input = block.optJSONObject("input")
     }
-    val answer = input ?: throw ClaudeReplyException("Claude tarjima qaytarmadi.")
+    return parseLessonAnswer(input ?: throw ClaudeReplyException("Claude tarjima qaytarmadi."), chunk, "Claude")
+}
+
+/** Checks a structured answer (Claude's tool input or Gemini's JSON) covers exactly the chunk's items. */
+internal fun parseLessonAnswer(
+    answer: JSONObject,
+    chunk: ClaudeChunk,
+    engine: String,
+): ClaudeChunkResult {
     val wanted =
         chunk.sentences.indices
             .map { chunk.start + it }
@@ -235,7 +251,7 @@ internal fun parseClaudeReply(
     }
     val missing = wanted - translations.keys
     if (missing.isNotEmpty()) {
-        throw ClaudeReplyException("Claude ${missing.size} ta gapni tarjima qilmadi (${missing.sorted().take(5).joinToString()}).")
+        throw ClaudeReplyException("$engine ${missing.size} ta gapni tarjima qilmadi (${missing.sorted().take(5).joinToString()}).")
     }
     return ClaudeChunkResult(
         translations = wanted.sorted().associateWith { translations.getValue(it) },

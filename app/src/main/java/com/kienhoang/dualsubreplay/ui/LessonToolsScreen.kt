@@ -84,6 +84,7 @@ internal fun LessonToolsScreen(
     onDismiss: () -> Unit,
     claudeRun: ClaudeRunState = ClaudeRunState(),
     onClaudeTranslate: () -> Unit = {},
+    onGeminiTranslate: () -> Unit = {},
     onClaudeCancel: () -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -236,6 +237,7 @@ internal fun LessonToolsScreen(
                         activeVideoId = activeVideoId,
                         run = claudeRun,
                         onTranslate = onClaudeTranslate,
+                        onGeminiTranslate = onGeminiTranslate,
                         onCancel = onClaudeCancel,
                     )
                     LearnedGlossaryCard()

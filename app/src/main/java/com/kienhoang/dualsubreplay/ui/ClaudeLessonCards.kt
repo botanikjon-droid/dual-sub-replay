@@ -48,6 +48,7 @@ import com.kienhoang.dualsubreplay.data.removeLearnedTerm
 import com.kienhoang.dualsubreplay.data.upsertDoctorTerm
 import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
 import com.kienhoang.dualsubreplay.translation.CLAUDE_MODELS
+import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GEMINI
 import kotlinx.coroutines.launch
 
 /** Doubtful places listed under the Claude card; the rest are in the count. */
@@ -67,59 +68,102 @@ internal fun ClaudeTranslateCard(
     run: ClaudeRunState,
     onTranslate: () -> Unit,
     onCancel: () -> Unit,
+    onGeminiTranslate: () -> Unit = {},
 ) {
     val available by DubbingSettings.available.collectAsStateWithLifecycle()
     if (!available) return
-    val key by DubbingSettings.claudeApiKey.collectAsStateWithLifecycle()
-    val model by DubbingSettings.claudeModel.collectAsStateWithLifecycle()
-    val auto by DubbingSettings.claudeAuto.collectAsStateWithLifecycle()
     val runningHere = run.running && run.videoId == activeVideoId
-    LessonCard(title = "Claude bilan tarjima", icon = Icons.Default.AutoAwesome) {
+    LessonCard(title = "Butun darsni tarjima qilish", icon = Icons.Default.AutoAwesome) {
         Hint(
-            "Claude butun darsni UZI lug‘ati va tarjima qoidalari bilan tarjima qiladi. Tayyor bo‘lgach, tarjima shu darsga " +
-                "yuklanadi va ovozda o‘qiladi. Kalit faqat shu telefonda saqlanadi; har bir dars uchun API hisobingizdan haq olinadi.",
+            "Butun dars UZI lug‘ati va tarjima qoidalari bilan bir yo‘la tarjima qilinadi. Tayyor bo‘lgach, tarjima shu darsga " +
+                "yuklanadi, ovozda o‘qiladi va dars qayta ochilganda so‘rov sarflanmaydi. Kalitlar faqat shu telefonda saqlanadi.",
         )
-        OutlinedTextField(
-            value = key,
-            onValueChange = DubbingSettings::setClaudeApiKey,
-            label = { Text("Claude API kaliti") },
-            placeholder = { Text("sk-ant-…") },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth().testTag("claude_api_key"),
-        )
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CLAUDE_MODELS.forEach { option ->
-                FilterChip(
-                    selected = model == option.id,
-                    onClick = { DubbingSettings.setClaudeModel(option.id) },
-                    label = { Text(option.label) },
-                )
-            }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Har bir yangi darsni avtomatik tarjima qilish", modifier = Modifier.weight(1f))
-            Switch(checked = auto, onCheckedChange = DubbingSettings::setClaudeAuto, modifier = Modifier.testTag("claude_auto"))
-        }
+        GeminiLessonControls(enabled = activeVideoId != null && !run.running, onTranslate = onGeminiTranslate)
+        HorizontalDivider()
+        ClaudeLessonControls(enabled = activeVideoId != null && !run.running, onTranslate = onTranslate)
         if (runningHere) {
             LinearProgressIndicator(
                 progress = { if (run.total > 0) run.done.toFloat() / run.total else 0f },
                 modifier = Modifier.fillMaxWidth(),
             )
-            Hint("${run.done} / ${run.total} gap tarjima qilindi. Video ko‘rishda davom etishingiz mumkin.")
+            Hint("${run.engine.label}: ${run.done} / ${run.total} gap tarjima qilindi. Video ko‘rishda davom etishingiz mumkin.")
             OutlinedButton(onClick = onCancel) { Text("To‘xtatish") }
-        } else {
-            Button(
-                enabled = activeVideoId != null && key.isNotBlank() && !run.running,
-                modifier = Modifier.fillMaxWidth().testTag("claude_translate_lesson"),
-                onClick = onTranslate,
-            ) { Text("Shu darsni Claude bilan tarjima qilish") }
         }
         if (run.videoId == activeVideoId) {
             run.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("claude_message")) }
             ClaudeDoubts(run.doubts)
         }
     }
+}
+
+/** Gemini: free tier, one request per lesson; its key is set in the "O‘zbekcha ovoz" settings. */
+@Composable
+private fun GeminiLessonControls(
+    enabled: Boolean,
+    onTranslate: () -> Unit,
+) {
+    val key by DubbingSettings.geminiApiKey.collectAsStateWithLifecycle()
+    val provider by DubbingSettings.translationProvider.collectAsStateWithLifecycle()
+    val whole by DubbingSettings.geminiWholeLesson.collectAsStateWithLifecycle()
+    Text("Gemini (bepul)", fontWeight = FontWeight.SemiBold)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Har bir darsni bitta so‘rovda tarjima qilish", modifier = Modifier.weight(1f))
+        Switch(checked = whole, onCheckedChange = DubbingSettings::setGeminiWholeLesson, modifier = Modifier.testTag("gemini_whole_lesson"))
+    }
+    Hint(
+        when {
+            key.isBlank() -> "Gemini kalitini sozlamalardagi \u201CO‘zbekcha ovoz\u201D bo‘limiga kiriting."
+            whole && provider == TRANSLATION_PROVIDER_GEMINI ->
+                "Tarjimon Gemini bo‘lgani uchun har bir yangi dars ochilganda o‘zi tarjima qilinadi (kuniga bir model uchun " +
+                    "taxminan 20 dars). Tayyor bo‘lguncha Google Translate ishlaydi."
+            whole -> "Avtomatik ishlashi uchun sozlamalarda tarjimon sifatida Gemini ni tanlang yoki tugmani bosing."
+            else -> "O‘chiq: Gemini video davomida gaplarni bo‘laklab tarjima qiladi va bepul limit tez tugaydi."
+        },
+    )
+    Button(
+        enabled = enabled && key.isNotBlank(),
+        modifier = Modifier.fillMaxWidth().testTag("gemini_translate_lesson"),
+        onClick = onTranslate,
+    ) { Text("Shu darsni Gemini bilan tarjima qilish") }
+}
+
+/** Claude: the doctor's paid API key and model, and its own automatic switch. */
+@Composable
+private fun ClaudeLessonControls(
+    enabled: Boolean,
+    onTranslate: () -> Unit,
+) {
+    val key by DubbingSettings.claudeApiKey.collectAsStateWithLifecycle()
+    val model by DubbingSettings.claudeModel.collectAsStateWithLifecycle()
+    val auto by DubbingSettings.claudeAuto.collectAsStateWithLifecycle()
+    Text("Claude (pullik, eng aniq)", fontWeight = FontWeight.SemiBold)
+    OutlinedTextField(
+        value = key,
+        onValueChange = DubbingSettings::setClaudeApiKey,
+        label = { Text("Claude API kaliti") },
+        placeholder = { Text("sk-ant-…") },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        modifier = Modifier.fillMaxWidth().testTag("claude_api_key"),
+    )
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        CLAUDE_MODELS.forEach { option ->
+            FilterChip(
+                selected = model == option.id,
+                onClick = { DubbingSettings.setClaudeModel(option.id) },
+                label = { Text(option.label) },
+            )
+        }
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Har bir yangi darsni Claude bilan avtomatik tarjima qilish", modifier = Modifier.weight(1f))
+        Switch(checked = auto, onCheckedChange = DubbingSettings::setClaudeAuto, modifier = Modifier.testTag("claude_auto"))
+    }
+    Button(
+        enabled = enabled && key.isNotBlank(),
+        modifier = Modifier.fillMaxWidth().testTag("claude_translate_lesson"),
+        onClick = onTranslate,
+    ) { Text("Shu darsni Claude bilan tarjima qilish") }
 }
 
 @Composable

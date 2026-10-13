@@ -312,7 +312,13 @@ class AppViewModel internal constructor(
 
     fun translateLessonWithClaude() {
         val videoId = _state.value.activeVideoId ?: return
-        claude.start(videoId)
+        claude.start(videoId, LessonEngine.CLAUDE)
+    }
+
+    /** The whole open lesson in one Gemini request (the free tier counts requests, not sentences). */
+    fun translateLessonWithGemini() {
+        val videoId = _state.value.activeVideoId ?: return
+        claude.start(videoId, LessonEngine.GEMINI)
     }
 
     fun cancelClaudeTranslation() = claude.cancel()

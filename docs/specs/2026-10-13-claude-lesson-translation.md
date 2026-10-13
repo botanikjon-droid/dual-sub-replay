@@ -84,3 +84,28 @@ share back. Machine translation (Google, Gemini) breaks Uzbek sentence structure
 - Cost: every run is billed to the doctor's API account; auto mode is off by default.
 - A model ID the account cannot use returns 404; the doctor picks another model.
 - The API key is kept in the app's private preferences like the Gemini key; Android backups include it.
+
+## Field feedback 1 (2026-10-14): Gemini whole lessons
+
+The doctor: the Gemini free tier allows about 20 requests a day per model, and the sentence batches used
+them up on about 20 sentences. Request: Gemini should translate the whole subtitle, so 20 requests give at
+least 20 lessons, with an excellent translation prompt.
+
+- **Whole-lesson Gemini** (`translation/GeminiLessonTranslation.kt`): the lesson's whole transcript in ONE
+  `generateContent` request (up to 400 sentences, `maxOutputTokens` 65,536, temperature 0.2), JSON answer in
+  the same schema as Claude (translations, new terms, doubtful places), converted to Gemini's schema dialect.
+  The answer is imported as the lesson's translation, so a reopened lesson costs no request. Only a reply
+  cut at `MAX_TOKENS` is split in two. A model out of quota (429) or unknown (404) rests and the next model,
+  with its own quota, gets the request; when all rest, the lesson screen names the time.
+- **Setting** "Har bir darsni bitta so‘rovda tarjima qilish" (`geminiWholeLesson`, on by default). With
+  Gemini chosen as translator, every newly opened lesson without a stored translation is translated
+  automatically. The sentence-batch Gemini path during playback is off in this mode; Google Translate covers
+  playback until the lesson's Gemini translation is imported. Off restores the old behaviour.
+- **One prompt for both engines** (`lessonSystemPrompt`): the medical-uzbek-translator skill, extended with
+  a bad/good word-order example, more known ASR errors, the Uzbek medical register (established terms,
+  informal lecturer remarks, course adverts) and "no Cyrillic".
+- The lesson engine is now generic (`LessonTranslator` + `ClaudeBackend` / `GeminiBackend`).
+- Tests: `GeminiLessonTranslationTest` (5): schema dialect and prompt, reply with thoughts and fences, cut
+  reply, one request per lesson with model hand-over on 429, all models used up, wrong key stops at once.
+  18 lesson tests pass locally; ktlint ratchet and detekt pass.
+- Unverified: live Gemini reply for a long lecture, real free-tier limits per model, translation quality.

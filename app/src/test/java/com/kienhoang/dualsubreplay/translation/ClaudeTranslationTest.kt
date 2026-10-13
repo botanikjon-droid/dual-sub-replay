@@ -161,9 +161,7 @@ class ClaudeTranslationTest {
                 }
             val progress = mutableListOf<Int>()
             val result =
-                ClaudeLessonTranslator(transport, retryPausesMs = emptyList()).translate(
-                    apiKey = "key",
-                    model = "m",
+                LessonTranslator(ClaudeBackend("key", "m", transport, retryPausesMs = emptyList())).translate(
                     sentences = lesson,
                     glossaryFor = { emptyList() },
                     terms = { emptyList() },
@@ -185,16 +183,16 @@ class ClaudeTranslationTest {
                     if (calls == 1) throw ClaudeHttpException(529, "busy", null)
                     reply(itemsOf(body).map { it to "uz" })
                 }
-            ClaudeLessonTranslator(busyOnce, retryPausesMs = listOf(1L)).translate("k", "m", lesson.take(2), {
-                emptyList()
-            }, { emptyList() }) { _, _ -> }
+            LessonTranslator(
+                ClaudeBackend("k", "m", busyOnce, listOf(1L)),
+            ).translate(lesson.take(2), { emptyList() }, { emptyList() }) { _, _ -> }
             assertEquals(2, calls)
 
             val wrongKey = ClaudeTransport { _, _ -> throw ClaudeHttpException(401, claudeHttpError(401, ""), null) }
             try {
-                ClaudeLessonTranslator(wrongKey, retryPausesMs = listOf(1L)).translate("k", "m", lesson.take(2), {
-                    emptyList()
-                }, { emptyList() }) { _, _ -> }
+                LessonTranslator(
+                    ClaudeBackend("k", "m", wrongKey, listOf(1L)),
+                ).translate(lesson.take(2), { emptyList() }, { emptyList() }) { _, _ -> }
                 fail("expected the key error")
             } catch (error: IOException) {
                 assertTrue(error.message!!.contains("kaliti"))

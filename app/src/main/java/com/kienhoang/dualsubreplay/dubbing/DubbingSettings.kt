@@ -34,6 +34,7 @@ internal object DubbingSettings {
     private const val KEY_CLAUDE_API_KEY = "claude_api_key"
     private const val KEY_CLAUDE_MODEL = "claude_model"
     private const val KEY_CLAUDE_AUTO = "claude_auto"
+    private const val KEY_GEMINI_WHOLE_LESSON = "gemini_whole_lesson"
     private const val DEFAULT_VIDEO_VOLUME = 20
     private const val DEFAULT_MAX_TEMPO_PERCENT = 150
 
@@ -53,6 +54,7 @@ internal object DubbingSettings {
     private val _claudeApiKey = MutableStateFlow("")
     private val _claudeModel = MutableStateFlow(CLAUDE_MODELS.first().id)
     private val _claudeAuto = MutableStateFlow(false)
+    private val _geminiWholeLesson = MutableStateFlow(true)
     private var preferences: SharedPreferences? = null
 
     val available: StateFlow<Boolean> = _available
@@ -94,6 +96,12 @@ internal object DubbingSettings {
 
     /** Translate every newly opened lesson with Claude in the background (off by default: it costs money). */
     val claudeAuto: StateFlow<Boolean> = _claudeAuto
+
+    /**
+     * Gemini translates each opened lesson whole, in one request of the free daily quota (on by default),
+     * instead of sentence batches during playback. Google Translate covers playback until it is ready.
+     */
+    val geminiWholeLesson: StateFlow<Boolean> = _geminiWholeLesson
 
     /** What the dub did in the current video, for the settings card. */
     val stats: StateFlow<DubbingStats> = _stats
@@ -145,6 +153,12 @@ internal object DubbingSettings {
         _claudeModel.value =
             saved.getString(KEY_CLAUDE_MODEL, null)?.takeIf { id -> CLAUDE_MODELS.any { it.id == id } } ?: CLAUDE_MODELS.first().id
         _claudeAuto.value = saved.getBoolean(KEY_CLAUDE_AUTO, false)
+        _geminiWholeLesson.value = saved.getBoolean(KEY_GEMINI_WHOLE_LESSON, true)
+    }
+
+    fun setGeminiWholeLesson(value: Boolean) {
+        _geminiWholeLesson.value = value
+        preferences?.edit()?.putBoolean(KEY_GEMINI_WHOLE_LESSON, value)?.apply()
     }
 
     fun setClaudeApiKey(key: String) {
