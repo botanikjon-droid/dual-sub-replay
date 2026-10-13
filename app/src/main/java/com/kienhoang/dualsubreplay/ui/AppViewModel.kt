@@ -31,6 +31,7 @@ import com.kienhoang.dualsubreplay.data.YouTubeCaptionProvider
 import com.kienhoang.dualsubreplay.data.YouTubeUrlParser
 import com.kienhoang.dualsubreplay.data.applyImportedTranslation
 import com.kienhoang.dualsubreplay.data.formatSrt
+import com.kienhoang.dualsubreplay.data.lessonHeader
 import com.kienhoang.dualsubreplay.data.mergeImportedCues
 import com.kienhoang.dualsubreplay.data.parseSubtitleFile
 import com.kienhoang.dualsubreplay.data.readBoundedText
@@ -38,6 +39,7 @@ import com.kienhoang.dualsubreplay.data.toSegments
 import com.kienhoang.dualsubreplay.data.translationRequest
 import com.kienhoang.dualsubreplay.data.retireLegacyDownloadJobs
 import com.kienhoang.dualsubreplay.data.savedWordFrom
+import com.kienhoang.dualsubreplay.data.subtitleFileName
 import com.kienhoang.dualsubreplay.dubbing.DubbingController
 import com.kienhoang.dualsubreplay.dubbing.createDubbingVoice
 import com.kienhoang.dualsubreplay.translation.OnDeviceTranslator
@@ -195,14 +197,17 @@ private const val NO_VIDEO_MESSAGE = "Avval dars videosini oching."
 private const val MAX_IMPORTED_TRANSLATION_BYTES = 8L * 1024 * 1024
 private const val LAST_SHARED_VIDEO_PREFERENCE = "last_translation_share_video"
 
-/** A transcript ready to copy or save as an .srt file. */
+/** A transcript ready to copy or save as an .srt file named after the video, e.g. `Pancreas.srt`. */
 internal data class SubtitleExport(
     val videoId: String,
-    val languageCode: String,
+    val title: String?,
     val cueCount: Int,
     val text: String,
 ) {
-    val fileName: String get() = "$videoId.$languageCode.srt"
+    val fileName: String get() = subtitleFileName(title, videoId)
+
+    /** For copying and sharing: the video's title and link above the subtitles. */
+    val textWithHeader: String get() = lessonHeader(title, videoId) + "\n" + text
 }
 
 internal fun preferredCaptionLanguages(sourcePreference: String): List<String> =
@@ -572,7 +577,7 @@ class AppViewModel internal constructor(
         if (segments.isEmpty()) throw IllegalStateException("Bu videoning subtitrida matn yo\u2018q.")
         return SubtitleExport(
             videoId = videoId,
-            languageCode = track.languageCode,
+            title = track.title,
             cueCount = segments.size,
             text = withContext(Dispatchers.Default) { formatSrt(segments) },
         )
@@ -592,8 +597,20 @@ class AppViewModel internal constructor(
                 TranslationLanguages.displayName(target)
             }
         preferences.edit().putString(LAST_SHARED_VIDEO_PREFERENCE, export.videoId).apply()
-        return export.copy(text = withContext(Dispatchers.Default) { translationRequest(export.text, language) })
+        val request = withContext(Dispatchers.Default) { translationRequest(export.text, language) }
+        return export.copy(text = lessonHeader(export.title, export.videoId) + "\n" + request)
     }
+
+    /**
+     * Which lesson an imported translation belongs to: the YouTube link inside it (the shared text
+     * starts with one), then the lesson last shared for translation, then the open video.
+     */
+    private fun importTargetFor(
+        text: String,
+        fallback: String?,
+    ): String? =
+        YouTubeUrlParser.extractVideoId(text.take(YouTubeUrlParser.MAX_SHARED_TEXT_LENGTH))
+            ?: fallback
 
     /**
      * Uses SRT/VTT text as a video's translation instead of machine translation. A part of a lecture
@@ -602,7 +619,7 @@ class AppViewModel internal constructor(
      */
     internal suspend fun importTranslation(
         text: String,
-        targetVideoId: String? = _state.value.activeVideoId,
+        targetVideoId: String? = importTargetFor(text, _state.value.activeVideoId),
     ): Int {
         val videoId = targetVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
         val incoming = withContext(Dispatchers.Default) { parseSubtitleFile(text) }
@@ -647,7 +664,8 @@ class AppViewModel internal constructor(
 
     /** A translation shared into the app goes to the lesson it was requested for. */
     private fun importSharedTranslation(text: String) {
-        val target = preferences.getString(LAST_SHARED_VIDEO_PREFERENCE, null) ?: _state.value.activeVideoId
+        val target =
+            importTargetFor(text, preferences.getString(LAST_SHARED_VIDEO_PREFERENCE, null) ?: _state.value.activeVideoId)
         viewModelScope.launch {
             val message =
                 try {

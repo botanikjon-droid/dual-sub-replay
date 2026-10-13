@@ -90,6 +90,7 @@ internal fun LessonToolsScreen(
     var linkError by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    var pendingSave by remember { mutableStateOf<SubtitleExport?>(null) }
 
     fun work(block: suspend () -> String) {
         if (busy) return
@@ -130,11 +131,12 @@ internal fun LessonToolsScreen(
 
     val saver =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/x-subrip")) { uri ->
-            if (uri != null) {
+            val export = pendingSave
+            pendingSave = null
+            if (uri != null && export != null) {
                 work {
-                    val export = exportSubtitles()
                     writeText(context, uri, export.text)
-                    "${export.cueCount} qator .srt faylga saqlandi."
+                    "${export.fileName} saqlandi (${export.cueCount} qator)."
                 }
             }
         }
@@ -196,53 +198,36 @@ internal fun LessonToolsScreen(
                         }
                     }
 
-                    LessonCard(title = "Subtitrni ko‘chirish", icon = Icons.Default.ClosedCaption) {
-                        Hint(
-                            if (activeVideoId == null) {
-                                "Avval dars videosini oching."
-                            } else {
-                                "“Ulashish” subtitrni tarjima ko‘rsatmasi bilan Claude yoki ChatGPT’ga yuboradi. " +
-                                    "Javobini yana “Ulashish” orqali Dual Replay’ga qaytaring — tarjima shu darsga yuklanadi. " +
-                                    "Uzun javob qismlarga bo‘linsa, har bir qismini ketma-ket yuklang."
-                            },
-                        )
-                        Button(
-                            enabled = activeVideoId != null && !busy,
-                            modifier = Modifier.fillMaxWidth().testTag("share_subtitles_for_translation"),
-                            onClick = {
-                                work {
-                                    val request = shareForTranslation()
-                                    whenNotTooLong(request) {
-                                        shareText(context, request)
-                                        "${request.cueCount} qator tarjimaga ulashildi."
-                                    }
+                    SubtitleOutCard(
+                        hasVideo = activeVideoId != null,
+                        enabled = activeVideoId != null && !busy,
+                        onShare = {
+                            work {
+                                val request = shareForTranslation()
+                                whenNotTooLong(request) {
+                                    shareText(context, request)
+                                    "${request.cueCount} qator tarjimaga ulashildi."
                                 }
-                            },
-                        ) {
-                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Ulashish (Claude, ChatGPT)")
-                        }
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(
-                                enabled = activeVideoId != null && !busy,
-                                modifier = Modifier.testTag("copy_subtitles"),
-                                onClick = {
-                                    work {
-                                        val export = exportSubtitles()
-                                        whenNotTooLong(export) {
-                                            clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(export.fileName, export.text)))
-                                            "${export.cueCount} qator buferga nusxalandi."
-                                        }
-                                    }
-                                },
-                            ) { Text("Nusxalash") }
-                            OutlinedButton(
-                                enabled = activeVideoId != null && !busy,
-                                onClick = { saver.launch("${activeVideoId.orEmpty()}.srt") },
-                            ) { Text("Fayl sifatida saqlash") }
-                        }
-                    }
+                            }
+                        },
+                        onCopy = {
+                            work {
+                                val export = exportSubtitles()
+                                whenNotTooLong(export) {
+                                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(export.fileName, export.textWithHeader)))
+                                    "${export.cueCount} qator buferga nusxalandi."
+                                }
+                            }
+                        },
+                        onSave = {
+                            work {
+                                val export = exportSubtitles()
+                                pendingSave = export
+                                saver.launch(export.fileName)
+                                "Saqlash joyini tanlang: ${export.fileName}"
+                            }
+                        },
+                    )
 
                     LessonCard(title = "Tarjima subtitrini yuklash", icon = Icons.Default.Translate) {
                         Hint(
@@ -288,6 +273,42 @@ internal fun LessonToolsScreen(
                     message?.let { Text(it, modifier = Modifier.testTag("lesson_tools_message")) }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SubtitleOutCard(
+    hasVideo: Boolean,
+    enabled: Boolean,
+    onShare: () -> Unit,
+    onCopy: () -> Unit,
+    onSave: () -> Unit,
+) {
+    LessonCard(title = "Subtitrni ko\u2018chirish", icon = Icons.Default.ClosedCaption) {
+        Hint(
+            if (!hasVideo) {
+                "Avval dars videosini oching."
+            } else {
+                "\u201CUlashish\u201D subtitrni video nomi, havolasi va tarjima ko\u2018rsatmasi bilan Claude yoki ChatGPT\u2019ga " +
+                    "yuboradi. Javobini yana \u201CUlashish\u201D orqali Dual Replay\u2019ga qaytaring \u2014 tarjima shu darsga " +
+                    "yuklanadi. Uzun javob qismlarga bo\u2018linsa, har bir qismini ketma-ket yuklang."
+            },
+        )
+        Button(
+            enabled = enabled,
+            modifier = Modifier.fillMaxWidth().testTag("share_subtitles_for_translation"),
+            onClick = onShare,
+        ) {
+            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Ulashish (Claude, ChatGPT)")
+        }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(enabled = enabled, modifier = Modifier.testTag("copy_subtitles"), onClick = onCopy) {
+                Text("Nusxalash")
+            }
+            OutlinedButton(enabled = enabled, onClick = onSave) { Text("Fayl sifatida saqlash") }
         }
     }
 }
@@ -346,7 +367,7 @@ private fun shareText(
     val send =
         Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, request.fileName)
+            putExtra(Intent.EXTRA_SUBJECT, request.title ?: request.fileName)
             putExtra(Intent.EXTRA_TEXT, request.text)
         }
     context.startActivity(Intent.createChooser(send, "Tarjima uchun ulashish"))

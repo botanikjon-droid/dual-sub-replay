@@ -632,6 +632,12 @@ class YouTubeCaptionProvider(
             isGenerated = isGeneratedTrack(selected),
             cues = cues,
             availableLanguages = availableLanguages(tracks),
+            title =
+                root
+                    .optJSONObject("videoDetails")
+                    ?.optString("title")
+                    ?.trim()
+                    ?.takeIf(String::isNotEmpty),
         )
     }
 

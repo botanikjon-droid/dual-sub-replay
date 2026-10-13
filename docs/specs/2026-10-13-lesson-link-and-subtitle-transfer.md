@@ -25,6 +25,11 @@ The Uzbek build is used to study ultrasound lectures. Two steps were missing fro
 - **Ulashish (Claude, ChatGPT)** shares the transcript with Uzbek translation instructions through the
   Android share sheet. The AI's reply shared back to Dual Replay (as text or as an `.srt`/`.vtt`
   file) is imported for the lesson it was requested for, so quality does not depend on Gemini.
+- Copied and shared subtitles start with the video title and its `https://youtu.be/<id>` link; saved
+  files are named after the video title (`Pancreas.srt`), falling back to the video id. The title comes
+  from the player response (`videoDetails.title`) and is kept in the recent-caption cache.
+- An imported text that contains a YouTube link goes to that video; otherwise to the lesson last shared
+  for translation, then the open video.
 - Imports merge: a new part replaces only the time range it covers, so a long lecture can be
   translated and imported in parts.
 
@@ -80,7 +85,7 @@ The Uzbek build is used to study ultrasound lectures. Two steps were missing fro
 
 | Category | Command/scenario and expected result | Environment / applicability |
 | --- | --- | --- |
-| Unit tests | `SubtitleFilesTest` | Ran locally with kotlinc 2.3.21 + JUnit shim: 14/14 pass. CI must confirm. |
+| Unit tests | `SubtitleFilesTest` | Ran locally with kotlinc 2.3.21 + JUnit shim: 16/16 pass. CI must confirm. |
 | Formatting | ktlint 1.7.1 report + `tools/check_format_ratchet.py` | Passed locally. |
 | Android lint/build | CI `verify-build` | Not available locally (no Android SDK). |
 | Physical-device/manual | Scenario in acceptance criteria | Owner, Redmi 13. |

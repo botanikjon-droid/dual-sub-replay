@@ -180,3 +180,33 @@ internal fun readBoundedText(
     }
     return output.toByteArray().toString(Charsets.UTF_8)
 }
+
+private val UNSAFE_FILE_NAME_CHARS = Regex("""[\\/:*?"<>|\p{Cntrl}]""")
+private const val MAX_FILE_NAME_CHARS = 80
+
+/** `Pancreas.srt` from the video title; the video id when there is no usable title. */
+internal fun subtitleFileName(
+    title: String?,
+    videoId: String,
+): String {
+    val name =
+        title
+            .orEmpty()
+            .replace(UNSAFE_FILE_NAME_CHARS, " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .trim('.')
+            .take(MAX_FILE_NAME_CHARS)
+            .trim()
+    return "${name.ifEmpty { videoId }}.srt"
+}
+
+/** Title and link lines put above copied or shared subtitles, so the lesson stays identifiable. */
+internal fun lessonHeader(
+    title: String?,
+    videoId: String,
+): String =
+    buildString {
+        title?.trim()?.takeIf(String::isNotEmpty)?.let { append(it).append('\n') }
+        append("https://youtu.be/").append(videoId).append('\n')
+    }

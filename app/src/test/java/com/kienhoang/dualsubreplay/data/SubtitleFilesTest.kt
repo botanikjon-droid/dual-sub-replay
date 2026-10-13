@@ -173,4 +173,23 @@ class SubtitleFilesTest {
         val error = runCatching { readBoundedText("abcd".byteInputStream(), maxBytes = 3) }.exceptionOrNull()
         assertTrue(error is IllegalArgumentException)
     }
+
+    @Test
+    fun subtitleFileIsNamedAfterTheVideo() {
+        assertEquals("Pancreas.srt", subtitleFileName("Pancreas", "IsJeMgxTFMU"))
+        assertEquals("Liver Doppler part 1 2.srt", subtitleFileName("  Liver: Doppler / part 1|2 ", "x"))
+        assertEquals("IsJeMgxTFMU.srt", subtitleFileName(null, "IsJeMgxTFMU"))
+        assertEquals("IsJeMgxTFMU.srt", subtitleFileName(" ?? ", "IsJeMgxTFMU"))
+        assertEquals(84, subtitleFileName("a".repeat(200), "x").length)
+    }
+
+    @Test
+    fun headerCarriesTitleAndLinkAndDoesNotBreakImport() {
+        val header = lessonHeader("Pancreas", "IsJeMgxTFMU")
+        assertEquals("Pancreas\nhttps://youtu.be/IsJeMgxTFMU\n", header)
+        assertEquals("https://youtu.be/abc\n", lessonHeader(null, "abc"))
+
+        val srt = formatSrt(listOf(SubtitleSegment(0, 0, 1_000, "Oshqozon osti bezi")))
+        assertEquals(listOf("Oshqozon osti bezi"), parseSubtitleFile(header + "\n" + srt).map { it.text })
+    }
 }
