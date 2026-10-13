@@ -40,7 +40,7 @@ class SubtitleFilesTest {
     @Test
     fun parsesSrtWithBomWindowsLineEndsTagsAndMultipleLines() {
         val srt =
-            "1\r\n00:00:01,000 --> 00:00:03,000\r\n<i>Jigar</i> bir xil\r\nexogenlikda.\r\n\r\n" +
+            "\uFEFF1\r\n00:00:01,000 --> 00:00:03,000\r\n<i>Jigar</i> bir xil\r\nexogenlikda.\r\n\r\n" +
                 "2\r\n00:00:04,000 --> 00:00:05,000\r\nPortal vena.\r\n"
 
         val cues = parseSubtitleFile(srt)
@@ -129,5 +129,48 @@ class SubtitleFilesTest {
         val cues = listOf(RawCaptionCue(0, 2_000, "Birinchi qism,"), RawCaptionCue(2_000, 4_000, "ikkinchi qism."))
 
         assertEquals("Birinchi qism, ikkinchi qism.", applyImportedTranslation(rows, cues).single().translatedText)
+    }
+
+    @Test
+    fun ignoresAiChatTextAndCodeFencesAroundSrt() {
+        val reply =
+            "Mana tarjima:\n\n```srt\n1\n00:00:01,000 --> 00:00:02,000\nJigar\n```\n\n" +
+                "Yana savol bo\u2018lsa yozing."
+
+        val cues = parseSubtitleFile(reply)
+
+        assertEquals(listOf("Jigar"), cues.map { it.text })
+    }
+
+    @Test
+    fun aPartialImportReplacesOnlyTheTimeItCovers() {
+        val existing =
+            listOf(
+                RawCaptionCue(0, 1_000, "eski 1"),
+                RawCaptionCue(1_000, 2_000, "eski 2"),
+                RawCaptionCue(5_000, 6_000, "eski 3"),
+            )
+        val incoming = listOf(RawCaptionCue(1_000, 2_000, "yangi 2"), RawCaptionCue(2_000, 3_000, "yangi 2b"))
+
+        val merged = mergeImportedCues(existing, incoming)
+
+        assertEquals(listOf("eski 1", "yangi 2", "yangi 2b", "eski 3"), merged.map { it.text })
+    }
+
+    @Test
+    fun translationRequestKeepsTheSrtImportable() {
+        val srt = formatSrt(listOf(SubtitleSegment(0, 0, 1_000, "Liver")))
+
+        val request = translationRequest(srt, "O\u2018zbek")
+
+        assertTrue(request.endsWith(srt))
+        assertEquals(listOf("Liver"), parseSubtitleFile(request).map { it.text })
+    }
+
+    @Test
+    fun boundedReadRejectsOversizedInput() {
+        assertEquals("abc", readBoundedText("abc".byteInputStream(), maxBytes = 3))
+        val error = runCatching { readBoundedText("abcd".byteInputStream(), maxBytes = 3) }.exceptionOrNull()
+        assertTrue(error is IllegalArgumentException)
     }
 }

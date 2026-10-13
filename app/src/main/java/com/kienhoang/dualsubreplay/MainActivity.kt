@@ -2,6 +2,7 @@ package com.kienhoang.dualsubreplay
 
 import android.content.Intent
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -69,11 +70,26 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
+        sharedSubtitleFile(intent)?.let {
+            viewModel.acceptSharedSubtitleFile(it)
+            return
+        }
         val sharedText = when (intent?.action) {
             Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
             Intent.ACTION_VIEW -> intent.dataString
             else -> null
         }
         if (!sharedText.isNullOrBlank()) viewModel.acceptSharedText(sharedText)
+    }
+
+    /** A shared .srt/.vtt file arrives as a stream with no text. */
+    private fun sharedSubtitleFile(intent: Intent?): Uri? {
+        if (intent?.action != Intent.ACTION_SEND || !intent.getStringExtra(Intent.EXTRA_TEXT).isNullOrBlank()) return null
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra(Intent.EXTRA_STREAM)
+        }
     }
 }

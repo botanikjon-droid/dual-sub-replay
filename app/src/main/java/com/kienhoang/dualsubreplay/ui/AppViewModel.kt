@@ -2,6 +2,7 @@ package com.kienhoang.dualsubreplay.ui
 
 import android.app.Application
 import android.os.SystemClock
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kienhoang.dualsubreplay.data.AnalyzedToken
@@ -30,8 +31,11 @@ import com.kienhoang.dualsubreplay.data.YouTubeCaptionProvider
 import com.kienhoang.dualsubreplay.data.YouTubeUrlParser
 import com.kienhoang.dualsubreplay.data.applyImportedTranslation
 import com.kienhoang.dualsubreplay.data.formatSrt
+import com.kienhoang.dualsubreplay.data.mergeImportedCues
 import com.kienhoang.dualsubreplay.data.parseSubtitleFile
+import com.kienhoang.dualsubreplay.data.readBoundedText
 import com.kienhoang.dualsubreplay.data.toSegments
+import com.kienhoang.dualsubreplay.data.translationRequest
 import com.kienhoang.dualsubreplay.data.retireLegacyDownloadJobs
 import com.kienhoang.dualsubreplay.data.savedWordFrom
 import com.kienhoang.dualsubreplay.dubbing.DubbingController
@@ -189,6 +193,7 @@ internal fun activeWordIndex(
 internal const val YOUTUBE_HOME_URL = "https://m.youtube.com/"
 private const val NO_VIDEO_MESSAGE = "Avval dars videosini oching."
 private const val MAX_IMPORTED_TRANSLATION_BYTES = 8L * 1024 * 1024
+private const val LAST_SHARED_VIDEO_PREFERENCE = "last_translation_share_video"
 
 /** A transcript ready to copy or save as an .srt file. */
 internal data class SubtitleExport(
@@ -525,6 +530,11 @@ class AppViewModel internal constructor(
     }
 
     fun acceptSharedText(text: String) {
+        // A translation shared back from an AI chat is subtitles, even if it mentions a link.
+        if (parseSubtitleFile(text).isNotEmpty()) {
+            importSharedTranslation(text)
+            return
+        }
         val videoId = YouTubeUrlParser.extractVideoId(text) ?: return
         val watchUrl = mobileWatchUrl(videoId)
         preferences.edit().putString("last_browser_url", watchUrl).apply()
@@ -569,25 +579,91 @@ class AppViewModel internal constructor(
     }
 
     /**
-     * Uses an SRT/VTT file as the open video's translation instead of machine translation. The
-     * file is kept per video, so reopening the lesson shows it again. Returns the number of cues.
+     * The open video's transcript wrapped in translation instructions, to share to Claude or
+     * ChatGPT. The video is remembered so the reply shared back lands on the same lesson.
      */
-    internal suspend fun importTranslation(text: String): Int {
-        val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
-        val cues = withContext(Dispatchers.Default) { parseSubtitleFile(text) }
-        if (cues.isEmpty()) {
+    internal suspend fun translationShare(): SubtitleExport {
+        val export = subtitleExport()
+        val target = _state.value.targetLanguage
+        val language =
+            if (TranslationLanguages.normalize(target) == "uz") {
+                "o\u2018zbek (lotin yozuvida)"
+            } else {
+                TranslationLanguages.displayName(target)
+            }
+        preferences.edit().putString(LAST_SHARED_VIDEO_PREFERENCE, export.videoId).apply()
+        return export.copy(text = withContext(Dispatchers.Default) { translationRequest(export.text, language) })
+    }
+
+    /**
+     * Uses SRT/VTT text as a video's translation instead of machine translation. A part of a lecture
+     * is merged with what was imported before, so long lectures can be imported piece by piece. The
+     * result is kept per video, so reopening the lesson shows it again. Returns the stored cue count.
+     */
+    internal suspend fun importTranslation(
+        text: String,
+        targetVideoId: String? = _state.value.activeVideoId,
+    ): Int {
+        val videoId = targetVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        val incoming = withContext(Dispatchers.Default) { parseSubtitleFile(text) }
+        if (incoming.isEmpty()) {
             throw IllegalArgumentException("Faylda subtitr topilmadi. SRT yoki VTT fayl tanlang.")
         }
-        withContext(Dispatchers.IO) {
-            check(importedTranslationDirectory.isDirectory || importedTranslationDirectory.mkdirs()) {
-                "Tarjimani saqlab bo\u2018lmadi."
+        val cues =
+            withContext(Dispatchers.IO) {
+                check(importedTranslationDirectory.isDirectory || importedTranslationDirectory.mkdirs()) {
+                    "Tarjimani saqlab bo\u2018lmadi."
+                }
+                val merged = mergeImportedCues(readImportedTranslation(videoId).orEmpty(), incoming)
+                importedTranslationFile(videoId).writeText(formatSrt(merged.toSegments()), Charsets.UTF_8)
+                merged
             }
-            importedTranslationFile(videoId).writeText(formatSrt(cues.toSegments()), Charsets.UTF_8)
-        }
         if (_state.value.activeVideoId != videoId) return cues.size
         importedTranslation = videoId to cues
         loadVideo(videoId, showPanel = true)
         return cues.size
+    }
+
+    /** An .srt/.vtt file shared into the app (for example from a file manager or an AI chat). */
+    fun acceptSharedSubtitleFile(uri: android.net.Uri) {
+        viewModelScope.launch {
+            val text =
+                try {
+                    withContext(Dispatchers.IO) {
+                        getApplication<Application>().contentResolver.openInputStream(uri)?.use(::readBoundedText)
+                    }
+                } catch (cancel: CancellationException) {
+                    throw cancel
+                } catch (error: Exception) {
+                    null
+                }
+            if (text == null) {
+                Toast.makeText(getApplication(), "Faylni ochib bo\u2018lmadi.", Toast.LENGTH_LONG).show()
+            } else {
+                importSharedTranslation(text)
+            }
+        }
+    }
+
+    /** A translation shared into the app goes to the lesson it was requested for. */
+    private fun importSharedTranslation(text: String) {
+        val target = preferences.getString(LAST_SHARED_VIDEO_PREFERENCE, null) ?: _state.value.activeVideoId
+        viewModelScope.launch {
+            val message =
+                try {
+                    val count = importTranslation(text, target)
+                    if (target == _state.value.activeVideoId) {
+                        "Tarjima yuklandi: $count qator."
+                    } else {
+                        "Tarjima saqlandi ($count qator). Dars ochilganda ko\u2018rinadi."
+                    }
+                } catch (cancel: CancellationException) {
+                    throw cancel
+                } catch (error: Exception) {
+                    error.message ?: "Tarjimani yuklab bo\u2018lmadi."
+                }
+            Toast.makeText(getApplication(), message, Toast.LENGTH_LONG).show()
+        }
     }
 
     /** Removes the open video's imported translation and returns to machine translation. */

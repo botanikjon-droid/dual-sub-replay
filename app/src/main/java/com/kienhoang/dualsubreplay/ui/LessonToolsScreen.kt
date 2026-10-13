@@ -2,6 +2,7 @@ package com.kienhoang.dualsubreplay.ui
 
 import android.content.ClipData
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -56,16 +58,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.kienhoang.dualsubreplay.data.MAX_SUBTITLE_FILE_BYTES
+import com.kienhoang.dualsubreplay.data.readBoundedText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 
 /** Larger transcripts are saved as a file; Android rejects very large clipboard entries. */
 internal const val MAX_CLIPBOARD_SUBTITLE_CHARS = 400_000
-private const val BUFFER_BYTES = 16 * 1024
 
 /**
  * Lesson tools: open a lesson by its video link, copy or save the open video's transcript as an
@@ -78,6 +78,7 @@ internal fun LessonToolsScreen(
     importedTranslationCues: Int,
     onOpenLink: (String) -> Boolean,
     exportSubtitles: suspend () -> SubtitleExport,
+    shareForTranslation: suspend () -> SubtitleExport,
     importTranslation: suspend (String) -> Int,
     onClearImport: () -> Unit,
     onDismiss: () -> Unit,
@@ -200,9 +201,28 @@ internal fun LessonToolsScreen(
                             if (activeVideoId == null) {
                                 "Avval dars videosini oching."
                             } else {
-                                "Videoning asl subtitri SRT formatida olinadi. Uni tarjima qilib, pastdan qaytarib yuklang."
+                                "“Ulashish” subtitrni tarjima ko‘rsatmasi bilan Claude yoki ChatGPT’ga yuboradi. " +
+                                    "Javobini yana “Ulashish” orqali Dual Replay’ga qaytaring — tarjima shu darsga yuklanadi. " +
+                                    "Uzun javob qismlarga bo‘linsa, har bir qismini ketma-ket yuklang."
                             },
                         )
+                        Button(
+                            enabled = activeVideoId != null && !busy,
+                            modifier = Modifier.fillMaxWidth().testTag("share_subtitles_for_translation"),
+                            onClick = {
+                                work {
+                                    val request = shareForTranslation()
+                                    whenNotTooLong(request) {
+                                        shareText(context, request)
+                                        "${request.cueCount} qator tarjimaga ulashildi."
+                                    }
+                                }
+                            },
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Ulashish (Claude, ChatGPT)")
+                        }
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(
                                 enabled = activeVideoId != null && !busy,
@@ -210,9 +230,7 @@ internal fun LessonToolsScreen(
                                 onClick = {
                                     work {
                                         val export = exportSubtitles()
-                                        if (export.text.length > MAX_CLIPBOARD_SUBTITLE_CHARS) {
-                                            "Subtitr juda uzun. “Fayl sifatida saqlash” tugmasidan foydalaning."
-                                        } else {
+                                        whenNotTooLong(export) {
                                             clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(export.fileName, export.text)))
                                             "${export.cueCount} qator buferga nusxalandi."
                                         }
@@ -306,20 +324,33 @@ private suspend fun readText(
     uri: Uri,
 ): String =
     withContext(Dispatchers.IO) {
-        val bytes =
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                val output = ByteArrayOutputStream()
-                val buffer = ByteArray(BUFFER_BYTES)
-                while (true) {
-                    val read = input.read(buffer)
-                    if (read < 0) break
-                    output.write(buffer, 0, read)
-                    require(output.size() <= MAX_SUBTITLE_FILE_BYTES) { "Fayl juda katta (8 MB dan ortiq)." }
-                }
-                output.toByteArray()
-            } ?: error("Faylni ochib bo‘lmadi.")
-        bytes.toString(Charsets.UTF_8)
+        context.contentResolver.openInputStream(uri)?.use(::readBoundedText) ?: error("Faylni ochib bo\u2018lmadi.")
     }
+
+/** Android rejects very large clipboard and share payloads, so long transcripts go to a file instead. */
+private suspend fun whenNotTooLong(
+    export: SubtitleExport,
+    action: suspend () -> String,
+): String =
+    if (export.text.length > MAX_CLIPBOARD_SUBTITLE_CHARS) {
+        "Subtitr juda uzun. \u201CFayl sifatida saqlash\u201D tugmasidan foydalaning."
+    } else {
+        action()
+    }
+
+/** Opens the Android share sheet so the request can go to the Claude or ChatGPT app. */
+private fun shareText(
+    context: Context,
+    request: SubtitleExport,
+) {
+    val send =
+        Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, request.fileName)
+            putExtra(Intent.EXTRA_TEXT, request.text)
+        }
+    context.startActivity(Intent.createChooser(send, "Tarjima uchun ulashish"))
+}
 
 private suspend fun writeText(
     context: Context,

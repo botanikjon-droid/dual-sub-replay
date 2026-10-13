@@ -22,6 +22,11 @@ The Uzbek build is used to study ultrasound lectures. Two steps were missing fro
 - Import a translated `.srt`/`.vtt` file (or SRT text from the clipboard) for the open video. It
   replaces machine translation for that video, is kept on the device, and is shown again when the
   lesson is reopened. It can be removed to return to machine translation.
+- **Ulashish (Claude, ChatGPT)** shares the transcript with Uzbek translation instructions through the
+  Android share sheet. The AI's reply shared back to Dual Replay (as text or as an `.srt`/`.vtt`
+  file) is imported for the lesson it was requested for, so quality does not depend on Gemini.
+- Imports merge: a new part replaces only the time range it covers, so a long lecture can be
+  translated and imported in parts.
 
 ## Non-goals
 
@@ -37,6 +42,10 @@ The Uzbek build is used to study ultrasound lectures. Two steps were missing fro
 - Transcripts longer than 400,000 characters are not put on the clipboard; the user is told to save a file.
 - Import of a file without timecodes: "Faylda subtitr topilmadi. SRT yoki VTT fayl tanlang."
 - Files over 8 MiB are rejected.
+- Shared-back text that contains subtitle timecodes is treated as a translation (before link parsing);
+  chat text and Markdown code fences around the SRT are ignored. A toast reports the result.
+- The share target is the last video shared for translation (stored in preferences), falling back to
+  the open video. If that lesson is not open, the translation is saved and appears when it is.
 - After import, captions reload; each imported cue appears once, on the row it overlaps most, and the
   Uzbek dubbing voice reads that text. Rows with no cue show an empty translation line.
 
@@ -62,6 +71,8 @@ The Uzbek build is used to study ultrasound lectures. Two steps were missing fro
 - [x] SRT with BOM, CRLF, tags and multi-line cues, and WebVTT with header/NOTE/short times/cue settings parse (unit tests).
 - [x] Malformed, reversed and empty cues are skipped; output is sorted (unit test).
 - [x] An imported cue lands on exactly one row (max overlap); rows without a cue get "" (unit tests).
+- [x] AI chat text and code fences around SRT are ignored; the share request itself re-imports (unit tests).
+- [x] A partial import replaces only its own time range (unit test).
 - [ ] CI: `formatCheck complexityCheck testDebugUnitTest lintDebug assembleDebug` pass.
 - [ ] Device: paste link → video opens; Nusxalash → clipboard has SRT; import edited SRT → Uzbek lines and voice follow it; O‘chirish → machine translation returns.
 
@@ -69,7 +80,7 @@ The Uzbek build is used to study ultrasound lectures. Two steps were missing fro
 
 | Category | Command/scenario and expected result | Environment / applicability |
 | --- | --- | --- |
-| Unit tests | `SubtitleFilesTest` | Ran locally with kotlinc 2.3.21 + JUnit shim: 10/10 pass. CI must confirm. |
+| Unit tests | `SubtitleFilesTest` | Ran locally with kotlinc 2.3.21 + JUnit shim: 14/14 pass. CI must confirm. |
 | Formatting | ktlint 1.7.1 report + `tools/check_format_ratchet.py` | Passed locally. |
 | Android lint/build | CI `verify-build` | Not available locally (no Android SDK). |
 | Physical-device/manual | Scenario in acceptance criteria | Owner, Redmi 13. |

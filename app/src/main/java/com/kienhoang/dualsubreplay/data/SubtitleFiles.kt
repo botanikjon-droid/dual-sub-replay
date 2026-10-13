@@ -1,5 +1,7 @@
 package com.kienhoang.dualsubreplay.data
 
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.util.Locale
 
 /** Upper bound for a subtitle file the user imports, matching the caption download cap. */
@@ -42,7 +44,7 @@ internal fun srtTime(ms: Long): String {
 internal fun parseSubtitleFile(text: String): List<RawCaptionCue> {
     val lines =
         text
-            .removePrefix("")
+            .removePrefix("\uFEFF")
             .replace("\r\n", "\n")
             .replace('\r', '\n')
             .split('\n')
@@ -58,7 +60,7 @@ internal fun parseSubtitleFile(text: String): List<RawCaptionCue> {
         val end = parseTimestamp(match.groupValues[2])
         index++
         val body = mutableListOf<String>()
-        while (index < lines.size && lines[index].isNotBlank() && TIMING_LINE.find(lines[index]) == null) {
+        while (index < lines.size && isCueTextLine(lines[index])) {
             body += lines[index]
             index++
         }
@@ -73,6 +75,10 @@ internal fun parseSubtitleFile(text: String): List<RawCaptionCue> {
     }
     return cues.sortedBy { it.startMs }
 }
+
+/** A blank line, the next timing line, or a Markdown code fence an AI chat wraps around SRT ends a cue. */
+private fun isCueTextLine(line: String): Boolean =
+    line.isNotBlank() && TIMING_LINE.find(line) == null && !line.trimStart().startsWith("```")
 
 /** Accepts `HH:MM:SS,mmm`, `HH:MM:SS.mmm` and the WebVTT short form `MM:SS.mmm`. */
 internal fun parseTimestamp(value: String): Long? {
@@ -122,3 +128,55 @@ internal fun applyImportedTranslation(
 /** Imported cues as segments, so they can be written back with [formatSrt]. */
 internal fun List<RawCaptionCue>.toSegments(): List<SubtitleSegment> =
     mapIndexed { index, cue -> SubtitleSegment(index.toLong(), cue.startMs, cue.endMs, cue.text) }
+
+/**
+ * Adds [incoming] cues to an earlier import of the same video. Earlier cues inside the time range
+ * the new part covers are replaced, so a long lecture can be translated and imported in parts,
+ * and a part can be re-imported after it is corrected.
+ */
+internal fun mergeImportedCues(
+    existing: List<RawCaptionCue>,
+    incoming: List<RawCaptionCue>,
+): List<RawCaptionCue> {
+    if (incoming.isEmpty()) return existing
+    val from = incoming.minOf { it.startMs }
+    val to = incoming.maxOf { it.endMs }
+    val kept = existing.filter { it.endMs <= from || it.startMs >= to }
+    return (kept + incoming).sortedBy { it.startMs }
+}
+
+/**
+ * The text shared to an AI chat (Claude, ChatGPT): an instruction in Uzbek followed by the SRT.
+ * The instruction lines carry no timecodes, so if the reply repeats them, import ignores them.
+ */
+internal fun translationRequest(
+    srt: String,
+    targetLanguageName: String,
+): String =
+    buildString {
+        append("Quyidagi SRT subtitr \u2014 ultratovush (UZI) bo\u2018yicha ingliz tilidagi video dars. ")
+        append("Uni ").append(targetLanguageName).append(" tiliga tibbiy jihatdan aniq tarjima qil.\n")
+        append("Qoidalar:\n")
+        append("1. Faqat tayyor SRT qaytar: izoh, sarlavha yoki kod bloki qo\u2018shma.\n")
+        append("2. Blok raqamlari va vaqt kodlarini (00:00:01,000 --> 00:00:04,000) aynan saqla.\n")
+        append("3. Har bir blokni alohida tarjima qil; bloklarni birlashtirma va bo\u2018lma.\n")
+        append("4. Raqamlar, o\u2018lchov birliklari va qisqartmalarni (PSV, RI, CBD, mm) o\u2018zgartirma.\n")
+        append("5. Javob sig\u2018masa, to\u2018xtagan blokdan keyingisidan davom et.\n\n")
+        append(srt)
+    }
+
+/** Reads at most [maxBytes] of UTF-8 text; a larger stream is rejected instead of truncated. */
+internal fun readBoundedText(
+    input: InputStream,
+    maxBytes: Int = MAX_SUBTITLE_FILE_BYTES,
+): String {
+    val output = ByteArrayOutputStream()
+    val buffer = ByteArray(16 * 1024)
+    while (true) {
+        val read = input.read(buffer)
+        if (read < 0) break
+        output.write(buffer, 0, read)
+        require(output.size() <= maxBytes) { "Fayl juda katta (8 MB dan ortiq)." }
+    }
+    return output.toByteArray().toString(Charsets.UTF_8)
+}

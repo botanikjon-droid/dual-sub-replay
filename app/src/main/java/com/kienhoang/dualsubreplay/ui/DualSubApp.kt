@@ -207,7 +207,8 @@ private fun LessonToolsHost(
         importedTranslationCues = state.importedTranslationCues,
         onOpenLink = viewModel::openLessonLink,
         exportSubtitles = viewModel::subtitleExport,
-        importTranslation = viewModel::importTranslation,
+        shareForTranslation = viewModel::translationShare,
+        importTranslation = { viewModel.importTranslation(it) },
         onClearImport = viewModel::clearImportedTranslation,
         onDismiss = onDismiss,
     )
