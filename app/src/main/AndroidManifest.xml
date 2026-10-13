@@ -41,6 +41,15 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
 
+            <!-- A translated subtitle file shared back from an AI chat or a file manager. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/x-subrip" />
+                <data android:mimeType="text/vtt" />
+                <data android:mimeType="text/x-srt" />
+            </intent-filter>
+
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

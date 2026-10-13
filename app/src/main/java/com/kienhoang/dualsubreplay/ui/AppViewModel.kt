@@ -2,6 +2,7 @@ package com.kienhoang.dualsubreplay.ui
 
 import android.app.Application
 import android.os.SystemClock
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kienhoang.dualsubreplay.data.AnalyzedToken
@@ -18,6 +19,7 @@ import com.kienhoang.dualsubreplay.data.immersionLanguage
 import com.kienhoang.dualsubreplay.data.initialDailyGoalPromptCompleted
 import com.kienhoang.dualsubreplay.data.storedDailyGoalMinutes
 import com.kienhoang.dualsubreplay.data.LearningWordSelection
+import com.kienhoang.dualsubreplay.data.RawCaptionCue
 import com.kienhoang.dualsubreplay.data.RecentCaptionTracks
 import com.kienhoang.dualsubreplay.data.SavedWord
 import com.kienhoang.dualsubreplay.data.SubtitleMerger
@@ -27,8 +29,17 @@ import com.kienhoang.dualsubreplay.data.VocabularyRepository
 import com.kienhoang.dualsubreplay.data.WordTap
 import com.kienhoang.dualsubreplay.data.YouTubeCaptionProvider
 import com.kienhoang.dualsubreplay.data.YouTubeUrlParser
+import com.kienhoang.dualsubreplay.data.applyImportedTranslation
+import com.kienhoang.dualsubreplay.data.formatSrt
+import com.kienhoang.dualsubreplay.data.lessonHeader
+import com.kienhoang.dualsubreplay.data.mergeImportedCues
+import com.kienhoang.dualsubreplay.data.parseSubtitleFile
+import com.kienhoang.dualsubreplay.data.readBoundedText
+import com.kienhoang.dualsubreplay.data.toSegments
+import com.kienhoang.dualsubreplay.data.translationRequest
 import com.kienhoang.dualsubreplay.data.retireLegacyDownloadJobs
 import com.kienhoang.dualsubreplay.data.savedWordFrom
+import com.kienhoang.dualsubreplay.data.subtitleFileName
 import com.kienhoang.dualsubreplay.dubbing.DubbingController
 import com.kienhoang.dualsubreplay.dubbing.createDubbingVoice
 import com.kienhoang.dualsubreplay.translation.OnDeviceTranslator
@@ -103,6 +114,8 @@ data class DualSubUiState(
     val errorMessage: String? = null,
     /** Why translation stopped while the original captions keep playing, or null. */
     val translationError: String? = null,
+    /** Cues in the user's imported translation for the open video; 0 when none is imported. */
+    val importedTranslationCues: Int = 0,
 )
 
 /**
@@ -180,6 +193,22 @@ internal fun activeWordIndex(
         ?: -1
 
 internal const val YOUTUBE_HOME_URL = "https://m.youtube.com/"
+private const val NO_VIDEO_MESSAGE = "Avval dars videosini oching."
+private const val MAX_IMPORTED_TRANSLATION_BYTES = 8L * 1024 * 1024
+private const val LAST_SHARED_VIDEO_PREFERENCE = "last_translation_share_video"
+
+/** A transcript ready to copy or save as an .srt file named after the video, e.g. `Pancreas.srt`. */
+internal data class SubtitleExport(
+    val videoId: String,
+    val title: String?,
+    val cueCount: Int,
+    val text: String,
+) {
+    val fileName: String get() = subtitleFileName(title, videoId)
+
+    /** For copying and sharing: the video's title and link above the subtitles. */
+    val textWithHeader: String get() = lessonHeader(title, videoId) + "\n" + text
+}
 
 internal fun preferredCaptionLanguages(sourcePreference: String): List<String> =
     sourcePreference.takeUnless { it == "auto" }?.let(::listOf).orEmpty()
@@ -292,6 +321,10 @@ class AppViewModel internal constructor(
     private val liveTranslationGate = LiveTranslationGate()
     private var liveTranslationJob: Job? = null
     private var rejectedLiveRevision: Long? = null
+
+    /** The open video's imported translation, keyed by video id so a late load cannot mix videos. */
+    private var importedTranslation: Pair<String, List<RawCaptionCue>>? = null
+    private val importedTranslationDirectory = File(application.filesDir, "imported-translations")
 
     private val _state =
         MutableStateFlow(
@@ -502,6 +535,11 @@ class AppViewModel internal constructor(
     }
 
     fun acceptSharedText(text: String) {
+        // A translation shared back from an AI chat is subtitles, even if it mentions a link.
+        if (parseSubtitleFile(text).isNotEmpty()) {
+            importSharedTranslation(text)
+            return
+        }
         val videoId = YouTubeUrlParser.extractVideoId(text) ?: return
         val watchUrl = mobileWatchUrl(videoId)
         preferences.edit().putString("last_browser_url", watchUrl).apply()
@@ -512,6 +550,168 @@ class AppViewModel internal constructor(
             )
         }
         openVideo(videoId)
+    }
+
+    /** Opens a lesson link typed or pasted by the user. Returns false when it is not a YouTube video link. */
+    fun openLessonLink(text: String): Boolean {
+        if (YouTubeUrlParser.extractVideoId(text) == null) return false
+        acceptSharedText(text)
+        return true
+    }
+
+    /**
+     * The open video's full transcript as SubRip text, so it can be copied or saved, translated
+     * outside the app, and imported back with [importTranslation].
+     */
+    internal suspend fun subtitleExport(): SubtitleExport {
+        val current = _state.value
+        val videoId = current.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        val track =
+            withContext(Dispatchers.IO) {
+                captionProvider.fetch(videoId, preferredCaptionLanguages(current.sourcePreference))
+            }
+        val segments =
+            withContext(Dispatchers.Default) {
+                SubtitleMerger.merge(track.cues, enhancedNaturalFlow = current.naturalSubtitlesEnabled)
+            }
+        if (segments.isEmpty()) throw IllegalStateException("Bu videoning subtitrida matn yo\u2018q.")
+        return SubtitleExport(
+            videoId = videoId,
+            title = track.title,
+            cueCount = segments.size,
+            text = withContext(Dispatchers.Default) { formatSrt(segments) },
+        )
+    }
+
+    /**
+     * The open video's transcript wrapped in translation instructions, to share to Claude or
+     * ChatGPT. The video is remembered so the reply shared back lands on the same lesson.
+     */
+    internal suspend fun translationShare(): SubtitleExport {
+        val export = subtitleExport()
+        val target = _state.value.targetLanguage
+        val language =
+            if (TranslationLanguages.normalize(target) == "uz") {
+                "o\u2018zbek (lotin yozuvida)"
+            } else {
+                TranslationLanguages.displayName(target)
+            }
+        preferences.edit().putString(LAST_SHARED_VIDEO_PREFERENCE, export.videoId).apply()
+        val request = withContext(Dispatchers.Default) { translationRequest(export.text, language) }
+        return export.copy(text = lessonHeader(export.title, export.videoId) + "\n" + request)
+    }
+
+    /**
+     * Which lesson an imported translation belongs to: the YouTube link inside it (the shared text
+     * starts with one), then the lesson last shared for translation, then the open video.
+     */
+    private fun importTargetFor(
+        text: String,
+        fallback: String?,
+    ): String? =
+        YouTubeUrlParser.extractVideoId(text.take(YouTubeUrlParser.MAX_SHARED_TEXT_LENGTH))
+            ?: fallback
+
+    /**
+     * Uses SRT/VTT text as a video's translation instead of machine translation. A part of a lecture
+     * is merged with what was imported before, so long lectures can be imported piece by piece. The
+     * result is kept per video, so reopening the lesson shows it again. Returns the stored cue count.
+     */
+    internal suspend fun importTranslation(
+        text: String,
+        targetVideoId: String? = importTargetFor(text, _state.value.activeVideoId),
+    ): Int {
+        val videoId = targetVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        val incoming = withContext(Dispatchers.Default) { parseSubtitleFile(text) }
+        if (incoming.isEmpty()) {
+            throw IllegalArgumentException("Faylda subtitr topilmadi. SRT yoki VTT fayl tanlang.")
+        }
+        val cues =
+            withContext(Dispatchers.IO) {
+                check(importedTranslationDirectory.isDirectory || importedTranslationDirectory.mkdirs()) {
+                    "Tarjimani saqlab bo\u2018lmadi."
+                }
+                val merged = mergeImportedCues(readImportedTranslation(videoId).orEmpty(), incoming)
+                importedTranslationFile(videoId).writeText(formatSrt(merged.toSegments()), Charsets.UTF_8)
+                merged
+            }
+        if (_state.value.activeVideoId != videoId) return cues.size
+        importedTranslation = videoId to cues
+        loadVideo(videoId, showPanel = true)
+        return cues.size
+    }
+
+    /** An .srt/.vtt file shared into the app (for example from a file manager or an AI chat). */
+    fun acceptSharedSubtitleFile(uri: android.net.Uri) {
+        viewModelScope.launch {
+            val text =
+                try {
+                    withContext(Dispatchers.IO) {
+                        getApplication<Application>().contentResolver.openInputStream(uri)?.use(::readBoundedText)
+                    }
+                } catch (cancel: CancellationException) {
+                    throw cancel
+                } catch (error: Exception) {
+                    null
+                }
+            if (text == null) {
+                Toast.makeText(getApplication(), "Faylni ochib bo\u2018lmadi.", Toast.LENGTH_LONG).show()
+            } else {
+                importSharedTranslation(text)
+            }
+        }
+    }
+
+    /** A translation shared into the app goes to the lesson it was requested for. */
+    private fun importSharedTranslation(text: String) {
+        val target =
+            importTargetFor(text, preferences.getString(LAST_SHARED_VIDEO_PREFERENCE, null) ?: _state.value.activeVideoId)
+        viewModelScope.launch {
+            val message =
+                try {
+                    val count = importTranslation(text, target)
+                    if (target == _state.value.activeVideoId) {
+                        "Tarjima yuklandi: $count qator."
+                    } else {
+                        "Tarjima saqlandi ($count qator). Dars ochilganda ko\u2018rinadi."
+                    }
+                } catch (cancel: CancellationException) {
+                    throw cancel
+                } catch (error: Exception) {
+                    error.message ?: "Tarjimani yuklab bo\u2018lmadi."
+                }
+            Toast.makeText(getApplication(), message, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /** Removes the open video's imported translation and returns to machine translation. */
+    fun clearImportedTranslation() {
+        val videoId = _state.value.activeVideoId ?: return
+        importedTranslation = null
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { importedTranslationFile(videoId).delete() }
+            if (_state.value.activeVideoId == videoId) loadVideo(videoId, showPanel = true)
+        }
+    }
+
+    private fun importedTranslationFile(videoId: String): File = File(importedTranslationDirectory, "$videoId.srt")
+
+    /** Loads the video's stored translation, if any. Returns false when a newer load replaced this one. */
+    private suspend fun restoreImportedTranslation(
+        videoId: String,
+        generation: Long,
+    ): Boolean {
+        val imported = withContext(Dispatchers.IO) { runCatching { readImportedTranslation(videoId) }.getOrNull() }
+        if (!isCurrentLoad(_state.value, videoId, generation)) return false
+        importedTranslation = imported?.let { videoId to it }
+        _state.update { it.copy(importedTranslationCues = imported?.size ?: 0) }
+        return true
+    }
+
+    private fun readImportedTranslation(videoId: String): List<RawCaptionCue>? {
+        val file = importedTranslationFile(videoId)
+        if (!file.isFile || file.length() > MAX_IMPORTED_TRANSLATION_BYTES) return null
+        return parseSubtitleFile(file.readText(Charsets.UTF_8)).takeIf { it.isNotEmpty() }
     }
 
     fun onYouTubePageChanged(url: String) {
@@ -1039,6 +1239,7 @@ class AppViewModel internal constructor(
 
     private fun clearActiveVideo() {
         if (_state.value.activeVideoId == null) return
+        importedTranslation = null
         dubbing.reset()
         immersionTracker.reset()
         flushImmersion()
@@ -1065,6 +1266,7 @@ class AppViewModel internal constructor(
                 resolvedSourceLanguage = null,
                 generatedCaptions = false,
                 segments = emptyList(),
+                importedTranslationCues = 0,
                 currentIndex = -1,
                 activeWordIndex = -1,
                 stage = LoadStage.IDLE,
@@ -1217,6 +1419,7 @@ class AppViewModel internal constructor(
         natural: Boolean,
     ) {
         var displayStore: SubtitleStore? = null
+        if (!restoreImportedTranslation(videoId, generation)) return
         liveCaptionTracker.reset()
         captionHighlightResolver.reset()
         _state.update {
@@ -1258,6 +1461,10 @@ class AppViewModel internal constructor(
                     com.kienhoang.dualsubreplay.translation.TranslationLookahead.sentences =
                         com.kienhoang.dualsubreplay.translation.sentenceTexts(checkNotNull(displayStore))
                 }
+            }
+            if (importedTranslation?.first == videoId) {
+                // The user's own translation replaces machine translation; rows are filled in publishSubtitleWindow.
+                follow { "" }
             }
             try {
                 translator.withSession(sourceLanguage, targetLanguage, onDownloadingChange = { downloading ->
@@ -1315,9 +1522,11 @@ class AppViewModel internal constructor(
     private fun publishSubtitleWindow(
         videoId: String,
         generation: Long,
-        rows: List<SubtitleSegment>,
+        windowRows: List<SubtitleSegment>,
         preparing: Boolean,
     ) {
+        val imported = importedTranslation?.takeIf { it.first == videoId }?.second
+        val rows = if (imported == null) windowRows else applyImportedTranslation(windowRows, imported)
         dubbing.onRows(videoId, rows, _state.value.targetLanguage)
         // The window slides forward every few rows during playback. Keep the highlight on the same
         // row instead of recomputing it from timestamps, which can point at the previous sentence.

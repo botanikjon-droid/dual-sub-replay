@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material.icons.filled.ViewDay
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
@@ -199,6 +200,7 @@ internal fun QuickLanguageSettingsDialog(
     onTargetChange: (String) -> Unit,
     onOpenAllSettings: () -> Unit,
     onDismiss: () -> Unit,
+    onOpenLessonTools: (() -> Unit)? = null,
 ) {
     val languagePicker = remember { LanguagePickerState() }
     val sourceChoices = sourceLanguageChoices(availableSourceLanguages)
@@ -249,6 +251,7 @@ internal fun QuickLanguageSettingsDialog(
                     }
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
                 }
+                onOpenLessonTools?.let { LessonToolsRow(it) }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
@@ -302,6 +305,7 @@ internal fun SubtitleSettingsDialog(
     autoPronounce: Boolean = true,
     onAutoPronounceChange: (Boolean) -> Unit = {},
     onDismiss: () -> Unit,
+    onOpenLessonTools: (() -> Unit)? = null,
 ) {
     val languagePicker = remember { LanguagePickerState() }
     var openSection by remember { mutableStateOf<MoreSettingsSection?>(null) }
@@ -353,6 +357,10 @@ internal fun SubtitleSettingsDialog(
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    onOpenLessonTools?.let { open ->
+                        SettingsGroupCard(title = "Dars", icon = Icons.Default.VideoLibrary) { LessonToolsRow(open) }
+                    }
+
                     SettingsGroupCard(title = "Languages", icon = Icons.Default.Language) {
                         LanguagePickerButtons(sourceLabel, targetLanguage, languagePicker::open)
                     }
@@ -947,5 +955,32 @@ private fun PlayerModeSettingsOption(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** Opens the lesson tools: lesson link, copy/share subtitles, import a translation. */
+@Composable
+private fun LessonToolsRow(onClick: () -> Unit) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .clickable(role = Role.Button, onClick = onClick)
+                .testTag("settings_open_lesson_tools")
+                .padding(vertical = 10.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Default.VideoLibrary, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text("Dars: havola va subtitr", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "Havola ochish, subtitrni ulashish (Claude, ChatGPT), tarjimani yuklash",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
     }
 }

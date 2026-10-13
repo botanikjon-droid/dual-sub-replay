@@ -129,6 +129,7 @@ fun DualSubApp(
                     webController.pause()
                     showProgress = true
                 },
+                lessonTools = { onDismiss -> LessonToolsHost(state, viewModel, onDismiss) },
                 onAutoPronounceChange = viewModel::setAutoPronounce,
                 playerMode = playerMode,
                 effectivePlayerMode = effectivePlayerMode,
@@ -172,9 +173,7 @@ fun DualSubApp(
                 onResetSettings = viewModel::resetAllSettings,
             )
         }
-        state.selectedLearningWord?.let { selection ->
-            SelectedWordDialog(selection, state, savedWords, viewModel, webController, pronouncer)
-        }
+        state.selectedLearningWord?.let { SelectedWordDialog(it, state, savedWords, viewModel, webController, pronouncer) }
         if (showVocabulary) SavedWordsScreen(
             repository = viewModel.vocabulary,
             onOnline = { word ->
@@ -195,6 +194,24 @@ fun DualSubApp(
             onDismiss = { showProgress = false },
         )
     }
+}
+
+@Composable
+private fun LessonToolsHost(
+    state: DualSubUiState,
+    viewModel: AppViewModel,
+    onDismiss: () -> Unit,
+) {
+    LessonToolsScreen(
+        activeVideoId = state.activeVideoId,
+        importedTranslationCues = state.importedTranslationCues,
+        onOpenLink = viewModel::openLessonLink,
+        exportSubtitles = viewModel::subtitleExport,
+        shareForTranslation = viewModel::translationShare,
+        importTranslation = { viewModel.importTranslation(it) },
+        onClearImport = viewModel::clearImportedTranslation,
+        onDismiss = onDismiss,
+    )
 }
 
 @Composable
@@ -236,6 +253,7 @@ private fun DualSubExperience(
     webController: YouTubeWebController,
     onVocabulary: () -> Unit,
     onProgress: () -> Unit,
+    lessonTools: @Composable (onDismiss: () -> Unit) -> Unit,
     onAutoPronounceChange: (Boolean) -> Unit,
     playerMode: PlayerExperienceMode,
     effectivePlayerMode: PlayerExperienceMode = playerMode,
@@ -328,7 +346,10 @@ private fun DualSubExperience(
         if (externalSettingsRequestId > 0L) showQuickSettings = true
     }
 
-    AppNavigation(onPractice = onVocabulary, onProgress = onProgress, onSettings = {
+    var showLessonTools by remember { mutableStateOf(false) }
+    if (showLessonTools) lessonTools { showLessonTools = false }
+
+    AppNavigation(onPractice = onVocabulary, onProgress = onProgress, onLesson = { showLessonTools = true }, onSettings = {
         showSettings = true
     }, onVisibilityChange = onNavigationVisibilityChange) { menuButton ->
         Scaffold(contentWindowInsets = contentInsets, topBar = {
@@ -454,6 +475,10 @@ private fun DualSubExperience(
                 showSettings = true
             },
             onDismiss = { showQuickSettings = false },
+            onOpenLessonTools = {
+                showQuickSettings = false
+                showLessonTools = true
+            },
         )
     }
     if (showSettings) {
@@ -505,6 +530,10 @@ private fun DualSubExperience(
                 onResetSettings()
             },
             onDismiss = { showSettings = false },
+            onOpenLessonTools = {
+                showSettings = false
+                showLessonTools = true
+            },
         )
     }
 }

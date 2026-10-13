@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -27,6 +28,7 @@ internal fun AppNavigation(
     onPractice: () -> Unit,
     onSettings: () -> Unit,
     onProgress: () -> Unit = {},
+    onLesson: () -> Unit = {},
     onVisibilityChange: (Boolean) -> Unit = {},
     content: @Composable (menuButton: @Composable () -> Unit) -> Unit,
 ) {
@@ -50,6 +52,18 @@ internal fun AppNavigation(
                         Column {
                             DrawerHeader(onClose = { scope.launch { drawer.close() } })
                             Spacer(Modifier.height(8.dp))
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.VideoLibrary, contentDescription = null) },
+                                label = { Text("Dars: havola va subtitr") },
+                                selected = false,
+                                modifier = Modifier.testTag("open_lesson_tools"),
+                                onClick = {
+                                    scope.launch {
+                                        drawer.close()
+                                        onLesson()
+                                    }
+                                },
+                            )
                             NavigationDrawerItem(
                                 icon = { Icon(Icons.Default.School, contentDescription = null) },
                                 label = { Text("Practice") }, selected = false,

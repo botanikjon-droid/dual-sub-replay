@@ -142,6 +142,7 @@ private fun encodeTrack(track: CaptionTrackResult): JSONObject {
         .put("generated", track.isGenerated)
         .put("available", languages)
         .put("cues", cues)
+        .put("title", track.title)
 }
 
 private fun decodeTrack(entry: JSONObject): CaptionTrackResult {
@@ -150,6 +151,7 @@ private fun decodeTrack(entry: JSONObject): CaptionTrackResult {
     return CaptionTrackResult(
         languageCode = entry.getString("languageCode"),
         isGenerated = entry.getBoolean("generated"),
+        title = entry.optString("title").takeIf(String::isNotBlank),
         cues =
             List(cues.length()) { index ->
                 val cue = cues.getJSONArray(index)

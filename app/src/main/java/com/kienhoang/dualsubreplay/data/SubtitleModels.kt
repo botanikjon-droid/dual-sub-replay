@@ -40,6 +40,8 @@ data class CaptionTrackResult(
     val isGenerated: Boolean,
     val cues: List<RawCaptionCue>,
     val availableLanguages: List<CaptionLanguage> = emptyList(),
+    /** The video's title from the player response, when YouTube provides one. */
+    val title: String? = null,
 )
 
 data class CaptionLanguage(
