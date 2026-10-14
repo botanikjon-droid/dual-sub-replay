@@ -64,32 +64,53 @@ internal fun latinToUzbekCyrillic(text: String): String {
     var index = 0
     while (index < text.length) {
         val char = text[index]
-        val next = text.getOrNull(index + 1)
-        val lower = char.lowercaseChar()
-        val upper = char.isUpperCase()
-        val wordStart = index == 0 || !text[index - 1].isLetter() && text[index - 1] !in APOSTROPHES
-
-        fun emit(
-            cyrillic: String,
-            consumed: Int,
-        ) {
-            out.append(if (upper) cyrillic.replaceFirstChar { it.uppercaseChar() } else cyrillic)
-            index += consumed
-        }
-        when {
-            (lower == 'o' || lower == 'g') && next != null && next in APOSTROPHES -> emit(if (lower == 'o') "ў" else "ғ", 2)
-            lower == 's' && next?.lowercaseChar() == 'h' -> emit("ш", 2)
-            lower == 'c' && next?.lowercaseChar() == 'h' -> emit("ч", 2)
-            lower == 'y' && next?.lowercaseChar() == 'o' && text.getOrNull(index + 2)?.let { it in APOSTROPHES } != true -> emit("ё", 2)
-            lower == 'y' && next?.lowercaseChar() == 'u' -> emit("ю", 2)
-            lower == 'y' && next?.lowercaseChar() == 'a' -> emit("я", 2)
-            lower == 'y' && next?.lowercaseChar() == 'e' -> emit("е", 2)
-            lower == 'e' -> emit(if (wordStart || text.getOrNull(index - 1)?.let { it in VOWELS } == true) "э" else "е", 1)
-            char in APOSTROPHES -> emit("ъ", 1)
-            else -> emit(LATIN_TO_CYRILLIC[lower]?.toString() ?: char.toString(), 1)
-        }
+        val (cyrillic, consumed) = cyrillicAt(text, index)
+        out.append(if (char.isUpperCase()) cyrillic.replaceFirstChar { it.uppercaseChar() } else cyrillic)
+        index += consumed
     }
     return out.toString()
+}
+
+/** The Cyrillic for the Latin letter (or two-letter sound) at [index], and how many characters it used. */
+private fun cyrillicAt(
+    text: String,
+    index: Int,
+): Pair<String, Int> {
+    val lower = text[index].lowercaseChar()
+    val next = text.getOrNull(index + 1)
+    if (next != null && next in APOSTROPHES && (lower == 'o' || lower == 'g')) return (if (lower == 'o') "ў" else "ғ") to 2
+    digraph(lower, next?.lowercaseChar(), text.getOrNull(index + 2))?.let { return it to 2 }
+    return when {
+        lower == 'e' -> (if (startsSyllable(text, index)) "э" else "е") to 1
+        text[index] in APOSTROPHES -> "ъ" to 1
+        else -> (LATIN_TO_CYRILLIC[lower]?.toString() ?: text[index].toString()) to 1
+    }
+}
+
+/** sh, ch, yo, yu, ya, ye; "yo‘" is y + o‘, not ё. */
+private fun digraph(
+    lower: Char,
+    next: Char?,
+    afterNext: Char?,
+): String? =
+    when {
+        lower == 's' && next == 'h' -> "ш"
+        lower == 'c' && next == 'h' -> "ч"
+        lower != 'y' -> null
+        next == 'o' && (afterNext == null || afterNext !in APOSTROPHES) -> "ё"
+        next == 'u' -> "ю"
+        next == 'a' -> "я"
+        next == 'e' -> "е"
+        else -> null
+    }
+
+/** "e" is written э at the start of a word or after a vowel. */
+private fun startsSyllable(
+    text: String,
+    index: Int,
+): Boolean {
+    val previous = text.getOrNull(index - 1) ?: return true
+    return (!previous.isLetter() && previous !in APOSTROPHES) || previous in VOWELS
 }
 
 private val LATIN_TO_CYRILLIC =
