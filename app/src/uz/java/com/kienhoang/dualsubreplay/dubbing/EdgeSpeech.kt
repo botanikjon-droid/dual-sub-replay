@@ -58,8 +58,13 @@ private fun currentGlossaryAcronyms(): Map<String, String> {
 
 internal const val EDGE_TRUSTED_CLIENT_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4"
 internal const val EDGE_CHROMIUM_VERSION = "143.0.3650.75"
+/**
+ * Microsoft moved the Read Aloud voices: since October 2026 speech.platform.bing.com answers this
+ * client with HTTP 403, while the same voices answer at api.msedgeservices.com (the address edge-tts
+ * 7.2 uses; checked from CI by the uz-voice-check workflow).
+ */
 internal const val EDGE_WSS_URL =
-    "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=$EDGE_TRUSTED_CLIENT_TOKEN"
+    "wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1?Ocp-Apim-Subscription-Key=$EDGE_TRUSTED_CLIENT_TOKEN"
 internal const val EDGE_VOICE_SARDOR = "uz-UZ-SardorNeural"
 internal const val EDGE_VOICE_MADINA = "uz-UZ-MadinaNeural"
 
@@ -235,6 +240,7 @@ internal class EdgeDubbingVoice(
                         "$url&ConnectionId=${UUID.randomUUID().toString().replace("-", "")}" +
                             "&Sec-MS-GEC=${edgeSecMsGec(now)}&Sec-MS-GEC-Version=1-$EDGE_CHROMIUM_VERSION",
                     ).header("Pragma", "no-cache")
+                    .header("Sec-WebSocket-Protocol", "synthesize")
                     .header("Cache-Control", "no-cache")
                     .header("Origin", "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold")
                     .header("User-Agent", EDGE_USER_AGENT)
