@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,10 +30,14 @@ internal fun AppNavigation(
     onSettings: () -> Unit,
     onProgress: () -> Unit = {},
     onLesson: () -> Unit = {},
+    // "Dasturni yangilash": only the Uzbek build is published where the dialog looks for updates.
+    showUpdateItem: Boolean = appUpdateAvailable,
     onVisibilityChange: (Boolean) -> Unit = {},
     content: @Composable (menuButton: @Composable () -> Unit) -> Unit,
 ) {
     val drawer = rememberDrawerState(DrawerValue.Closed)
+    var showUpdate by remember { mutableStateOf(false) }
+    if (showUpdate) AppUpdateDialog { showUpdate = false }
     val scope = rememberCoroutineScope()
     LaunchedEffect(drawer.currentValue, drawer.targetValue) {
         onVisibilityChange(drawer.currentValue == DrawerValue.Open || drawer.targetValue == DrawerValue.Open)
@@ -87,6 +92,20 @@ internal fun AppNavigation(
                                 label = { Text("Settings") }, selected = false,
                                 onClick = { scope.launch { drawer.close(); onSettings() } },
                             )
+                            if (showUpdateItem) {
+                                NavigationDrawerItem(
+                                    icon = { Icon(Icons.Default.SystemUpdate, contentDescription = null) },
+                                    label = { Text("Dasturni yangilash") },
+                                    selected = false,
+                                    modifier = Modifier.testTag("open_app_update"),
+                                    onClick = {
+                                        scope.launch {
+                                            drawer.close()
+                                            showUpdate = true
+                                        }
+                                    },
+                                )
+                            }
                         }
                         Column(Modifier.padding(horizontal = 4.dp)) {
                             HorizontalDivider(Modifier.padding(vertical = 16.dp))

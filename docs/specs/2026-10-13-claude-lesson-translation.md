@@ -109,3 +109,12 @@ least 20 lessons, with an excellent translation prompt.
   reply, one request per lesson with model hand-over on 429, all models used up, wrong key stops at once.
   18 lesson tests pass locally; ktlint ratchet and detekt pass.
 - Unverified: live Gemini reply for a long lecture, real free-tier limits per model, translation quality.
+
+## Field feedback 2 (2026-10-14): update from the menu
+
+The doctor asked for an update button so he does not have to ask for the APK each time.
+- Menu item **Dasturni yangilash** (Uzbek build only, `ui/AppUpdate.kt`, pure parts in `AppUpdateRelease.kt`).
+  It reads the public uz-latest release from the GitHub REST API, compares its CI run ("(run N)" in the notes)
+  with the installed version name ("-uz-buildN"), and opens the APK link in the browser, which downloads it
+  and hands it to Android's installer. The app needs no install permission and sends nothing.
+- `AppUpdateTest` (3) passes locally. Unverified: the download and install on the phone.
