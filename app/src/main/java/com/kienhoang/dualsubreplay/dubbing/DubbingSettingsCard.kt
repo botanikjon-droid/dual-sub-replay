@@ -66,8 +66,10 @@ internal fun DubbingSettingsCard() {
                     modifier = Modifier.testTag("dubbing_enabled_switch"),
                 )
             }
+            if (!enabled) Hint("Sardor va Madina ovozlari shu tugma yoqilganda ko\u2018rinadi.")
             if (enabled) {
                 VoiceControls()
+                AzureVoiceControls()
                 VoiceTestControls()
                 PacingControls()
             }
@@ -107,6 +109,45 @@ private fun VoiceControls() {
         valueRange = 0f..100f,
         steps = 9,
         modifier = Modifier.testTag("dubbing_video_volume_slider"),
+    )
+}
+
+/**
+ * The official Azure Speech key for the same Sardor/Madina voices, and why the voice last failed.
+ * The free Microsoft endpoint can stop answering third-party apps; with a key the voices keep working.
+ */
+@Composable
+private fun AzureVoiceControls() {
+    val key by DubbingSettings.azureSpeechKey.collectAsStateWithLifecycle()
+    val region by DubbingSettings.azureSpeechRegion.collectAsStateWithLifecycle()
+    val status by DubbingSettings.voiceStatus.collectAsStateWithLifecycle()
+    if (status.isNotBlank()) {
+        Text(status, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 6.dp).testTag("voice_status"))
+    }
+    Text("Azure Speech (rasmiy, ixtiyoriy)", modifier = Modifier.padding(top = 10.dp))
+    OutlinedTextField(
+        value = key,
+        onValueChange = DubbingSettings::setAzureSpeechKey,
+        label = { Text("Azure Speech kaliti") },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).testTag("azure_speech_key"),
+    )
+    OutlinedTextField(
+        value = region,
+        onValueChange = DubbingSettings::setAzureSpeechRegion,
+        label = { Text("Hudud (masalan: westeurope)") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).testTag("azure_speech_region"),
+    )
+    Hint(
+        if (key.isBlank()) {
+            "Kalitsiz Microsoft\u2019ning bepul ovozi ishlatiladi; u ba\u2019zan to\u2018xtab qoladi. Azure portalida \u201CSpeech\u201D " +
+                "resursini oching (Free F0: oyiga 500 000 belgi bepul), kalit va hududni shu yerga kiriting."
+        } else {
+            "Sardor va Madina rasmiy Azure Speech xizmatidan o\u2018qiladi. Kalit faqat shu telefonda saqlanadi."
+        },
+        Modifier.padding(top = 4.dp),
     )
 }
 

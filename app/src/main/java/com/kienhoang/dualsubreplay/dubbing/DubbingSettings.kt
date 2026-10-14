@@ -35,6 +35,8 @@ internal object DubbingSettings {
     private const val KEY_CLAUDE_MODEL = "claude_model"
     private const val KEY_CLAUDE_AUTO = "claude_auto"
     private const val KEY_GEMINI_WHOLE_LESSON = "gemini_whole_lesson"
+    private const val KEY_AZURE_SPEECH_KEY = "azure_speech_key"
+    private const val KEY_AZURE_SPEECH_REGION = "azure_speech_region"
     private const val DEFAULT_VIDEO_VOLUME = 20
     private const val DEFAULT_MAX_TEMPO_PERCENT = 150
 
@@ -55,6 +57,9 @@ internal object DubbingSettings {
     private val _claudeModel = MutableStateFlow(CLAUDE_MODELS.first().id)
     private val _claudeAuto = MutableStateFlow(false)
     private val _geminiWholeLesson = MutableStateFlow(true)
+    private val _azureSpeechKey = MutableStateFlow("")
+    private val _azureSpeechRegion = MutableStateFlow("")
+    private val _voiceStatus = MutableStateFlow("")
     private var preferences: SharedPreferences? = null
 
     val available: StateFlow<Boolean> = _available
@@ -102,6 +107,15 @@ internal object DubbingSettings {
      * instead of sentence batches during playback. Google Translate covers playback until it is ready.
      */
     val geminiWholeLesson: StateFlow<Boolean> = _geminiWholeLesson
+
+    /** The doctor's own Azure Speech key: when set, Sardor/Madina come from the official service. */
+    val azureSpeechKey: StateFlow<String> = _azureSpeechKey
+
+    /** The Azure region of that key, such as "westeurope". */
+    val azureSpeechRegion: StateFlow<String> = _azureSpeechRegion
+
+    /** Why the voice last failed (or which service speaks), for the voice card; empty when all is well. */
+    val voiceStatus: StateFlow<String> = _voiceStatus
 
     /** What the dub did in the current video, for the settings card. */
     val stats: StateFlow<DubbingStats> = _stats
@@ -154,6 +168,24 @@ internal object DubbingSettings {
             saved.getString(KEY_CLAUDE_MODEL, null)?.takeIf { id -> CLAUDE_MODELS.any { it.id == id } } ?: CLAUDE_MODELS.first().id
         _claudeAuto.value = saved.getBoolean(KEY_CLAUDE_AUTO, false)
         _geminiWholeLesson.value = saved.getBoolean(KEY_GEMINI_WHOLE_LESSON, true)
+        _azureSpeechKey.value = saved.getString(KEY_AZURE_SPEECH_KEY, null).orEmpty()
+        _azureSpeechRegion.value = saved.getString(KEY_AZURE_SPEECH_REGION, null).orEmpty()
+    }
+
+    fun setAzureSpeechKey(key: String) {
+        _azureSpeechKey.value = key.trim()
+        preferences?.edit()?.putString(KEY_AZURE_SPEECH_KEY, _azureSpeechKey.value)?.apply()
+        _voiceStatus.value = ""
+    }
+
+    fun setAzureSpeechRegion(region: String) {
+        _azureSpeechRegion.value = region.trim()
+        preferences?.edit()?.putString(KEY_AZURE_SPEECH_REGION, _azureSpeechRegion.value)?.apply()
+        _voiceStatus.value = ""
+    }
+
+    fun publishVoiceStatus(status: String) {
+        _voiceStatus.value = status
     }
 
     fun setGeminiWholeLesson(value: Boolean) {

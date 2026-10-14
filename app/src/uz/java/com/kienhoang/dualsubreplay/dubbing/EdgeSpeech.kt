@@ -7,8 +7,10 @@ import com.kienhoang.dualsubreplay.data.glossaryAcronymExpansions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
@@ -153,13 +155,7 @@ internal class EdgeDubbingVoice(
             if (prepared.applied.isNotEmpty()) Log.d(TAG, "speech rules ${prepared.ruleSummary()}: ${prepared.display} -> $spoken")
             val file = File(directory, "${sha1("$voice\n$spoken")}.mp3")
             if (file.length() == 0L) {
-                val audio =
-                    try {
-                        request(voice, spoken)
-                    } catch (error: SkewedClock) {
-                        clockSkewSeconds = error.serverSeconds - System.currentTimeMillis() / 1000
-                        request(voice, spoken)
-                    }
+                val audio = fetchAudio(voice, spoken)
                 val partial = File(directory, "${file.name}.part")
                 partial.writeBytes(audio)
                 if (!partial.renameTo(file)) throw IOException("Could not save the speech clip.")
@@ -170,6 +166,60 @@ internal class EdgeDubbingVoice(
             }
             DubClip(file, file.length() * 1000 / MP3_BYTES_PER_SECOND)
         }
+
+    /**
+     * The doctor's own Azure Speech key when set (official service, same voices), otherwise the free
+     * Edge endpoint. Failures are shown on the voice card with what to do about them.
+     */
+    private suspend fun fetchAudio(
+        voice: String,
+        text: String,
+    ): ByteArray {
+        val key = DubbingSettings.azureSpeechKey.value
+        val region = DubbingSettings.azureSpeechRegion.value
+        if (key.isNotBlank() && region.isNotBlank()) {
+            return try {
+                azureRequest(voice, text, key, region).also { DubbingSettings.publishVoiceStatus("") }
+            } catch (error: IOException) {
+                DubbingSettings.publishVoiceStatus(error.message ?: "Azure Speech ishlamadi.")
+                throw error
+            }
+        }
+        return try {
+            try {
+                request(voice, text)
+            } catch (error: SkewedClock) {
+                clockSkewSeconds = error.serverSeconds - System.currentTimeMillis() / 1000
+                request(voice, text)
+            }.also { DubbingSettings.publishVoiceStatus("") }
+        } catch (error: IOException) {
+            DubbingSettings.publishVoiceStatus(edgeVoiceFailureMessage(error.message?.substringAfterLast(": ")))
+            throw error
+        }
+    }
+
+    private fun azureRequest(
+        voice: String,
+        text: String,
+        key: String,
+        region: String,
+    ): ByteArray {
+        val request =
+            Request
+                .Builder()
+                .url(azureTtsUrl(region))
+                .header("Ocp-Apim-Subscription-Key", key)
+                .header("X-Microsoft-OutputFormat", AZURE_OUTPUT_FORMAT)
+                .header("User-Agent", "DualSubReplay-uz")
+                .post(azureSsml(voice, text).toRequestBody("application/ssml+xml".toMediaType()))
+                .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException(azureSpeechError(response.code))
+            val audio = response.body?.bytes() ?: ByteArray(0)
+            if (audio.isEmpty()) throw IOException("Azure Speech ovoz qaytarmadi.")
+            return audio
+        }
+    }
 
     private suspend fun request(
         voice: String,

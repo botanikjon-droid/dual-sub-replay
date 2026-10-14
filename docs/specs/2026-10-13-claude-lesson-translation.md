@@ -118,3 +118,16 @@ The doctor asked for an update button so he does not have to ask for the APK eac
   with the installed version name ("-uz-buildN"), and opens the APK link in the browser, which downloads it
   and hands it to Android's installer. The app needs no install permission and sends nothing.
 - `AppUpdateTest` (3) passes locally. Unverified: the download and install on the phone.
+
+## Field feedback 3 (2026-10-14): Sardor and Madina voices gone
+
+- Cause (most likely, not reproducible from the sandbox): the free Edge "Read aloud" endpoint now requires
+  a new obfuscated `Sec-MS-GEC` token (edge-tts 7.3 implements a "v2" token); the app still sends the old
+  one, so the service rejects it and nothing is spoken. Microsoft added the change to keep third-party
+  clients out, so the app does not copy the new token scheme.
+- Fix: **Azure Speech** (`dubbing/AzureSpeech.kt`, used in `EdgeSpeech.kt`): with the doctor's own key and
+  region, the same `uz-UZ-SardorNeural` / `uz-UZ-MadinaNeural` voices come from the official REST API
+  (Free F0: 0.5 million characters a month). Without a key the Edge endpoint is still tried.
+- The voice card now shows why the voice failed (`voiceStatus`) and says that the voice list appears only
+  while "Tarjimani ovoz bilan o‘qish" is on.
+- `AzureSpeechTest` (3) passes locally. Unverified: a live Azure call from the phone.
