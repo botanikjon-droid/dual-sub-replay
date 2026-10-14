@@ -58,6 +58,7 @@ private fun currentGlossaryAcronyms(): Map<String, String> {
 
 internal const val EDGE_TRUSTED_CLIENT_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4"
 internal const val EDGE_CHROMIUM_VERSION = "143.0.3650.75"
+
 /**
  * Microsoft moved the Read Aloud voices: since October 2026 speech.platform.bing.com answers this
  * client with HTTP 403, while the same voices answer at api.msedgeservices.com (the address edge-tts
