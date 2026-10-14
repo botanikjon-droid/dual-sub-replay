@@ -107,6 +107,10 @@ android {
             getByName("debug") {
                 res.setSrcDirs(listOf("src/uzDebug/res"))
             }
+            // JVM tests of uz-only code (the Edge voice client), run by CI's Uzbek build step.
+            getByName("test") {
+                kotlin.srcDir("src/uzTest/java")
+            }
         }
         if (isFdroidBuild) {
             // Device test for the native engine; CI fills the assets with
