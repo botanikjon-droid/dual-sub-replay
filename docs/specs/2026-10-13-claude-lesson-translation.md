@@ -131,3 +131,17 @@ The doctor asked for an update button so he does not have to ask for the APK eac
 - The voice card now shows why the voice failed (`voiceStatus`) and says that the voice list appears only
   while "Tarjimani ovoz bilan o‘qish" is on.
 - `AzureSpeechTest` (3) passes locally. Unverified: a live Azure call from the phone.
+
+## Field feedback 4 (2026-10-15): voice address and in-app update
+
+- **Voices:** a live CI check (`uz-voice-check` workflow, `EdgeVoiceLiveTest`) showed the app's own client
+  getting HTTP 403 from `speech.platform.bing.com`, while edge-tts 7.2 got audio from
+  `api.msedgeservices.com` on the same runner. The client now uses that address with the `synthesize`
+  subprotocol; the live check then returned audio for Sardor (3.5 s) and Madina (3.7 s). The earlier
+  "new token" explanation (field feedback 3) was wrong.
+- **Update:** the browser's download screen stopped at 100 % and no file reached Downloads. "Dasturni
+  yangilash" now downloads the APK inside the app (progress shown, size and ZIP header checked) and opens
+  Android's installer through a FileProvider; Android's "install unknown apps" permission page opens first
+  when needed. The install permission and provider are declared only in the uz build
+  (`src/uzDebug/AndroidManifest.xml`). A "Brauzerda" button keeps the old way.
+- Unverified: the install flow on the phone.

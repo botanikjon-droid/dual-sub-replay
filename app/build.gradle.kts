@@ -106,6 +106,8 @@ android {
             // Its own launcher name, so the Uzbek build is told apart from the preview.
             getByName("debug") {
                 res.setSrcDirs(listOf("src/uzDebug/res"))
+                // In-app update: install permission and a FileProvider, in the Uzbek build only.
+                manifest.srcFile("src/uzDebug/AndroidManifest.xml")
             }
             // JVM tests of uz-only code (the Edge voice client), run by CI's Uzbek build step.
             getByName("test") {
