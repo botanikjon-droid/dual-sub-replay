@@ -218,6 +218,7 @@ private fun LessonToolsHost(
         claudeRun = claudeRun,
         onClaudeTranslate = viewModel::translateLessonWithClaude,
         onGeminiTranslate = viewModel::translateLessonWithGemini,
+        onDeepLTranslate = viewModel::translateLessonWithDeepL,
         onClaudeCancel = viewModel::cancelClaudeTranslation,
         lessonList = {
             LessonLibraryCard(lessons, state.activeVideoId) { videoId ->
@@ -1095,6 +1096,7 @@ internal fun TranslatedSubtitleTimeline(
     onReplay: (SubtitleSegment) -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
+        TranslatorBadge(state.activeVideoId, state.targetLanguage, state.importedTranslationCues)
         state.translationError?.let { TranslationUnavailableBar(it, onRetryTranslation) }
         Box(Modifier.fillMaxWidth().weight(1f)) {
             SubtitleTimeline(state, onWordClick = onWordClick, onReplay = onReplay)

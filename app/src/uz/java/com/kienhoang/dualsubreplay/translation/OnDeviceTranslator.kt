@@ -127,7 +127,7 @@ class OnDeviceTranslator(
         }
 
         suspend fun deeplOrGoogle(): String =
-            if (!usesDeepL()) {
+            if (!usesDeepL(languages)) {
                 google()
             } else {
                 withFallback(
@@ -164,13 +164,16 @@ class OnDeviceTranslator(
         )
     }
 
-    private fun usesDeepL(): Boolean =
-        deeplEnabled(
-            DubbingSettings.translationProvider.value,
-            DubbingSettings.deeplApiKey.value,
-            deeplPausedUntil,
-            System.currentTimeMillis(),
-        )
+    // Uzbek lessons are translated by DeepL whole and stored (ClaudeLessonCoordinator), so the characters are
+    // spent once per lesson; meanwhile Google covers playback. Other target languages go sentence by sentence.
+    private fun usesDeepL(languages: TranslationPair): Boolean =
+        languages.target != "uz" &&
+            deeplEnabled(
+                DubbingSettings.translationProvider.value,
+                DubbingSettings.deeplApiKey.value,
+                deeplPausedUntil,
+                System.currentTimeMillis(),
+            )
 
     /** DeepL results are cached apart from Google's, so switching translators shows each one's own text. */
     private suspend fun translateWithDeepL(

@@ -1,9 +1,14 @@
 package com.kienhoang.dualsubreplay.translation
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
 
 /*
  * DeepL as an optional playback translator, with the doctor's own DeepL API key (the Free plan gives
@@ -34,16 +39,16 @@ internal fun deeplLanguage(
     }
 }
 
+/** [source] null lets DeepL detect the language (a whole lesson in whatever language it is spoken). */
 internal fun deeplRequestBody(
-    source: String,
+    source: String?,
     target: String,
     texts: List<String>,
-): String =
-    JSONObject()
-        .put("text", JSONArray().also { array -> texts.forEach { array.put(it) } })
-        .put("source_lang", deeplLanguage(source, asTarget = false))
-        .put("target_lang", deeplLanguage(target, asTarget = true))
-        .toString()
+): String {
+    val body = JSONObject().put("text", JSONArray().also { array -> texts.forEach { array.put(it) } })
+    source?.let { body.put("source_lang", deeplLanguage(it, asTarget = false)) }
+    return body.put("target_lang", deeplLanguage(target, asTarget = true)).toString()
+}
 
 /** One translation per sent text, in order. */
 internal fun parseDeepLTranslations(
@@ -107,3 +112,93 @@ private const val HTTP_TOO_MANY = 429
 private const val HTTP_QUOTA_EXCEEDED = 456
 private const val DEEPL_SHORT_REST_MS = 60_000L
 private const val DEEPL_LONG_REST_MS = 3_600_000L
+
+/** DeepL accepts up to 50 texts per request: a 400-sentence lesson takes about 8 requests. */
+internal const val DEEPL_LESSON_CHUNK_SIZE = 50
+
+/** An HTTP failure from DeepL, with its status and an Uzbek reason. */
+internal class DeepLHttpException(
+    val code: Int,
+    message: String,
+) : IOException(message)
+
+/** Sends one request; replaced by a fake in unit tests. */
+internal fun interface DeepLTransport {
+    @Throws(IOException::class)
+    suspend fun send(
+        apiKey: String,
+        body: String,
+    ): String
+}
+
+internal object HttpDeepLTransport : DeepLTransport {
+    private const val CONNECT_TIMEOUT_MS = 15_000
+    private const val READ_TIMEOUT_MS = 60_000
+
+    override suspend fun send(
+        apiKey: String,
+        body: String,
+    ): String =
+        withContext(Dispatchers.IO) {
+            val connection = URL(deeplEndpoint(apiKey)).openConnection() as HttpURLConnection
+            try {
+                connection.connectTimeout = CONNECT_TIMEOUT_MS
+                connection.readTimeout = READ_TIMEOUT_MS
+                connection.requestMethod = "POST"
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                connection.setRequestProperty("Authorization", "DeepL-Auth-Key ${apiKey.trim()}")
+                connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+                val code = connection.responseCode
+                val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+                val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                if (code !in 200..299) throw DeepLHttpException(code, deeplErrorMessage(code, text))
+                text
+            } finally {
+                connection.disconnect()
+            }
+        }
+}
+
+/**
+ * DeepL as a whole-lesson engine: up to 50 sentences per request, each guided by the UZI glossary
+ * through [prepare]. The result is imported as the lesson's translation like Claude's and Gemini's, so
+ * a reopened lesson costs no characters and plays without waiting. DeepL neither rebuilds sentences
+ * nor reports new terms or doubts. A busy service (429, 5xx) is asked again after a pause.
+ */
+internal class DeepLBackend(
+    private val apiKey: String,
+    private val prepare: (String) -> String = { it },
+    private val transport: DeepLTransport = HttpDeepLTransport,
+    private val retryPausesMs: List<Long> = listOf(2_000L, 8_000L),
+) : LessonBackend {
+    init {
+        require(apiKey.isNotBlank()) { "DeepL API kalitini sozlamalarga kiriting." }
+    }
+
+    override suspend fun translate(
+        userPrompt: String,
+        chunk: ClaudeChunk,
+    ): ClaudeChunkResult {
+        val body = deeplRequestBody(source = null, target = "uz", texts = chunk.sentences.map(prepare))
+        val texts = parseDeepLTranslations(sendWithRetry(body), chunk.sentences.size)
+        val translations = texts.withIndex().associate { (index, text) -> chunk.start + index to normalizeUzbekApostrophes(text) }
+        return ClaudeChunkResult(translations, newTerms = emptyList(), uncertain = emptyList())
+    }
+
+    private suspend fun sendWithRetry(body: String): String {
+        var attempt = 0
+        while (true) {
+            try {
+                return transport.send(apiKey, body)
+            } catch (error: DeepLHttpException) {
+                val busy = error.code == HTTP_TOO_MANY || error.code >= HTTP_SERVER_ERROR
+                if (!busy || attempt >= retryPausesMs.size) throw error
+                delay(retryPausesMs[attempt])
+                attempt++
+            }
+        }
+    }
+}
+
+private const val HTTP_SERVER_ERROR = 500

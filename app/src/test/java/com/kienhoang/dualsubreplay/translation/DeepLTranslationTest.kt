@@ -43,3 +43,48 @@ class DeepLTranslationTest {
         assertFalse(deeplEnabled(TRANSLATION_PROVIDER_DEEPL, "k", pausedUntilMs = 5, nowMs = 1))
     }
 }
+
+class DeepLLessonTest {
+    private fun reply(body: String): String {
+        val texts = JSONObject(body).getJSONArray("text")
+        val array = org.json.JSONArray()
+        for (i in 0 until texts.length()) array.put(JSONObject().put("text", "uz'" + texts.getString(i)))
+        return JSONObject().put("translations", array).toString()
+    }
+
+    @Test
+    fun aLessonGoesInRequestsOfFiftyAndIsGuided() =
+        kotlinx.coroutines.runBlocking {
+            val bodies = mutableListOf<String>()
+            val backend =
+                DeepLBackend("k:fx", prepare = { it.uppercase() }, transport = { _, body ->
+                    bodies += body
+                    reply(body)
+                })
+            val sentences = List(120) { "s$it" }
+            val result =
+                LessonTranslator(
+                    backend,
+                    DEEPL_LESSON_CHUNK_SIZE,
+                ).translate(sentences, { emptyList() }, { emptyList() }) { _, _ -> }
+            assertEquals(3, bodies.size)
+            assertFalse(JSONObject(bodies[0]).has("source_lang"))
+            assertEquals(120, result.translations.size)
+            assertEquals("uz’S119", result.translations[119])
+        }
+
+    @Test
+    fun aBusyServiceIsRetriedAndAWrongKeyIsNot() =
+        kotlinx.coroutines.runBlocking {
+            var calls = 0
+            val busyOnce =
+                DeepLBackend("k", transport = { _, body ->
+                    calls++
+                    if (calls == 1) throw DeepLHttpException(429, "busy") else reply(body)
+                }, retryPausesMs = listOf(0L, 0L))
+            busyOnce.translate("", ClaudeChunk(0, listOf("a")))
+            assertEquals(2, calls)
+            val wrongKey = DeepLBackend("k", transport = { _, _ -> throw DeepLHttpException(403, "kalit") }, retryPausesMs = listOf(0L))
+            assertTrue(runCatching { wrongKey.translate("", ClaudeChunk(0, listOf("a"))) }.exceptionOrNull() is DeepLHttpException)
+        }
+}

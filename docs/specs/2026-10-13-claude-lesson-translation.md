@@ -197,3 +197,23 @@ DeepL lists Uzbek (UZ) among its supported languages; the Free plan gives 500,00
   `uz/.../OnDeviceTranslator.kt`, `dubbing/DubbingSettings.kt`, `dubbing/DubbingSettingsCard.kt`.
 - `DeepLTranslationTest` (4) passes locally. Unverified: a live DeepL call, its Uzbek quality, and whether a
   DeepL account can be opened from Uzbekistan.
+
+## Field feedback 8 (2026-10-15): DeepL whole lessons stored; the translator named on screen
+
+The owner: "Tarjima qilingan subtitr saqlanib qolsin, shunda videoni qayta ochganda yana token sarflanmaydi va
+kutishlarning oldi olinadi" and "Qaysi dastur tarjima qilayotgani bilinib tursin".
+
+- **DeepL whole lesson** (`DeepLBackend`, `LessonEngine.DEEPL`): the lesson in requests of 50 sentences
+  (DeepL's limit; about 8 for a 45-minute lecture), each guided by the UZI glossary, source language
+  detected by DeepL. The result is imported like Claude's and Gemini's (`imported-translations/<id>.srt`,
+  lesson list, voice prefetched, number/unit/negation checks), so a reopened lesson spends no characters
+  and plays without waiting. With DeepL chosen as translator, every newly opened lesson without a stored
+  translation is translated automatically; a button does it on demand. DeepL bills characters, not requests,
+  so batching saves time and failures, not quota.
+- Uzbek playback no longer sends single sentences to DeepL (that would spend the characters twice); Google
+  covers playback until the lesson's translation is stored. Other target languages still use DeepL per sentence.
+- **Translator line** above the subtitles (`TranslatorBadge`): "✓ Tarjima: DeepL · saqlangan, qayta so‘rov
+  sarflanmaydi", "⏳ DeepL butun darsni tarjima qilmoqda 100/400 · hozircha: Google Translate" or
+  "Tarjima: Google Translate". Lessons stored before the lesson list existed show "saqlangan tarjima".
+- Tests: `DeepLLessonTest` (2) pass locally; `TranslatorBadgeTest` (3) runs in CI (Compose file).
+- Unverified on the phone: live DeepL lesson run, the line's wording on a small screen.

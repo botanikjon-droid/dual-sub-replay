@@ -85,6 +85,7 @@ internal fun LessonToolsScreen(
     claudeRun: ClaudeRunState = ClaudeRunState(),
     onClaudeTranslate: () -> Unit = {},
     onGeminiTranslate: () -> Unit = {},
+    onDeepLTranslate: () -> Unit = {},
     onClaudeCancel: () -> Unit = {},
     lessonList: @Composable () -> Unit = {},
     notesCard: @Composable () -> Unit = {},
@@ -242,6 +243,7 @@ internal fun LessonToolsScreen(
                         run = claudeRun,
                         onTranslate = onClaudeTranslate,
                         onGeminiTranslate = onGeminiTranslate,
+                        onDeepLTranslate = onDeepLTranslate,
                         onCancel = onClaudeCancel,
                     )
                     notesCard()

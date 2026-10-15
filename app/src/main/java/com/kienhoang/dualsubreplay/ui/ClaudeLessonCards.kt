@@ -49,6 +49,7 @@ import com.kienhoang.dualsubreplay.data.upsertDoctorTerm
 import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
 import com.kienhoang.dualsubreplay.dubbing.LessonVoicePrefetch
 import com.kienhoang.dualsubreplay.translation.CLAUDE_MODELS
+import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_DEEPL
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GEMINI
 import kotlinx.coroutines.launch
 
@@ -70,6 +71,7 @@ internal fun ClaudeTranslateCard(
     onTranslate: () -> Unit,
     onCancel: () -> Unit,
     onGeminiTranslate: () -> Unit = {},
+    onDeepLTranslate: () -> Unit = {},
 ) {
     val available by DubbingSettings.available.collectAsStateWithLifecycle()
     if (!available) return
@@ -80,6 +82,8 @@ internal fun ClaudeTranslateCard(
                 "yuklanadi, ovozda o‘qiladi va dars qayta ochilganda so‘rov sarflanmaydi. Kalitlar faqat shu telefonda saqlanadi.",
         )
         GeminiLessonControls(enabled = activeVideoId != null && !run.running, onTranslate = onGeminiTranslate)
+        HorizontalDivider()
+        DeepLLessonControls(enabled = activeVideoId != null && !run.running, onTranslate = onDeepLTranslate)
         HorizontalDivider()
         ClaudeLessonControls(enabled = activeVideoId != null && !run.running, onTranslate = onTranslate)
         if (runningHere) {
@@ -154,6 +158,31 @@ private fun GeminiLessonControls(
         modifier = Modifier.fillMaxWidth().testTag("gemini_translate_lesson"),
         onClick = onTranslate,
     ) { Text("Shu darsni Gemini bilan tarjima qilish") }
+}
+
+/** DeepL: 500,000 free characters a month; the whole lesson in requests of 50 sentences, stored like the others. */
+@Composable
+private fun DeepLLessonControls(
+    enabled: Boolean,
+    onTranslate: () -> Unit,
+) {
+    val key by DubbingSettings.deeplApiKey.collectAsStateWithLifecycle()
+    val provider by DubbingSettings.translationProvider.collectAsStateWithLifecycle()
+    Text("DeepL (oyiga 500 000 belgi bepul)", fontWeight = FontWeight.SemiBold)
+    Hint(
+        when {
+            key.isBlank() -> "DeepL kalitini sozlamalardagi \u201CTarjimon\u201D bo\u2018limiga kiriting."
+            provider == TRANSLATION_PROVIDER_DEEPL ->
+                "Tarjimon DeepL bo\u2018lgani uchun har bir yangi dars ochilganda butunligicha bir marta tarjima qilinadi va saqlanadi: " +
+                    "qayta ochilganda belgi sarflanmaydi va kutilmaydi. Tayyor bo\u2018lguncha Google Translate ishlaydi."
+            else -> "Avtomatik ishlashi uchun sozlamalarda tarjimon sifatida DeepL ni tanlang yoki tugmani bosing."
+        },
+    )
+    Button(
+        enabled = enabled && key.isNotBlank(),
+        modifier = Modifier.fillMaxWidth().testTag("deepl_translate_lesson"),
+        onClick = onTranslate,
+    ) { Text("Shu darsni DeepL bilan tarjima qilish") }
 }
 
 /** Claude: the doctor's paid API key and model, and its own automatic switch. */

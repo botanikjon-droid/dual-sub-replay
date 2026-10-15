@@ -5,16 +5,20 @@ import com.kienhoang.dualsubreplay.data.SubtitleSegment
 import com.kienhoang.dualsubreplay.data.UziGlossaryStore
 import com.kienhoang.dualsubreplay.data.checkTranslation
 import com.kienhoang.dualsubreplay.data.formatSrt
+import com.kienhoang.dualsubreplay.data.glossaryGuidedSource
 import com.kienhoang.dualsubreplay.data.mergeLearnedSuggestions
 import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
 import com.kienhoang.dualsubreplay.dubbing.LessonVoicePrefetch
 import com.kienhoang.dualsubreplay.translation.ClaudeBackend
 import com.kienhoang.dualsubreplay.translation.ClaudeChunkResult
+import com.kienhoang.dualsubreplay.translation.DEEPL_LESSON_CHUNK_SIZE
+import com.kienhoang.dualsubreplay.translation.DeepLBackend
 import com.kienhoang.dualsubreplay.translation.GEMINI_LESSON_CHUNK_SIZE
 import com.kienhoang.dualsubreplay.translation.GeminiBackend
 import com.kienhoang.dualsubreplay.translation.GeminiModelQuota
 import com.kienhoang.dualsubreplay.translation.GeminiQuotaExhausted
 import com.kienhoang.dualsubreplay.translation.LessonTranslator
+import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_DEEPL
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GEMINI
 import com.kienhoang.dualsubreplay.translation.TranslationLanguages
 import com.kienhoang.dualsubreplay.translation.geminiQuotaMessage
@@ -44,6 +48,7 @@ internal enum class LessonEngine(
 ) {
     CLAUDE("Claude"),
     GEMINI("Gemini"),
+    DEEPL("DeepL"),
 }
 
 /** The latest whole-lesson run, for the lesson screen. */
@@ -73,12 +78,22 @@ internal fun lessonTranslatorFor(engine: LessonEngine): LessonTranslator =
                 }),
                 chunkSize = GEMINI_LESSON_CHUNK_SIZE,
             )
+        LessonEngine.DEEPL ->
+            LessonTranslator(DeepLBackend(DubbingSettings.deeplApiKey.value, ::glossaryGuidedForDeepL), DEEPL_LESSON_CHUNK_SIZE)
     }
+
+/** With the glossary switch on, DeepL gets the approved Uzbek terms in place of the English ones, like Google. */
+private fun glossaryGuidedForDeepL(english: String): String {
+    if (!DubbingSettings.glossaryInTranslation.value) return english
+    val glossary = UziGlossaryStore.glossary.value ?: return english
+    return glossaryGuidedSource(glossary, english)
+}
 
 private fun keyFor(engine: LessonEngine): String =
     when (engine) {
         LessonEngine.CLAUDE -> DubbingSettings.claudeApiKey.value
         LessonEngine.GEMINI -> DubbingSettings.geminiApiKey.value
+        LessonEngine.DEEPL -> DubbingSettings.deeplApiKey.value
     }
 
 /**
@@ -88,7 +103,7 @@ private fun keyFor(engine: LessonEngine): String =
  * terms go to the learned glossary as they arrive, so the next chunks and lessons use them.
  * Automatic runs, once per lesson and app session, for a lesson without a stored translation:
  * Claude when its "avtomatik" switch is on, otherwise Gemini when it is the chosen translator in
- * whole-lesson mode.
+ * whole-lesson mode, otherwise DeepL when it is the chosen translator.
  */
 internal class ClaudeLessonCoordinator(
     private val scope: CoroutineScope,
@@ -101,6 +116,11 @@ internal class ClaudeLessonCoordinator(
     val state: StateFlow<ClaudeRunState> = _state
     private var job: Job? = null
     private val autoTried = mutableSetOf<String>()
+
+    init {
+        // The line above the subtitles names the engine while a whole lesson is being translated.
+        scope.launch { state.collect(LessonRunStatus::publish) }
+    }
 
     /** Called whenever a lesson is (re)loaded; starts a background run when the doctor asked for it. */
     fun onLessonLoaded(
@@ -115,6 +135,8 @@ internal class ClaudeLessonCoordinator(
                 DubbingSettings.translationProvider.value == TRANSLATION_PROVIDER_GEMINI &&
                     DubbingSettings.geminiWholeLesson.value &&
                     DubbingSettings.geminiApiKey.value.isNotBlank() -> LessonEngine.GEMINI
+                DubbingSettings.translationProvider.value == TRANSLATION_PROVIDER_DEEPL &&
+                    DubbingSettings.deeplApiKey.value.isNotBlank() -> LessonEngine.DEEPL
                 else -> return
             }
         if (autoTried.add(videoId)) start(videoId, engine, automatic = true)

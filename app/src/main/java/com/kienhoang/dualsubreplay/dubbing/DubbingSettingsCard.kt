@@ -277,8 +277,8 @@ private fun DeepLKeyField() {
             "Kalitni deepl.com/pro-api (DeepL API Free, oyiga 500 000 belgi bepul) \u2192 Account \u2192 " +
                 "\u201CAuthentication Key for DeepL API\u201D dan oling. Kalit faqat shu telefonda saqlanadi."
         } else {
-            "DeepL har bir gapni UZI lug\u2018ati bilan tarjima qiladi. Xato yoki limit tugasa Google Translate ishlaydi. " +
-                "Butun darsni Claude yoki Gemini bilan tarjima qilish \u201CDars\u201D ekranida qoladi."
+            "DeepL har bir yangi darsni UZI lug\u2018ati bilan butunligicha bir marta tarjima qiladi va saqlaydi: " +
+                "qayta ochilganda belgi sarflanmaydi va kutilmaydi. Tayyor bo\u2018lguncha yoki xato bo\u2018lsa Google Translate ishlaydi."
         },
     )
 }
