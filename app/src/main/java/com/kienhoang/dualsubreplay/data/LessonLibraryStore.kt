@@ -71,6 +71,19 @@ internal object LessonLibraryStore {
         }
     }
 
+    /** Every lesson with stored notes, oldest translated first (the order of a study book). */
+    suspend fun allNotes(): List<PrintableLesson> {
+        val folder = directory?.let { File(it, NOTES_DIRECTORY) } ?: return emptyList()
+        val ids =
+            withContext(Dispatchers.IO) {
+                folder.listFiles { file -> file.isFile && file.name.endsWith(".json") }?.map { it.name.removeSuffix(".json") }.orEmpty()
+            }
+        val records = _records.value
+        return printOrder(ids, records).mapNotNull { id ->
+            notes(id)?.let { notes -> PrintableLesson(id, records.firstOrNull { it.videoId == id }?.displayTitle() ?: "Video $id", notes) }
+        }
+    }
+
     suspend fun saveNotes(
         videoId: String,
         notes: LessonNotes,

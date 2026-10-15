@@ -94,6 +94,8 @@ internal fun LessonNotesCard(
         }
         state.message?.takeIf { state.videoId == activeVideoId }?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
         if (notes != null && activeVideoId != null) NotesBody(activeVideoId, notes, onCaptureFrames)
+        HorizontalDivider()
+        NotesPdfButtons(activeVideoId?.takeIf { notes != null })
     }
 }
 

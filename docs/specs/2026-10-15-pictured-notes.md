@@ -36,3 +36,17 @@ invariant and YouTube's terms).
 - [ ] Phone: 📷 while watching adds the current frame with the subtitle as caption.
 - [ ] Phone: PixelCopy is not black on the owner's phone (a system screenshot was not black; PixelCopy of the
       app window may still differ — then the next step is Android's screen-capture permission).
+
+## Field feedback 1 (2026-10-15): one PDF of all notes, printable
+
+The owner: "Barcha olingan konspektni PDF jamlash va chop etib o‘qish imkoniyati bo‘lsin".
+
+- "Konspekt va test" card → **PDF va chop etish**: "Shu dars: PDF / chop etish" and "Barcha konspektlar: PDF /
+  chop etish". The book: a title page, then every lesson with notes on its own pages (oldest first): pictures
+  with time and caption, konspekt, terms, quiz with a)–d) options and the answers with explanations at the
+  end of the lesson, page numbers. A4, drawn with Android's `PdfDocument` (no new library).
+- "PDF" asks where to save (Android's file picker); "chop etish" opens Android's print dialog, which also
+  offers "Save as PDF". Nothing leaves the phone.
+- Files: `data/NotesPrint.kt` (pure blocks, `printOrder`), `ui/NotesPdf.kt` (drawing, print adapter, buttons),
+  `LessonLibraryStore.allNotes()`.
+- `NotesPrintTest` (2) passes locally. Unverified: the PDF's look and printing on the phone.
