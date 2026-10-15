@@ -1,7 +1,9 @@
 package com.kienhoang.dualsubreplay.translation
 
 import com.kienhoang.dualsubreplay.data.LessonNotes
+import com.kienhoang.dualsubreplay.data.MAX_NOTE_FRAMES
 import com.kienhoang.dualsubreplay.data.QUIZ_OPTIONS
+import com.kienhoang.dualsubreplay.data.formatVideoTime
 import com.kienhoang.dualsubreplay.data.lessonNotesFromJson
 import org.json.JSONArray
 import org.json.JSONObject
@@ -41,6 +43,13 @@ internal fun lessonNotesSystemPrompt(answerInstruction: String): String =
        wrong options must be plausible. "explain" says in one sentence why the answer is right, using
        the lecture.
 
+    4. key_frames: 4-$MAX_NOTE_FRAMES moments where the lecturer SHOWS an ultrasound image worth keeping
+       as a picture: a sign, a measurement, a normal versus abnormal finding, a pathology. Find them by
+       what is said ("as you can see", "here", "this is", "notice", "measure", "arrow", "on this image").
+       "t" is the second of that line (the [m:ss] before it), plus 2 seconds so the image is on screen;
+       "caption" says in Uzbek what the picture shows (one short sentence). Skip moments that only show
+       the lecturer, slides of plain text or adverts.
+
     If a misheard word makes a fact unclear, leave that fact out rather than guess.
     $answerInstruction
     """.trimIndent()
@@ -49,13 +58,16 @@ internal fun lessonNotesUserPrompt(
     title: String?,
     english: List<String>,
     uzbek: List<String>?,
+    startSeconds: List<Int>? = null,
 ): String =
     buildString {
         title?.takeIf(String::isNotBlank)?.let { append("Lecture title: ").append(it).append("\n\n") }
         val withUzbek = uzbek != null && uzbek.size == english.size
-        append(if (withUzbek) "Transcript, each line: English ||| Uzbek\n" else "Transcript:\n")
+        val timed = startSeconds != null && startSeconds.size == english.size
+        append(if (withUzbek) "Transcript, each line: [m:ss] English ||| Uzbek\n" else "Transcript, each line: [m:ss] English\n")
         for (index in english.indices) {
-            val line = if (withUzbek) "${english[index]} ||| ${uzbek!![index]}" else english[index]
+            val time = if (timed) "[${formatVideoTime(startSeconds!![index])}] " else ""
+            val line = time + if (withUzbek) "${english[index]} ||| ${uzbek!![index]}" else english[index]
             if (length + line.length > NOTES_MAX_TRANSCRIPT_CHARS) {
                 append("[the rest of the lecture is cut]\n")
                 break
@@ -88,11 +100,17 @@ internal fun lessonNotesSchema(): JSONObject {
             "answer",
             "explain",
         )
+    val frame = obj(JSONObject().put("t", JSONObject().put("type", "integer")).put("caption", string()), "t", "caption")
     return obj(
-        JSONObject().put("summary", array(string())).put("key_terms", array(term)).put("quiz", array(question)),
+        JSONObject()
+            .put("summary", array(string()))
+            .put("key_terms", array(term))
+            .put("quiz", array(question))
+            .put("key_frames", array(frame)),
         "summary",
         "key_terms",
         "quiz",
+        "key_frames",
     )
 }
 
@@ -126,7 +144,7 @@ internal fun claudeNotesRequestBody(
             JSONArray().put(
                 JSONObject()
                     .put("name", NOTES_TOOL_NAME)
-                    .put("description", "Submit the lesson's Uzbek summary, key terms and quiz.")
+                    .put("description", "Submit the lesson's Uzbek summary, key terms, quiz and pictured moments.")
                     .put("input_schema", lessonNotesSchema()),
             ),
         ).put("tool_choice", JSONObject().put("type", "tool").put("name", NOTES_TOOL_NAME))

@@ -625,6 +625,13 @@ internal fun SingleYouTubePage(
         }
     }
 
+    // Lesson notes take lecture frames from this view's window (never a download).
+    DisposableEffect(webView) {
+        val grab: suspend (Float?) -> FrameGrab = { second -> webView.grabVideoFrame(second) }
+        VideoFrameSource.grab = grab
+        onDispose { if (VideoFrameSource.grab === grab) VideoFrameSource.grab = null }
+    }
+
     DisposableEffect(controller, webView) {
         controller.bindScripts { script -> webView.evaluateJavascript(script, null) }
         val token = controller.bind { second ->

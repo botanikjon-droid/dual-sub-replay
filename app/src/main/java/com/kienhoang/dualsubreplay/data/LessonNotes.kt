@@ -23,6 +23,15 @@ internal data class QuizQuestion(
     val explanation: String,
 )
 
+/** A moment of the lecture worth a picture: the video frame at [seconds], saved as [image] once taken. */
+internal data class NoteFrame(
+    val seconds: Int,
+    /** Uzbek: what the picture shows. */
+    val caption: String,
+    /** File name in the lesson's notes folder ("754.jpg"), empty until the frame is taken. */
+    val image: String = "",
+)
+
 internal data class LessonNotes(
     val summary: List<String>,
     val terms: List<NoteTerm>,
@@ -30,7 +39,14 @@ internal data class LessonNotes(
     /** "Gemini" or "Claude". */
     val engine: String = "",
     val createdAtMs: Long = 0L,
+    val frames: List<NoteFrame> = emptyList(),
 )
+
+/** At most this many pictures per lesson; frames closer than [MIN_FRAME_GAP_SECONDS] are one picture. */
+internal const val MAX_NOTE_FRAMES = 12
+internal const val MIN_FRAME_GAP_SECONDS = 5
+
+private val FRAME_IMAGE = Regex("[0-9]{1,6}\\.jpg")
 
 internal const val QUIZ_OPTIONS = 4
 
@@ -44,7 +60,10 @@ internal class LessonNotesException(
  * with an answer out of range are dropped instead of being shown wrong; notes without a summary or
  * without any usable question are rejected.
  */
-internal fun lessonNotesFromJson(json: JSONObject): LessonNotes {
+internal fun lessonNotesFromJson(
+    json: JSONObject,
+    requireStudy: Boolean = true,
+): LessonNotes {
     val summary = strings(json.optJSONArray("summary")).filter(String::isNotBlank)
     val termsArray = json.optJSONArray("key_terms") ?: JSONArray()
     val terms =
@@ -56,16 +75,78 @@ internal fun lessonNotesFromJson(json: JSONObject): LessonNotes {
         }
     val quizArray = json.optJSONArray("quiz") ?: JSONArray()
     val quiz = (0 until quizArray.length()).mapNotNull { index -> quizQuestion(quizArray.optJSONObject(index)) }
-    if (summary.isEmpty()) throw LessonNotesException("Konspekt bo‘sh qaytdi. Qayta urinib ko‘ring.")
-    if (quiz.isEmpty()) throw LessonNotesException("Test savollari yaroqsiz qaytdi. Qayta urinib ko‘ring.")
+    val frames = noteFrames(json.optJSONArray("key_frames"))
+    // Stored notes may hold only the doctor's own pictures; a model's answer must be complete.
+    if (requireStudy || frames.isEmpty()) {
+        if (summary.isEmpty()) throw LessonNotesException("Konspekt bo‘sh qaytdi. Qayta urinib ko‘ring.")
+        if (quiz.isEmpty()) throw LessonNotesException("Test savollari yaroqsiz qaytdi. Qayta urinib ko‘ring.")
+    }
     return LessonNotes(
         summary = summary,
         terms = terms,
         quiz = quiz,
         engine = json.optString("engine"),
         createdAtMs = json.optLong("created_at"),
+        frames = frames,
     )
 }
+
+/** Pictured moments in lecture order, near-duplicates and blank captions dropped, at most [MAX_NOTE_FRAMES]. */
+private fun noteFrames(array: JSONArray?): List<NoteFrame> {
+    array ?: return emptyList()
+    val frames =
+        (0 until array.length()).mapNotNull { index ->
+            val item = array.optJSONObject(index) ?: return@mapNotNull null
+            val seconds = item.optInt("t", -1)
+            val caption = item.optString("caption").trim()
+            val image = item.optString("image").takeIf { FRAME_IMAGE.matches(it) }.orEmpty()
+            if (seconds < 0 || caption.isEmpty()) null else NoteFrame(seconds, caption, image)
+        }
+    return distinctFrames(frames)
+}
+
+internal fun distinctFrames(frames: List<NoteFrame>): List<NoteFrame> {
+    val kept = mutableListOf<NoteFrame>()
+    for (frame in frames.sortedBy { it.seconds }) {
+        val last = kept.lastOrNull()
+        when {
+            last == null || frame.seconds - last.seconds >= MIN_FRAME_GAP_SECONDS -> kept += frame
+            // The doctor's own picture (or a taken one) wins over a planned one at the same moment.
+            last.image.isEmpty() && frame.image.isNotEmpty() -> kept[kept.lastIndex] = frame
+        }
+    }
+    // Taken pictures always stay; planned ones fill the rest of the limit.
+    var planned = (MAX_NOTE_FRAMES - kept.count { it.image.isNotEmpty() }).coerceAtLeast(0)
+    return kept.filter { it.image.isNotEmpty() || planned-- > 0 }
+}
+
+/** The notes with the picture of the frame at [seconds] saved as [image]. */
+internal fun LessonNotes.withFrameImage(
+    seconds: Int,
+    image: String,
+): LessonNotes = copy(frames = frames.map { if (it.seconds == seconds) it.copy(image = image) else it })
+
+/** Adds the doctor's own picture; notes that do not exist yet hold only pictures until written. */
+internal fun addManualFrame(
+    notes: LessonNotes?,
+    frame: NoteFrame,
+): LessonNotes {
+    val base = notes ?: LessonNotes(emptyList(), emptyList(), emptyList())
+    val others = base.frames.filterNot { kotlin.math.abs(it.seconds - frame.seconds) < MIN_FRAME_GAP_SECONDS }
+    // The doctor's pictures are never dropped by the limit; planned frames give way first.
+    return base.copy(frames = (others + frame).sortedBy { it.seconds })
+}
+
+/** "12:34" or "1:02:03". */
+internal fun formatVideoTime(seconds: Int): String {
+    val h = seconds / SECONDS_PER_HOUR
+    val m = seconds % SECONDS_PER_HOUR / SECONDS_PER_MINUTE
+    val s = seconds % SECONDS_PER_MINUTE
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+}
+
+private const val SECONDS_PER_MINUTE = 60
+private const val SECONDS_PER_HOUR = 3_600
 
 private fun quizQuestion(item: JSONObject?): QuizQuestion? {
     item ?: return null
@@ -105,6 +186,11 @@ internal fun LessonNotes.toJson(): JSONObject =
                             .put("explain", question.explanation),
                     )
                 }
+            },
+        ).put(
+            "key_frames",
+            JSONArray().also { array ->
+                frames.forEach { array.put(JSONObject().put("t", it.seconds).put("caption", it.caption).put("image", it.image)) }
             },
         ).put("engine", engine)
         .put("created_at", createdAtMs)

@@ -1,10 +1,13 @@
 package com.kienhoang.dualsubreplay.ui
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.History
@@ -20,21 +23,32 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kienhoang.dualsubreplay.data.LessonLibraryStore
 import com.kienhoang.dualsubreplay.data.LessonNotes
 import com.kienhoang.dualsubreplay.data.LessonRecord
+import com.kienhoang.dualsubreplay.data.NoteFrame
 import com.kienhoang.dualsubreplay.data.QuizQuestion
 import com.kienhoang.dualsubreplay.data.displayTitle
+import com.kienhoang.dualsubreplay.data.formatVideoTime
 import com.kienhoang.dualsubreplay.data.quizScore
 import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -46,6 +60,7 @@ internal fun LessonNotesCard(
     state: LessonNotesState,
     onWrite: (LessonEngine) -> Unit,
     onCancel: () -> Unit,
+    onCaptureFrames: () -> Unit = {},
 ) {
     val geminiKey by DubbingSettings.geminiApiKey.collectAsStateWithLifecycle()
     val claudeKey by DubbingSettings.claudeApiKey.collectAsStateWithLifecycle()
@@ -78,13 +93,19 @@ internal fun LessonNotesCard(
             if (geminiKey.isBlank() && claudeKey.isBlank()) Hint("Gemini yoki Claude API kaliti sozlamalarda kiritilgan bo‘lishi kerak.")
         }
         state.message?.takeIf { state.videoId == activeVideoId }?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-        notes?.let { NotesBody(it) }
+        if (notes != null && activeVideoId != null) NotesBody(activeVideoId, notes, onCaptureFrames)
     }
 }
 
 @Composable
-private fun NotesBody(notes: LessonNotes) {
+private fun NotesBody(
+    videoId: String,
+    notes: LessonNotes,
+    onCaptureFrames: () -> Unit,
+) {
     HorizontalDivider()
+    NoteFrames(videoId, notes.frames, onCaptureFrames)
+    if (notes.summary.isEmpty()) return
     Text("Konspekt", fontWeight = FontWeight.SemiBold)
     notes.summary.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
     if (notes.terms.isNotEmpty()) {
@@ -92,12 +113,54 @@ private fun NotesBody(notes: LessonNotes) {
         notes.terms.forEach { Text("${it.english} — ${it.uzbek}", style = MaterialTheme.typography.bodyMedium) }
     }
     HorizontalDivider()
-    Quiz(notes)
+    if (notes.quiz.isNotEmpty()) Quiz(notes)
     Hint(
         "${notes.engine} yozgan, ${formatDay(
             notes.createdAtMs,
         )}. Konspekt avtomatik tuzilgan: muhim qiymatlarni videoning o‘zidan tekshiring.",
     )
+}
+
+/** The lecture's pictured moments: taken frames with captions, and a button to take the missing ones. */
+@Composable
+private fun NoteFrames(
+    videoId: String,
+    frames: List<NoteFrame>,
+    onCaptureFrames: () -> Unit,
+) {
+    if (frames.isEmpty()) {
+        Hint("Video ko\u2018rayotganda subtitr ustidagi \uD83D\uDCF7 tugmasi ekrandagi UZI kadrini konspektga qo\u2018shadi.")
+        return
+    }
+    val missing = frames.count { it.image.isEmpty() }
+    Text("Rasmli konspekt (${frames.size - missing} / ${frames.size} kadr)", fontWeight = FontWeight.SemiBold)
+    if (missing > 0) {
+        Button(onClick = onCaptureFrames, modifier = Modifier.fillMaxWidth().testTag("capture_note_frames")) {
+            Text("\uD83D\uDCF7 Kadrlarni videodan olish ($missing ta)")
+        }
+        Hint("Oyna yopiladi, video har bir joyga o\u2018tib to\u2018xtaydi va kadr olinadi. Video yuklab olinmaydi.")
+    }
+    frames.forEach { frame ->
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            FrameImage(LessonLibraryStore.frameFile(videoId, frame.image))
+            Text("${formatVideoTime(frame.seconds)} · ${frame.caption}", style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
+private fun FrameImage(file: File?) {
+    val image by produceState<ImageBitmap?>(null, file) {
+        value = file?.takeIf { it.isFile }?.let { withContext(Dispatchers.IO) { BitmapFactory.decodeFile(it.path)?.asImageBitmap() } }
+    }
+    image?.let {
+        Image(
+            bitmap = it,
+            contentDescription = null,
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)),
+        )
+    } ?: Hint("\uD83D\uDCF7 kadr hali olinmagan")
 }
 
 @Composable

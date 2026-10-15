@@ -2,6 +2,7 @@ package com.kienhoang.dualsubreplay.ui
 
 import com.kienhoang.dualsubreplay.data.LessonNotes
 import com.kienhoang.dualsubreplay.data.LessonNotesException
+import com.kienhoang.dualsubreplay.data.distinctFrames
 import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
 import com.kienhoang.dualsubreplay.translation.ClaudeBackend
 import com.kienhoang.dualsubreplay.translation.GeminiBackend
@@ -26,6 +27,8 @@ internal data class LessonNotesInput(
     val english: List<String>,
     /** The lesson's Uzbek lines in the same order, or null when it has no full translation yet. */
     val uzbek: List<String>?,
+    /** When each line starts in the video, so the model can name the moments worth a picture. */
+    val startSeconds: List<Int>? = null,
 )
 
 /** The open lesson's notes, for the lesson screen. */
@@ -94,6 +97,14 @@ internal class LessonNotesCoordinator(
         job = scope.launch { run(videoId, engine) }
     }
 
+    /** Shows notes changed elsewhere (a picture taken), when they belong to the shown lesson. */
+    fun replace(
+        videoId: String,
+        notes: LessonNotes,
+    ) {
+        _state.update { if (it.videoId == videoId || it.videoId == null) it.copy(videoId = videoId, notes = notes) else it }
+    }
+
     fun cancel() {
         job?.cancel()
         _state.update { it.copy(running = false, message = "To‘xtatildi.") }
@@ -106,12 +117,16 @@ internal class LessonNotesCoordinator(
     ) {
         try {
             val input = inputFor(videoId)
-            val notes =
+            val written =
                 writerFor(engine)
-                    .write(lessonNotesUserPrompt(input.title, input.english, input.uzbek))
-                    .copy(engine = engine.label, createdAtMs = now())
+                    .write(lessonNotesUserPrompt(input.title, input.english, input.uzbek, input.startSeconds))
+            // Pictures already taken (and the doctor's own) stay when the notes are written again.
+            val taken = load(videoId)?.frames.orEmpty().filter { it.image.isNotEmpty() }
+            val notes = written.copy(engine = engine.label, createdAtMs = now(), frames = distinctFrames(taken + written.frames))
             save(videoId, notes)
-            val message = "Konspekt tayyor: ${notes.summary.size} band, ${notes.quiz.size} ta test savoli."
+            val message =
+                "Konspekt tayyor: ${notes.summary.size} band, ${notes.quiz.size} ta test savoli, ${notes.frames.size} ta rasm joyi. " +
+                    "Rasmlarni olish uchun \u201CKadrlarni videodan olish\u201D tugmasini bosing."
             _state.update { it.copy(running = false, notes = notes, message = message) }
         } catch (cancel: CancellationException) {
             throw cancel

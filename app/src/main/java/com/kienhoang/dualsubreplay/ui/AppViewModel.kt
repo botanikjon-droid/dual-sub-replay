@@ -20,7 +20,12 @@ import com.kienhoang.dualsubreplay.data.initialDailyGoalPromptCompleted
 import com.kienhoang.dualsubreplay.data.storedDailyGoalMinutes
 import com.kienhoang.dualsubreplay.data.LearningWordSelection
 import com.kienhoang.dualsubreplay.data.LessonLibraryStore
+import com.kienhoang.dualsubreplay.data.LessonNotes
 import com.kienhoang.dualsubreplay.data.LessonRecord
+import com.kienhoang.dualsubreplay.data.NoteFrame
+import com.kienhoang.dualsubreplay.data.addManualFrame
+import com.kienhoang.dualsubreplay.data.formatVideoTime
+import com.kienhoang.dualsubreplay.data.withFrameImage
 import com.kienhoang.dualsubreplay.data.RawCaptionCue
 import com.kienhoang.dualsubreplay.data.RecentCaptionTracks
 import com.kienhoang.dualsubreplay.data.SavedWord
@@ -197,6 +202,8 @@ internal fun activeWordIndex(
 
 internal const val YOUTUBE_HOME_URL = "https://m.youtube.com/"
 private const val NO_VIDEO_MESSAGE = "Avval dars videosini oching."
+private const val MS_PER_SECOND = 1_000L
+private const val JPEG_QUALITY = 88
 private const val MAX_IMPORTED_TRANSLATION_BYTES = 8L * 1024 * 1024
 private const val LAST_SHARED_VIDEO_PREFERENCE = "last_translation_share_video"
 
@@ -307,6 +314,7 @@ class AppViewModel internal constructor(
         // Speaking a translated lesson in advance uses the same voice as playback.
         LessonVoicePrefetch.voice = dubbingVoice
         LessonVoicePrefetch.currentLessonTexts = { importedLines(_state.value.activeVideoId).orEmpty() }
+        VideoFrameSource.onCaptureNow = ::captureCurrentFrame
     }
 
     /** "Claude bilan tarjima": translates the open lesson with the doctor's own Claude API key. */
@@ -345,7 +353,7 @@ class AppViewModel internal constructor(
             inputFor = { videoId ->
                 val (title, segments) = lessonSegments(videoId)
                 val uzbek = importedLines(videoId)
-                LessonNotesInput(title, segments.map { it.originalText }, uzbek)
+                LessonNotesInput(title, segments.map { it.originalText }, uzbek, segments.map { (it.startMs / MS_PER_SECOND).toInt() })
             },
             load = LessonLibraryStore::notes,
             save = LessonLibraryStore::saveNotes,
@@ -360,6 +368,96 @@ class AppViewModel internal constructor(
     }
 
     fun cancelLessonNotes() = lessonNotes.cancel()
+
+    private var frameJob: Job? = null
+
+    /** Takes every planned picture of the open lesson's notes from the video, one after another. */
+    fun captureNoteFrames() {
+        val videoId = _state.value.activeVideoId ?: return
+        if (frameJob?.isActive == true) return
+        frameJob =
+            viewModelScope.launch {
+                val notes = LessonLibraryStore.notes(videoId)
+                val todo = notes?.frames.orEmpty().filter { it.image.isEmpty() }
+                if (notes == null || todo.isEmpty()) {
+                    toast(if (notes == null) "Avval konspekt yozing." else "Barcha rasmlar olingan.")
+                    return@launch
+                }
+                toast("Rasmlar olinmoqda: video ${todo.size} ta joyga o\u2018tib to\u2018xtaydi.")
+                var current: LessonNotes = notes
+                var taken = 0
+                for (frame in todo) {
+                    if (_state.value.activeVideoId != videoId) break
+                    val (next, stop) = takeFrame(videoId, frame.seconds.toFloat()) { name -> current.withFrameImage(frame.seconds, name) }
+                    if (next != null) {
+                        current = next
+                        taken++
+                    }
+                    if (stop) break
+                }
+                toast("Rasmli konspekt: ${todo.size} tadan $taken ta kadr olindi.")
+            }
+    }
+
+    /** "📷": the frame on the screen now goes into the notes, with the current subtitle as its caption. */
+    fun captureCurrentFrame() {
+        val videoId = _state.value.activeVideoId ?: return
+        if (frameJob?.isActive == true) return
+        frameJob =
+            viewModelScope.launch {
+                val notes = LessonLibraryStore.notes(videoId)
+                val segment = _state.value.segments.getOrNull(_state.value.currentIndex)
+                val caption = segment?.translatedText?.takeIf(String::isNotBlank) ?: segment?.originalText.orEmpty()
+                takeFrame(videoId, second = null) { name ->
+                    val seconds = name.removeSuffix(".jpg").toIntOrNull() ?: 0
+                    addManualFrame(notes, NoteFrame(seconds, caption.ifBlank { "Kadr ${formatVideoTime(seconds)}" }, name))
+                }.first?.let { saved ->
+                    toast("\uD83D\uDCF7 Kadr konspektga qo\u2018shildi (${saved.frames.size} ta rasm).")
+                }
+            }
+    }
+
+    /**
+     * Takes one frame and stores it; returns the updated notes (null when nothing was saved) and
+     * whether the remaining frames should not be tried (black or failed copy).
+     */
+    private suspend fun takeFrame(
+        videoId: String,
+        second: Float?,
+        update: (String) -> LessonNotes,
+    ): Pair<LessonNotes?, Boolean> {
+        val grab = VideoFrameSource.grab
+        if (grab == null) {
+            toast("Avval dars videosini oching.")
+            return null to true
+        }
+        return when (val result = grab(second)) {
+            is FrameGrab.Taken -> {
+                val jpeg = withContext(Dispatchers.Default) { jpegOf(result.bitmap) }
+                val name = LessonLibraryStore.saveFrame(videoId, result.seconds, jpeg) ?: return null to false
+                val next = update(name)
+                LessonLibraryStore.saveNotes(videoId, next)
+                lessonNotes.replace(videoId, next)
+                next to false
+            }
+            FrameGrab.Black -> {
+                toast("Kadr qora chiqdi: bu telefonda video tasvirini dastur ichidan nusxalab bo\u2018lmadi.")
+                null to true
+            }
+            is FrameGrab.Failed -> {
+                toast(result.reason)
+                null to true
+            }
+        }
+    }
+
+    private fun jpegOf(bitmap: android.graphics.Bitmap): ByteArray =
+        java.io.ByteArrayOutputStream().use { out ->
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+            out.toByteArray()
+        }
+
+    private fun toast(message: String) = Toast.makeText(getApplication(), message, Toast.LENGTH_LONG).show()
 
     /** Reopens a lesson from the list of translated lessons. */
     fun openTranslatedLesson(videoId: String) {

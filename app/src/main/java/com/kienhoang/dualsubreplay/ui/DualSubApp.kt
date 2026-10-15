@@ -227,7 +227,16 @@ private fun LessonToolsHost(
             }
         },
         notesCard = {
-            LessonNotesCard(state.activeVideoId, notes, onWrite = viewModel::writeLessonNotes, onCancel = viewModel::cancelLessonNotes)
+            LessonNotesCard(
+                state.activeVideoId,
+                notes,
+                onWrite = viewModel::writeLessonNotes,
+                onCancel = viewModel::cancelLessonNotes,
+                onCaptureFrames = {
+                    onDismiss()
+                    viewModel.captureNoteFrames()
+                },
+            )
         },
     )
 }

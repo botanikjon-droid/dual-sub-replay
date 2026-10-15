@@ -68,4 +68,20 @@ class LessonNotesRequestTest {
         val cut = runCatching { parseClaudeNotesReply(JSONObject().put("stop_reason", "max_tokens").toString()) }
         assertTrue(cut.exceptionOrNull() is ClaudeReplyException)
     }
+
+    @Test
+    fun promptCarriesLineTimesAndSchemaAsksForFrames() {
+        val prompt = lessonNotesUserPrompt(null, listOf("As you can see, the wall is thick."), null, listOf(754))
+        assertTrue(prompt.contains("[12:34] As you can see"))
+        val frames = lessonNotesSchema().getJSONObject("properties").getJSONObject("key_frames")
+        assertEquals(
+            "integer",
+            frames
+                .getJSONObject("items")
+                .getJSONObject("properties")
+                .getJSONObject("t")
+                .getString("type"),
+        )
+        assertTrue(lessonNotesSystemPrompt("x").contains("key_frames"))
+    }
 }

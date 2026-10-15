@@ -59,7 +59,7 @@ internal object LessonLibraryStore {
         val file = notesFile(videoId) ?: return null
         return withContext(Dispatchers.IO) {
             try {
-                if (file.isFile) lessonNotesFromJson(JSONObject(file.readText(Charsets.UTF_8))) else null
+                if (file.isFile) lessonNotesFromJson(JSONObject(file.readText(Charsets.UTF_8)), requireStudy = false) else null
             } catch (error: IOException) {
                 Log.w(TAG, "Lesson notes not read", error)
                 null
@@ -87,6 +87,37 @@ internal object LessonLibraryStore {
             }
         }
     }
+
+    /** Saves a lecture frame as JPEG in the lesson's notes folder; returns its file name, or null. */
+    suspend fun saveFrame(
+        videoId: String,
+        seconds: Int,
+        jpeg: ByteArray,
+    ): String? {
+        val folder = framesFolder(videoId) ?: return null
+        val name = "$seconds.jpg"
+        return withContext(Dispatchers.IO) {
+            try {
+                check(folder.isDirectory || folder.mkdirs())
+                File(folder, name).writeBytes(jpeg)
+                name
+            } catch (error: IOException) {
+                Log.w(TAG, "Frame not saved", error)
+                null
+            } catch (error: IllegalStateException) {
+                Log.w(TAG, "Frame folder not created", error)
+                null
+            }
+        }
+    }
+
+    /** A saved frame's file, for showing it in the notes. */
+    fun frameFile(
+        videoId: String,
+        image: String,
+    ): File? = framesFolder(videoId)?.let { File(it, image) }?.takeIf { image.isNotEmpty() }
+
+    private fun framesFolder(videoId: String): File? = notesFile(videoId)?.let { File(it.parentFile, videoId) }
 
     private fun notesFile(videoId: String): File? {
         val files = directory ?: return null
