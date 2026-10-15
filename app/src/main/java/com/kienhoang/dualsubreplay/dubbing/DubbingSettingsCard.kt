@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_DEEPL
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GEMINI
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GOOGLE
 
@@ -216,7 +217,7 @@ private fun TranslatorControls() {
     val key by DubbingSettings.geminiApiKey.collectAsStateWithLifecycle()
     val status by DubbingSettings.translatorStatus.collectAsStateWithLifecycle()
     Text("Tarjimon", modifier = Modifier.padding(top = 10.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         FilterChip(
             selected = provider == TRANSLATION_PROVIDER_GOOGLE,
             onClick = { DubbingSettings.setTranslationProvider(TRANSLATION_PROVIDER_GOOGLE) },
@@ -229,7 +230,14 @@ private fun TranslatorControls() {
             label = { Text("Gemini") },
             modifier = Modifier.testTag("translator_gemini"),
         )
+        FilterChip(
+            selected = provider == TRANSLATION_PROVIDER_DEEPL,
+            onClick = { DubbingSettings.setTranslationProvider(TRANSLATION_PROVIDER_DEEPL) },
+            label = { Text("DeepL") },
+            modifier = Modifier.testTag("translator_deepl"),
+        )
     }
+    if (provider == TRANSLATION_PROVIDER_DEEPL) DeepLKeyField()
     if (provider == TRANSLATION_PROVIDER_GEMINI) {
         OutlinedTextField(
             value = key,
@@ -250,6 +258,29 @@ private fun TranslatorControls() {
         )
     }
     if (status.isNotBlank()) Hint(status, Modifier.padding(top = 4.dp).testTag("translator_status"))
+}
+
+/** The DeepL key: DeepL then translates playback sentence by sentence, Google Translate stands in on failure. */
+@Composable
+private fun DeepLKeyField() {
+    val key by DubbingSettings.deeplApiKey.collectAsStateWithLifecycle()
+    OutlinedTextField(
+        value = key,
+        onValueChange = DubbingSettings::setDeeplApiKey,
+        label = { Text("DeepL API kaliti") },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).testTag("deepl_api_key"),
+    )
+    Hint(
+        if (key.isBlank()) {
+            "Kalitni deepl.com/pro-api (DeepL API Free, oyiga 500 000 belgi bepul) \u2192 Account \u2192 " +
+                "\u201CAuthentication Key for DeepL API\u201D dan oling. Kalit faqat shu telefonda saqlanadi."
+        } else {
+            "DeepL har bir gapni UZI lug\u2018ati bilan tarjima qiladi. Xato yoki limit tugasa Google Translate ishlaydi. " +
+                "Butun darsni Claude yoki Gemini bilan tarjima qilish \u201CDars\u201D ekranida qoladi."
+        },
+    )
 }
 
 /** Glossary-guided translation: approved UZI terms are given to the translator. */

@@ -180,3 +180,20 @@ Validation:
 | ktlint ratchet, detekt | PASS locally |
 | Android compile, lint, UI, device tests | CI |
 | Live Gemini/Claude notes, quiz quality, prefetch on a phone, offline replay | NOT TESTED; owner on the phone |
+
+## Field feedback 7 (2026-10-15): DeepL as a translator
+
+The owner asked to add DeepL ("Deeplni qo‘sh") after a review of DeepL, Google Cloud, OpenAI and googletrans.
+DeepL lists Uzbek (UZ) among its supported languages; the Free plan gives 500,000 characters a month.
+
+- Settings → Tarjimon: a third choice **DeepL** with the doctor's own key (private preferences only, like the
+  Gemini key). `:fx` keys go to `api-free.deepl.com`, others to `api.deepl.com`; header
+  `Authorization: DeepL-Auth-Key …`.
+- Playback sentences go to DeepL one by one, with the same UZI glossary guidance as Google, cached apart
+  (`+deepl-v1`). Any failure falls back to Google Translate and is named on the translator status line;
+  DeepL then rests 1 minute, or 1 hour after a wrong key (403) or a used-up monthly quota (456).
+- Whole-lesson translation stays with Claude/Gemini; DeepL does not rebuild sentences or follow the prompt.
+- Files: `translation/DeepLTranslation.kt` (pure), `uz/.../OnlineTranslationProviders.kt` (`DeepLTranslator`),
+  `uz/.../OnDeviceTranslator.kt`, `dubbing/DubbingSettings.kt`, `dubbing/DubbingSettingsCard.kt`.
+- `DeepLTranslationTest` (4) passes locally. Unverified: a live DeepL call, its Uzbek quality, and whether a
+  DeepL account can be opened from Uzbekistan.
