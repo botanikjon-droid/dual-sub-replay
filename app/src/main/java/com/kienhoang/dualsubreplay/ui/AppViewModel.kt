@@ -348,7 +348,7 @@ class AppViewModel internal constructor(
 
     fun showLessonNotes() = lessonNotes.show(_state.value.activeVideoId)
 
-    fun writeLessonNotes(engine: LessonEngine) {
+    internal fun writeLessonNotes(engine: LessonEngine) {
         val videoId = _state.value.activeVideoId ?: return
         lessonNotes.start(videoId, engine)
     }
