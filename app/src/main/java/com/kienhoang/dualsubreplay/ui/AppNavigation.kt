@@ -157,6 +157,13 @@ private fun DrawerHeader(onClose: () -> Unit) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            // The installed version, so the doctor can tell at a glance whether an update arrived.
+            Text(
+                appVersionLabel(com.kienhoang.dualsubreplay.BuildConfig.VERSION_NAME),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.testTag("app_version_label"),
+            )
         }
         IconButton(onClick = onClose, modifier = Modifier.testTag("close_navigation_menu")) {
             Icon(Icons.Default.Close, contentDescription = "Close navigation menu")

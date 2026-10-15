@@ -4,6 +4,10 @@ name: Uzbek voice live check
 
 on:
   workflow_dispatch:
+  # Every day at 08:17 Tashkent time; GitHub e-mails the owner when a scheduled run fails.
+  # (Scheduled runs use the workflow file on the default branch, so this starts once it is merged.)
+  schedule:
+    - cron: "17 3 * * *"
   push:
     paths:
       - app/src/uzTest/**

@@ -27,4 +27,10 @@ class AppUpdateTest {
         assertEquals(UpdateVerdict.CURRENT, updateVerdict(32, 32))
         assertEquals(UpdateVerdict.UNKNOWN, updateVerdict(null, 32))
     }
+
+    @Test
+    fun versionLabelShowsTheBuildNumber() {
+        assertEquals("Versiya 1.0.4 · build 47", appVersionLabel("1.0.4-uz-build47"))
+        assertEquals("Versiya 1.0.4", appVersionLabel("1.0.4"))
+    }
 }

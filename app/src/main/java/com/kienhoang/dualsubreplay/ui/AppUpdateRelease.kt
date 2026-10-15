@@ -69,3 +69,9 @@ internal fun updateVerdict(
         latest > installed -> UpdateVerdict.NEWER
         else -> UpdateVerdict.CURRENT
     }
+
+/** "1.0.4-uz-build47" -> "Versiya 1.0.4 · build 47"; other builds show their version name as it is. */
+internal fun appVersionLabel(versionName: String): String {
+    val build = installedUzBuild(versionName) ?: return "Versiya $versionName"
+    return "Versiya ${versionName.substringBefore("-uz-build")} · build $build"
+}

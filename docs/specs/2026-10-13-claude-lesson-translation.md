@@ -145,3 +145,13 @@ The doctor asked for an update button so he does not have to ask for the APK eac
   when needed. The install permission and provider are declared only in the uz build
   (`src/uzDebug/AndroidManifest.xml`). A "Brauzerda" button keeps the old way.
 - Unverified: the install flow on the phone.
+
+## Field feedback 5 (2026-10-15): keep the voice working when Microsoft moves it, show the version
+
+- `EDGE_ENDPOINTS` lists the voice addresses (api.msedgeservices.com, then speech.platform.bing.com). The
+  client tries the one that worked last first, falls back to the next on failure and remembers the one that
+  answered. The voice card shows every address's error only when all fail.
+- `uz-voice-check` now checks each address alone and both voices, and runs daily (cron `17 3 * * *`);
+  scheduled runs start once the workflow file is on the default branch, and GitHub e-mails the owner
+  when a scheduled run fails.
+- The drawer header shows the installed version ("Versiya 1.0.4 · build 47", `appVersionLabel`).
