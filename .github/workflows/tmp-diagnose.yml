@@ -1,0 +1,43 @@
+name: tmp diagnose (remove before merge)
+
+on:
+  push:
+    branches: [claude/claude-translate-button]
+    paths: [".github/workflows/tmp-diagnose.yml", "app/src/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+      - name: Build and report errors as annotations
+        run: |
+          set +e
+          bash ./gradlew formatCheck complexityCheck testDebugUnitTest lintDebug assembleDebug --continue > build.log 2>&1
+          code=$?
+          grep -E "^e: |FAILED|What went wrong|Error:|error:|> Task .*FAILED|expected:|AssertionError|Exception" build.log | head -60 | while IFS= read -r line; do
+            echo "::error::${line//$'\n'/ }"
+          done
+          for f in app/build/test-results/*/*.xml; do
+            grep -l "<failure" "$f" 2>/dev/null
+          done | head -5 | while read -r f; do
+            grep -A3 "<failure" "$f" | head -8 | tr '\n' ' ' | cut -c1-900 | sed 's/^/::error::/'
+            echo
+          done
+          find app/build/reports/lint-results* -name "*.txt" -exec head -40 {} \; 2>/dev/null | grep -E "Error|error" | head -20 | sed 's/^/::error::/'
+          exit $code
