@@ -11,10 +11,10 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /*
- * DeepL as an optional playback translator, with the doctor's own DeepL API key (the Free plan gives
- * 500,000 characters a month). Sentence by sentence like Google Translate, with the same UZI glossary
- * guidance; any failure falls back to Google Translate. Pure request/reply helpers; the HTTP call
- * lives in src/uz. Only public caption text is sent.
+ * DeepL with the doctor's own DeepL API key (the Free plan gives 500,000 characters a month): whole
+ * Uzbek lessons in requests of 50 sentences (stored like Claude's and Gemini's translations), and other
+ * target languages sentence by sentence during playback (src/uz), with the same UZI glossary guidance;
+ * any failure falls back to Google Translate. Only public caption text is sent.
  */
 
 /** Free-plan keys end with ":fx" and use their own host. */
@@ -171,6 +171,11 @@ internal class DeepLBackend(
     private val prepare: (String) -> String = { it },
     private val transport: DeepLTransport = HttpDeepLTransport,
     private val retryPausesMs: List<Long> = listOf(2_000L, 8_000L),
+    /**
+     * The lecture's language. It must be named: a glossary-guided sentence is half Uzbek, DeepL then
+     * detects Uzbek and sends the sentence back untranslated ("And will give akustik soya along with…").
+     */
+    private val source: String = "en",
 ) : LessonBackend {
     init {
         require(apiKey.isNotBlank()) { "DeepL API kalitini sozlamalarga kiriting." }
@@ -180,11 +185,19 @@ internal class DeepLBackend(
         userPrompt: String,
         chunk: ClaudeChunk,
     ): ClaudeChunkResult {
-        val body = deeplRequestBody(source = null, target = "uz", texts = chunk.sentences.map(prepare))
-        val texts = parseDeepLTranslations(sendWithRetry(body), chunk.sentences.size)
+        val guided = chunk.sentences.map(prepare)
+        val texts = request(guided).toMutableList()
+        // A sentence that still came back in English is asked again without the glossary's Uzbek terms.
+        val stuck = texts.indices.filter { looksUntranslated(texts[it]) }
+        if (stuck.isNotEmpty()) {
+            request(stuck.map { chunk.sentences[it] }).forEachIndexed { position, text -> texts[stuck[position]] = text }
+        }
         val translations = texts.withIndex().associate { (index, text) -> chunk.start + index to normalizeUzbekApostrophes(text) }
         return ClaudeChunkResult(translations, newTerms = emptyList(), uncertain = emptyList())
     }
+
+    private suspend fun request(texts: List<String>): List<String> =
+        parseDeepLTranslations(sendWithRetry(deeplRequestBody(source, "uz", texts)), texts.size)
 
     private suspend fun sendWithRetry(body: String): String {
         var attempt = 0
@@ -202,3 +215,10 @@ internal class DeepLBackend(
 }
 
 private const val HTTP_SERVER_ERROR = 500
+
+/** English words that never appear in Uzbek text; two or more mean DeepL left the sentence in English. */
+private val ENGLISH_MARKERS =
+    setOf("the", "and", "with", "along", "of", "will", "is", "are", "this", "that", "which", "from", "it", "be", "can", "give", "there")
+
+internal fun looksUntranslated(text: String): Boolean =
+    Regex("[A-Za-z]+").findAll(text.lowercase()).count { it.value in ENGLISH_MARKERS } >= 2

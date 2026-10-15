@@ -68,7 +68,7 @@ class DeepLLessonTest {
                     DEEPL_LESSON_CHUNK_SIZE,
                 ).translate(sentences, { emptyList() }, { emptyList() }) { _, _ -> }
             assertEquals(3, bodies.size)
-            assertFalse(JSONObject(bodies[0]).has("source_lang"))
+            assertEquals("EN", JSONObject(bodies[0]).getString("source_lang"))
             assertEquals(120, result.translations.size)
             assertEquals("uz’S119", result.translations[119])
         }
@@ -86,5 +86,26 @@ class DeepLLessonTest {
             assertEquals(2, calls)
             val wrongKey = DeepLBackend("k", transport = { _, _ -> throw DeepLHttpException(403, "kalit") }, retryPausesMs = listOf(0L))
             assertTrue(runCatching { wrongKey.translate("", ClaudeChunk(0, listOf("a"))) }.exceptionOrNull() is DeepLHttpException)
+        }
+
+    @Test
+    fun aSentenceLeftInEnglishIsAskedAgainWithoutTheGlossary() =
+        kotlinx.coroutines.runBlocking {
+            val sent = mutableListOf<List<String>>()
+            val backend =
+                DeepLBackend("k", prepare = { it.replace("posterior shadowing", "akustik soya") }, transport = { _, body ->
+                    val texts = JSONObject(body).getJSONArray("text")
+                    val list = (0 until texts.length()).map { texts.getString(it) }
+                    sent += list
+                    // Like DeepL taking the half-Uzbek sentence for Uzbek: it comes back unchanged.
+                    val out = org.json.JSONArray()
+                    list.forEach { out.put(JSONObject().put("text", if (it.contains("akustik")) it else "Orqa akustik soya beradi.")) }
+                    JSONObject().put("translations", out).toString()
+                })
+            val result = backend.translate("", ClaudeChunk(0, listOf("And will give posterior shadowing along with a dilated duct")))
+            assertEquals("Orqa akustik soya beradi.", result.translations[0])
+            assertEquals(listOf("And will give posterior shadowing along with a dilated duct"), sent[1])
+            assertTrue(looksUntranslated("And will give akustik soya along with a kengayish yo‘li"))
+            assertFalse(looksUntranslated("Pankreas kistadenomasi bir kamerali bo‘lishi mumkin."))
         }
 }

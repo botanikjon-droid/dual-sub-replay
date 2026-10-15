@@ -1617,6 +1617,7 @@ class AppViewModel internal constructor(
         var displayStore: SubtitleStore? = null
         if (!restoreImportedTranslation(videoId, generation)) return
         claude.onLessonLoaded(videoId, targetLanguage, hasStoredTranslation = importedTranslation?.first == videoId)
+        importedLines(videoId)?.let { claude.repairUntranslated(videoId, it) }
         liveCaptionTracker.reset()
         captionHighlightResolver.reset()
         _state.update {

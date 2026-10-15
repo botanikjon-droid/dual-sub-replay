@@ -1,6 +1,7 @@
 package com.kienhoang.dualsubreplay.ui
 
 import com.kienhoang.dualsubreplay.data.LearnedGlossaryStore
+import com.kienhoang.dualsubreplay.data.LessonLibraryStore
 import com.kienhoang.dualsubreplay.data.SubtitleSegment
 import com.kienhoang.dualsubreplay.data.UziGlossaryStore
 import com.kienhoang.dualsubreplay.data.checkTranslation
@@ -10,6 +11,7 @@ import com.kienhoang.dualsubreplay.data.mergeLearnedSuggestions
 import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
 import com.kienhoang.dualsubreplay.dubbing.LessonVoicePrefetch
 import com.kienhoang.dualsubreplay.translation.ClaudeBackend
+import com.kienhoang.dualsubreplay.translation.ClaudeChunk
 import com.kienhoang.dualsubreplay.translation.ClaudeChunkResult
 import com.kienhoang.dualsubreplay.translation.DEEPL_LESSON_CHUNK_SIZE
 import com.kienhoang.dualsubreplay.translation.DeepLBackend
@@ -23,6 +25,7 @@ import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GEMINI
 import com.kienhoang.dualsubreplay.translation.TranslationLanguages
 import com.kienhoang.dualsubreplay.translation.geminiQuotaMessage
 import com.kienhoang.dualsubreplay.translation.glossaryForBatch
+import com.kienhoang.dualsubreplay.translation.looksUntranslated
 import com.kienhoang.dualsubreplay.translation.translatedSegments
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -157,6 +160,57 @@ internal class ClaudeLessonCoordinator(
         }
         _state.value = ClaudeRunState(videoId, engine, running = true, message = "Subtitr tayyorlanmoqda…")
         job = scope.launch { run(videoId, engine, automatic) }
+    }
+
+    private val repairTried = mutableSetOf<String>()
+
+    /**
+     * A stored DeepL lesson with sentences left in English (DeepL took glossary-guided sentences for Uzbek
+     * before the source language was named) is mended once: only those sentences are sent again, without
+     * the glossary terms, and the whole lesson is stored again.
+     */
+    fun repairUntranslated(
+        videoId: String,
+        stored: List<String>,
+    ) {
+        val record = LessonLibraryStore.records.value.firstOrNull { it.videoId == videoId }
+        if (record?.engine != LessonEngine.DEEPL.label || DubbingSettings.deeplApiKey.value.isBlank()) return
+        if (job?.isActive == true || stored.none(::looksUntranslated) || !repairTried.add(videoId)) return
+        job = scope.launch { repair(videoId, stored) }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun repair(
+        videoId: String,
+        stored: List<String>,
+    ) {
+        try {
+            val segments = segmentsFor(videoId)
+            if (segments.size != stored.size) return
+            val broken = stored.indices.filter { looksUntranslated(stored[it]) }
+            _state.value =
+                ClaudeRunState(
+                    videoId,
+                    LessonEngine.DEEPL,
+                    running = true,
+                    total = broken.size,
+                    message = "DeepL inglizcha qolgan gaplarni tuzatmoqda…",
+                )
+            val backend = DeepLBackend(DubbingSettings.deeplApiKey.value)
+            val fixed = mutableMapOf<Int, String>()
+            broken.chunked(DEEPL_LESSON_CHUNK_SIZE).forEach { part ->
+                val answer = backend.translate("", ClaudeChunk(0, part.map { segments[it].originalText }))
+                part.forEachIndexed { position, index -> answer.translations[position]?.let { fixed[index] = it } }
+                _state.update { it.copy(done = fixed.size) }
+            }
+            val lesson = stored.indices.associateWith { fixed[it] ?: stored[it] }
+            importSrt(formatSrt(translatedSegments(segments, lesson)), videoId, LessonEngine.DEEPL.label)
+            _state.update { it.copy(running = false, message = "DeepL: ${fixed.size} ta inglizcha qolgan gap tuzatildi.") }
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (error: Exception) {
+            _state.update { it.copy(running = false, message = "Tuzatib bo‘lmadi: ${error.message}") }
+        }
     }
 
     fun cancel() {

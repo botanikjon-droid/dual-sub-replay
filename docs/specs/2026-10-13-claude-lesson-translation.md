@@ -217,3 +217,16 @@ kutishlarning oldi olinadi" and "Qaysi dastur tarjima qilayotgani bilinib tursin
   "Tarjima: Google Translate". Lessons stored before the lesson list existed show "saqlangan tarjima".
 - Tests: `DeepLLessonTest` (2) pass locally; `TranslatorBadgeTest` (3) runs in CI (Compose file).
 - Unverified on the phone: live DeepL lesson run, the line's wording on a small screen.
+
+## Field feedback 9 (2026-10-15): DeepL lines left in English
+
+Screenshot: "And will give posterior shadowing along with a dilated pancreatic duct" → "And will give akustik soya
+along with a kengayish oshqozon osti bezi yo‘li".
+
+- Cause: the UZI glossary guidance replaces English terms with Uzbek ones before sending; the lesson request did
+  not name the source language, so DeepL detected the half-Uzbek sentence as Uzbek (same as the target) and
+  returned it unchanged.
+- Fix: lesson requests name the source (`source_lang: EN`); a sentence that still comes back with English
+  function words (`looksUntranslated`) is sent again without the glossary terms. Lessons already stored by DeepL
+  are mended once when opened: only the English-looking sentences are sent again and the lesson is stored again.
+- Tests: `DeepLLessonTest.aSentenceLeftInEnglishIsAskedAgainWithoutTheGlossary`. Unverified: live DeepL.
