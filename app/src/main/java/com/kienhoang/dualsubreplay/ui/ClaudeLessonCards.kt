@@ -47,6 +47,7 @@ import com.kienhoang.dualsubreplay.data.learnedTermsForReview
 import com.kienhoang.dualsubreplay.data.removeLearnedTerm
 import com.kienhoang.dualsubreplay.data.upsertDoctorTerm
 import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
+import com.kienhoang.dualsubreplay.dubbing.LessonVoicePrefetch
 import com.kienhoang.dualsubreplay.translation.CLAUDE_MODELS
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GEMINI
 import kotlinx.coroutines.launch
@@ -93,6 +94,34 @@ internal fun ClaudeTranslateCard(
             run.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("claude_message")) }
             ClaudeDoubts(run.doubts)
         }
+        HorizontalDivider()
+        VoicePrefetchControls(enabled = activeVideoId != null)
+    }
+}
+
+/** Speaking the translated lesson in advance: runs by itself after a translation, or by this button. */
+@Composable
+private fun VoicePrefetchControls(enabled: Boolean) {
+    val state by LessonVoicePrefetch.state.collectAsStateWithLifecycle()
+    Text("Dars ovozi", fontWeight = FontWeight.SemiBold)
+    Hint(
+        "Tarjima tayyor bo\u2018lgach, barcha gaplar ovozi oldindan yuklab qo\u2018yiladi: video ovozni kutib to\u2018xtamaydi " +
+            "va dars ovozi keyin internetsiz ham eshitiladi (videoning o\u2018zi internet talab qiladi).",
+    )
+    if (state.running) {
+        LinearProgressIndicator(
+            progress = { if (state.total > 0) state.done.toFloat() / state.total else 0f },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Hint("Ovoz tayyorlanmoqda: ${state.done} / ${state.total} gap.")
+        OutlinedButton(onClick = LessonVoicePrefetch::cancel) { Text("To\u2018xtatish") }
+    } else {
+        OutlinedButton(
+            enabled = enabled,
+            modifier = Modifier.fillMaxWidth().testTag("prefetch_lesson_voice"),
+            onClick = LessonVoicePrefetch::startForCurrentLesson,
+        ) { Text("Darsning ovozini oldindan tayyorlash") }
+        state.message?.let { Hint(it) }
     }
 }
 

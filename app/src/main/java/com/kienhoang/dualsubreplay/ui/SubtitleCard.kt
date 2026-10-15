@@ -153,6 +153,8 @@ internal fun CompactSubtitleCard(
                 }
                 // UZI terms with their approved Uzbek; only for English captions translated into Uzbek.
                 GlossaryTermRow(segment, resolvedSourceLanguage, targetLanguage, fontScale)
+                // Numbers, units and "no/not" the translation lost.
+                TranslationCheckRow(segment, resolvedSourceLanguage, targetLanguage, fontScale)
             }
         }
     }

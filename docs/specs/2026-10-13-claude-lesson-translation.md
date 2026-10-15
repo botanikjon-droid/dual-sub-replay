@@ -155,3 +155,28 @@ The doctor asked for an update button so he does not have to ask for the APK eac
   scheduled runs start once the workflow file is on the default branch, and GitHub e-mails the owner
   when a scheduled run fails.
 - The drawer header shows the installed version ("Versiya 1.0.4 · build 47", `appVersionLabel`).
+
+## Field feedback 6 (2026-10-15): checks, lesson voice in advance, konspekt and quiz, lesson list
+
+The owner reviewed a GPT recommendation list and asked to implement the new parts: "Maslahatingni qabul
+qildim, boshqa yangiliklarni amalda qo‘llab ko‘r". Constraints he endorsed: do not break working features, no
+paid service made mandatory, no keys in code, nothing called "works on the phone" without a phone test.
+
+| Feature | Files | Behaviour |
+| --- | --- | --- |
+| Number, unit, negation checks | `data/TranslationChecks.kt`, `ui/GlossaryTerms.kt` (`TranslationCheckRow`), `ui/SubtitleCard.kt`, `ui/ClaudeLessonCoordinator.kt` | A digit or number word, a unit (mm, sm, sm/s, m/s, ml, kPa, MHz, %, hafta) or a "not/no/without" of the English sentence that is missing from the Uzbek is shown as a red ⚠ chip under the row, and listed with the doubtful places after a Claude/Gemini run. Only flags; the translation is never changed. Split rows are not judged. |
+| Lesson voice in advance | `dubbing/LessonVoicePrefetch.kt`, `ui/ClaudeLessonCards.kt`, `ui/AppViewModel.kt` | After a Claude/Gemini lesson translation (voice on), every sentence is synthesized one by one into the existing voice cache, so playback does not wait and the Uzbek speech replays offline. Progress, stop and a "Darsning ovozini oldindan tayyorlash" button on the lesson screen. Stops after 5 failures in a row. |
+| Konspekt and quiz | `data/LessonNotes.kt`, `translation/LessonNotesRequest.kt`, `ui/LessonNotesCoordinator.kt`, `ui/LessonNotesCards.kt` | One Gemini (free) or Claude request writes 6–12 summary points, key terms and 5–10 four-option questions from the transcript plus the Uzbek translation. Invalid questions are dropped. Stored in `filesDir/lesson-notes/<videoId>.json`; the quiz marks right/wrong, explains and scores. |
+| Translated lessons | `data/LessonLibrary.kt`, `data/LessonLibraryStore.kt`, lesson screen | Every stored translation (Claude, Gemini or file) is listed with title, engine, date and line count in `filesDir/lesson-library.tsv`; "Ochish" reopens the lesson. Lessons translated before this build appear after their next translation. |
+
+Refactor: `GeminiBackend.request` and `ClaudeBackend.request` return the raw reply, and
+`geminiAnswerJson` / `claudeToolInput` read it, so the notes reuse the model hand-over, quota and retries.
+
+Validation:
+
+| Check | Result |
+| --- | --- |
+| `TranslationChecksTest` (4), `LessonVoicePrefetchTest` (2), `LessonNotesTest` (4), `LessonLibraryTest` (2), `LessonNotesRequestTest` (3), plus `ClaudeTranslationTest` and `GeminiLessonTranslationTest` after the refactor: 29 tests | PASS locally (kotlinc 2.0.21, org.json stand-in) |
+| ktlint ratchet, detekt | PASS locally |
+| Android compile, lint, UI, device tests | CI |
+| Live Gemini/Claude notes, quiz quality, prefetch on a phone, offline replay | NOT TESTED; owner on the phone |

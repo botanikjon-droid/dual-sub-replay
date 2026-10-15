@@ -86,6 +86,8 @@ internal fun LessonToolsScreen(
     onClaudeTranslate: () -> Unit = {},
     onGeminiTranslate: () -> Unit = {},
     onClaudeCancel: () -> Unit = {},
+    lessonList: @Composable () -> Unit = {},
+    notesCard: @Composable () -> Unit = {},
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
@@ -202,6 +204,8 @@ internal fun LessonToolsScreen(
                         }
                     }
 
+                    lessonList()
+
                     SubtitleOutCard(
                         hasVideo = activeVideoId != null,
                         enabled = activeVideoId != null && !busy,
@@ -240,6 +244,7 @@ internal fun LessonToolsScreen(
                         onGeminiTranslate = onGeminiTranslate,
                         onCancel = onClaudeCancel,
                     )
+                    notesCard()
                     LearnedGlossaryCard()
 
                     LessonCard(title = "Tarjima subtitrini yuklash", icon = Icons.Default.Translate) {

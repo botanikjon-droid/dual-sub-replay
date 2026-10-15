@@ -132,7 +132,7 @@ internal class LessonTranslator(
 /** Claude: forced tool call; a busy service is retried after a pause, a wrong key or model is not. */
 internal class ClaudeBackend(
     private val apiKey: String,
-    private val model: String,
+    val model: String,
     private val transport: ClaudeTransport = HttpClaudeTransport,
     private val retryPausesMs: List<Long> = listOf(3_000L, 10_000L, 30_000L),
 ) : LessonBackend {
@@ -143,9 +143,10 @@ internal class ClaudeBackend(
     override suspend fun translate(
         userPrompt: String,
         chunk: ClaudeChunk,
-    ): ClaudeChunkResult = parseClaudeReply(sendWithRetry(claudeRequestBody(model, userPrompt)), chunk)
+    ): ClaudeChunkResult = parseClaudeReply(request(claudeRequestBody(model, userPrompt)), chunk)
 
-    private suspend fun sendWithRetry(body: String): String {
+    /** Sends one Messages API request, retrying a busy service; returns the raw reply. */
+    suspend fun request(body: String): String {
         var attempt = 0
         while (true) {
             try {

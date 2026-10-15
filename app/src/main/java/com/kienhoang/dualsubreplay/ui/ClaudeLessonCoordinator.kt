@@ -3,9 +3,11 @@ package com.kienhoang.dualsubreplay.ui
 import com.kienhoang.dualsubreplay.data.LearnedGlossaryStore
 import com.kienhoang.dualsubreplay.data.SubtitleSegment
 import com.kienhoang.dualsubreplay.data.UziGlossaryStore
+import com.kienhoang.dualsubreplay.data.checkTranslation
 import com.kienhoang.dualsubreplay.data.formatSrt
 import com.kienhoang.dualsubreplay.data.mergeLearnedSuggestions
 import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
+import com.kienhoang.dualsubreplay.dubbing.LessonVoicePrefetch
 import com.kienhoang.dualsubreplay.translation.ClaudeBackend
 import com.kienhoang.dualsubreplay.translation.ClaudeChunkResult
 import com.kienhoang.dualsubreplay.translation.GEMINI_LESSON_CHUNK_SIZE
@@ -91,7 +93,7 @@ private fun keyFor(engine: LessonEngine): String =
 internal class ClaudeLessonCoordinator(
     private val scope: CoroutineScope,
     private val segmentsFor: suspend (String) -> List<SubtitleSegment>,
-    private val importSrt: suspend (text: String, videoId: String) -> Int,
+    private val importSrt: suspend (text: String, videoId: String, source: String) -> Int,
     private val notify: (String) -> Unit,
     private val translatorFor: (LessonEngine) -> LessonTranslator = ::lessonTranslatorFor,
 ) {
@@ -163,7 +165,16 @@ internal class ClaudeLessonCoordinator(
                         it.copy(done = progress.done, total = progress.total, newTerms = it.newTerms + added, doubts = doubts.toList())
                     }
                 }
-            val count = importSrt(formatSrt(translatedSegments(segments, result.translations)), videoId)
+            val count = importSrt(formatSrt(translatedSegments(segments, result.translations)), videoId, engine.label)
+            // Speak the whole lesson into the voice cache now, so playback never waits for a sentence.
+            if (DubbingSettings.enabled.value) {
+                LessonVoicePrefetch.start(
+                    result.translations
+                        .toSortedMap()
+                        .values
+                        .toList(),
+                )
+            }
             val summary = summary(engine, count, _state.value.newTerms, doubts.size)
             _state.update { it.copy(running = false, message = summary) }
             notify(summary)
@@ -195,6 +206,33 @@ internal class ClaudeLessonCoordinator(
     }
 
     private fun doubtsOf(
+        chunk: ClaudeChunkResult,
+        sentences: List<String>,
+    ): List<ClaudeDoubt> = modelDoubts(chunk, sentences) + automaticDoubts(chunk, sentences)
+
+    /** Numbers, units and negations the translation lost, found without any model. */
+    private fun automaticDoubts(
+        chunk: ClaudeChunkResult,
+        sentences: List<String>,
+    ): List<ClaudeDoubt> =
+        chunk.translations.mapNotNull { (index, uzbek) ->
+            val english = sentences.getOrElse(index) { "" }
+            val issues = checkTranslation(english, uzbek)
+            if (issues.isEmpty()) {
+                null
+            } else {
+                ClaudeDoubt(
+                    index,
+                    english,
+                    uzbek,
+                    heard = "avtomatik tekshiruv",
+                    options = emptyList(),
+                    reason = issues.joinToString("; ") { it.label },
+                )
+            }
+        }
+
+    private fun modelDoubts(
         chunk: ClaudeChunkResult,
         sentences: List<String>,
     ): List<ClaudeDoubt> =

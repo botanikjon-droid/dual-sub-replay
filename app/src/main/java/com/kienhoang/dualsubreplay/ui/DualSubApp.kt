@@ -203,6 +203,9 @@ private fun LessonToolsHost(
     onDismiss: () -> Unit,
 ) {
     val claudeRun by viewModel.claudeRun.collectAsStateWithLifecycle()
+    val notes by viewModel.lessonNotesState.collectAsStateWithLifecycle()
+    val lessons by com.kienhoang.dualsubreplay.data.LessonLibraryStore.records.collectAsStateWithLifecycle()
+    LaunchedEffect(state.activeVideoId) { viewModel.showLessonNotes() }
     LessonToolsScreen(
         activeVideoId = state.activeVideoId,
         importedTranslationCues = state.importedTranslationCues,
@@ -216,6 +219,15 @@ private fun LessonToolsHost(
         onClaudeTranslate = viewModel::translateLessonWithClaude,
         onGeminiTranslate = viewModel::translateLessonWithGemini,
         onClaudeCancel = viewModel::cancelClaudeTranslation,
+        lessonList = {
+            LessonLibraryCard(lessons, state.activeVideoId) { videoId ->
+                viewModel.openTranslatedLesson(videoId)
+                onDismiss()
+            }
+        },
+        notesCard = {
+            LessonNotesCard(state.activeVideoId, notes, onWrite = viewModel::writeLessonNotes, onCancel = viewModel::cancelLessonNotes)
+        },
     )
 }
 

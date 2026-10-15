@@ -19,6 +19,8 @@ import com.kienhoang.dualsubreplay.data.immersionLanguage
 import com.kienhoang.dualsubreplay.data.initialDailyGoalPromptCompleted
 import com.kienhoang.dualsubreplay.data.storedDailyGoalMinutes
 import com.kienhoang.dualsubreplay.data.LearningWordSelection
+import com.kienhoang.dualsubreplay.data.LessonLibraryStore
+import com.kienhoang.dualsubreplay.data.LessonRecord
 import com.kienhoang.dualsubreplay.data.RawCaptionCue
 import com.kienhoang.dualsubreplay.data.RecentCaptionTracks
 import com.kienhoang.dualsubreplay.data.SavedWord
@@ -41,6 +43,7 @@ import com.kienhoang.dualsubreplay.data.retireLegacyDownloadJobs
 import com.kienhoang.dualsubreplay.data.savedWordFrom
 import com.kienhoang.dualsubreplay.data.subtitleFileName
 import com.kienhoang.dualsubreplay.dubbing.DubbingController
+import com.kienhoang.dualsubreplay.dubbing.LessonVoicePrefetch
 import com.kienhoang.dualsubreplay.dubbing.createDubbingVoice
 import com.kienhoang.dualsubreplay.translation.OnDeviceTranslator
 import com.kienhoang.dualsubreplay.translation.TranslationLanguages
@@ -287,7 +290,8 @@ class AppViewModel internal constructor(
         )
 
     // Speaks translated sentences in the "uz" build; idle where no voice exists.
-    private val dubbing = DubbingController(viewModelScope, createDubbingVoice(application))
+    private val dubbingVoice = createDubbingVoice(application)
+    private val dubbing = DubbingController(viewModelScope, dubbingVoice)
     internal val vocabulary = VocabularyRepository.get(application)
     internal val immersion = ImmersionRepository.get(application)
 
@@ -298,6 +302,11 @@ class AppViewModel internal constructor(
         com.kienhoang.dualsubreplay.data.UziGlossaryStore.load(application, viewModelScope)
         // Terms Claude suggested and the doctor approved, kept across lessons.
         viewModelScope.launch { com.kienhoang.dualsubreplay.data.LearnedGlossaryStore.load(application) }
+        // The list of translated lessons and their notes.
+        viewModelScope.launch { LessonLibraryStore.load(application) }
+        // Speaking a translated lesson in advance uses the same voice as playback.
+        LessonVoicePrefetch.voice = dubbingVoice
+        LessonVoicePrefetch.currentLessonTexts = { importedLines(_state.value.activeVideoId).orEmpty() }
     }
 
     /** "Claude bilan tarjima": translates the open lesson with the doctor's own Claude API key. */
@@ -305,7 +314,7 @@ class AppViewModel internal constructor(
         ClaudeLessonCoordinator(
             scope = viewModelScope,
             segmentsFor = { videoId -> lessonSegments(videoId).second },
-            importSrt = { text, videoId -> importTranslation(text, videoId) },
+            importSrt = { text, videoId, source -> importTranslation(text, videoId, source) },
             notify = { Toast.makeText(getApplication(), it, Toast.LENGTH_LONG).show() },
         )
     internal val claudeRun: StateFlow<ClaudeRunState> get() = claude.state
@@ -322,6 +331,53 @@ class AppViewModel internal constructor(
     }
 
     fun cancelClaudeTranslation() = claude.cancel()
+
+    /** "Konspekt va test": the open lesson's summary and quiz, stored per video. */
+    private val lessonNotes =
+        LessonNotesCoordinator(
+            scope = viewModelScope,
+            inputFor = { videoId ->
+                val (title, segments) = lessonSegments(videoId)
+                val uzbek = importedLines(videoId)
+                LessonNotesInput(title, segments.map { it.originalText }, uzbek)
+            },
+            load = LessonLibraryStore::notes,
+            save = LessonLibraryStore::saveNotes,
+        )
+    internal val lessonNotesState: StateFlow<LessonNotesState> get() = lessonNotes.state
+
+    fun showLessonNotes() = lessonNotes.show(_state.value.activeVideoId)
+
+    fun writeLessonNotes(engine: LessonEngine) {
+        val videoId = _state.value.activeVideoId ?: return
+        lessonNotes.start(videoId, engine)
+    }
+
+    fun cancelLessonNotes() = lessonNotes.cancel()
+
+    /** Reopens a lesson from the list of translated lessons. */
+    fun openTranslatedLesson(videoId: String) {
+        openLessonLink(mobileWatchUrl(videoId))
+    }
+
+    /** Fetches a caption track and remembers the video's title for the list of translated lessons. */
+    private suspend fun fetchCaptionTrack(
+        videoId: String,
+        languages: List<String>,
+    ): CaptionTrackResult {
+        val track = captionProvider.fetch(videoId, languages)
+        track.title?.takeIf(String::isNotBlank)?.let { lessonTitles[videoId] = it }
+        return track
+    }
+
+    /** The stored translation's lines of [videoId] when that lesson is open, else null. */
+    private fun importedLines(videoId: String?): List<String>? {
+        val (id, cues) = importedTranslation ?: return null
+        return if (id == videoId) cues.map { it.text } else null
+    }
+
+    /** Video titles seen in this session, for the list of translated lessons. */
+    private val lessonTitles = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     private val immersionTracker = ImmersionTimeTracker()
     private val immersionAccumulator = ImmersionAccumulator()
@@ -605,7 +661,7 @@ class AppViewModel internal constructor(
         val current = _state.value
         val track =
             withContext(Dispatchers.IO) {
-                captionProvider.fetch(videoId, preferredCaptionLanguages(current.sourcePreference))
+                fetchCaptionTrack(videoId, preferredCaptionLanguages(current.sourcePreference))
             }
         val segments =
             withContext(Dispatchers.Default) {
@@ -652,6 +708,7 @@ class AppViewModel internal constructor(
     internal suspend fun importTranslation(
         text: String,
         targetVideoId: String? = importTargetFor(text, _state.value.activeVideoId),
+        source: String = "Fayl",
     ): Int {
         val videoId = targetVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
         val incoming = withContext(Dispatchers.Default) { parseSubtitleFile(text) }
@@ -667,6 +724,9 @@ class AppViewModel internal constructor(
                 importedTranslationFile(videoId).writeText(formatSrt(merged.toSegments()), Charsets.UTF_8)
                 merged
             }
+        LessonLibraryStore.record(
+            LessonRecord(videoId, lessonTitles[videoId].orEmpty(), source, System.currentTimeMillis(), cues.size),
+        )
         if (_state.value.activeVideoId != videoId) return cues.size
         importedTranslation = videoId to cues
         loadVideo(videoId, showPanel = true)
@@ -1360,7 +1420,7 @@ class AppViewModel internal constructor(
                     val natural = _state.value.naturalSubtitlesEnabled
                     val track =
                         withContext(Dispatchers.IO) {
-                            persistCaptionTrack(captionProvider.fetch(videoId, preferredLanguages), natural) { rawStore = it }
+                            persistCaptionTrack(fetchCaptionTrack(videoId, preferredLanguages), natural) { rawStore = it }
                         }
                     if (!isCurrentLoad(_state.value, videoId, generation)) return@launch
                     liveTranslationGate.reset()

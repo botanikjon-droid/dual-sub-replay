@@ -72,7 +72,13 @@ internal fun geminiLessonRequestBody(userPrompt: String): String {
 internal fun parseGeminiLessonReply(
     body: String,
     chunk: ClaudeChunk,
-): ClaudeChunkResult {
+): ClaudeChunkResult = parseLessonAnswer(geminiAnswerJson(body, "Gemini tarjima qaytarmadi."), chunk, "Gemini")
+
+/** The JSON object a generateContent reply answers with (thought parts and code fences removed). */
+internal fun geminiAnswerJson(
+    body: String,
+    missing: String,
+): JSONObject {
     val root = readGeminiJson { JSONObject(body) }
     root.optJSONObject("error")?.let { throw IOException("Gemini: ${it.optString("message")}") }
     root
@@ -80,9 +86,9 @@ internal fun parseGeminiLessonReply(
         ?.optString("blockReason")
         ?.takeIf(String::isNotBlank)
         ?.let { throw IOException("Gemini matnni rad etdi ($it).") }
-    val candidate = root.optJSONArray("candidates")?.optJSONObject(0) ?: throw ClaudeReplyException("Gemini tarjima qaytarmadi.")
+    val candidate = root.optJSONArray("candidates")?.optJSONObject(0) ?: throw ClaudeReplyException(missing)
     if (candidate.optString("finishReason") == "MAX_TOKENS") throw ClaudeReplyException("Gemini javobi uzunlik chegarasida kesildi.")
-    val parts = candidate.optJSONObject("content")?.optJSONArray("parts") ?: throw ClaudeReplyException("Gemini tarjima qaytarmadi.")
+    val parts = candidate.optJSONObject("content")?.optJSONArray("parts") ?: throw ClaudeReplyException(missing)
     val text =
         buildString {
             for (index in 0 until parts.length()) {
@@ -94,7 +100,7 @@ internal fun parseGeminiLessonReply(
             .removePrefix("```")
             .removeSuffix("```")
             .trim()
-    return parseLessonAnswer(readGeminiJson { JSONObject(text) }, chunk, "Gemini")
+    return readGeminiJson { JSONObject(text) }
 }
 
 private inline fun <T> readGeminiJson(parse: () -> T): T =
@@ -171,12 +177,14 @@ internal class GeminiBackend(
     override suspend fun translate(
         userPrompt: String,
         chunk: ClaudeChunk,
-    ): ClaudeChunkResult {
-        val body = geminiLessonRequestBody(userPrompt)
+    ): ClaudeChunkResult = parseGeminiLessonReply(request(geminiLessonRequestBody(userPrompt)), chunk)
+
+    /** Sends [body] to the first model that answers; every model out of quota is a [GeminiQuotaExhausted]. */
+    suspend fun request(body: String): String {
         for (model in quota.available(now())) {
             val reply = sendToModel(model, body) ?: continue
             onModel(model)
-            return parseGeminiLessonReply(reply, chunk)
+            return reply
         }
         throw GeminiQuotaExhausted(quota.nextRetryMs())
     }

@@ -218,17 +218,24 @@ internal class ClaudeReplyException(
 internal fun parseClaudeReply(
     body: String,
     chunk: ClaudeChunk,
-): ClaudeChunkResult {
+): ClaudeChunkResult = parseLessonAnswer(claudeToolInput(body, CLAUDE_TOOL_NAME, "Claude tarjima qaytarmadi."), chunk, "Claude")
+
+/** The input of the forced tool call [toolName] in a Messages API reply. */
+internal fun claudeToolInput(
+    body: String,
+    toolName: String,
+    missing: String,
+): JSONObject {
     val root = readClaudeJson { JSONObject(body) }
     root.optJSONObject("error")?.let { throw IOException("Claude: ${it.optString("message")}") }
     if (root.optString("stop_reason") == "max_tokens") throw ClaudeReplyException("Claude javobi uzunlik chegarasida kesildi.")
-    val content = root.optJSONArray("content") ?: throw ClaudeReplyException("Claude tarjima qaytarmadi.")
+    val content = root.optJSONArray("content") ?: throw ClaudeReplyException(missing)
     var input: JSONObject? = null
     for (index in 0 until content.length()) {
         val block = content.optJSONObject(index) ?: continue
-        if (block.optString("type") == "tool_use" && block.optString("name") == CLAUDE_TOOL_NAME) input = block.optJSONObject("input")
+        if (block.optString("type") == "tool_use" && block.optString("name") == toolName) input = block.optJSONObject("input")
     }
-    return parseLessonAnswer(input ?: throw ClaudeReplyException("Claude tarjima qaytarmadi."), chunk, "Claude")
+    return input ?: throw ClaudeReplyException(missing)
 }
 
 /** Checks a structured answer (Claude's tool input or Gemini's JSON) covers exactly the chunk's items. */
