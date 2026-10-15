@@ -89,7 +89,8 @@ internal fun lessonTranslatorFor(engine: LessonEngine): LessonTranslator =
 private fun glossaryGuidedForDeepL(english: String): String {
     if (!DubbingSettings.glossaryInTranslation.value) return english
     val glossary = UziGlossaryStore.glossary.value ?: return english
-    return glossaryGuidedSource(glossary, english)
+    // Common words too ("pancreas", "liver"): DeepL's Uzbek medical words are unreliable ("Lakundal bez").
+    return glossaryGuidedSource(glossary, english, includeGeneral = true)
 }
 
 private fun keyFor(engine: LessonEngine): String =
@@ -187,7 +188,8 @@ internal class ClaudeLessonCoordinator(
         try {
             val segments = segmentsFor(videoId)
             if (segments.size != stored.size) return
-            val broken = stored.indices.filter { looksUntranslated(stored[it]) }
+            val groups = sentenceGroups(segments)
+            val broken = groups.indices.filter { group -> groups[group].rows.any { looksUntranslated(stored[it]) } }
             _state.value =
                 ClaudeRunState(
                     videoId,
@@ -196,14 +198,14 @@ internal class ClaudeLessonCoordinator(
                     total = broken.size,
                     message = "DeepL inglizcha qolgan gaplarni tuzatmoqda…",
                 )
-            val backend = DeepLBackend(DubbingSettings.deeplApiKey.value)
+            val backend = DeepLBackend(DubbingSettings.deeplApiKey.value, ::glossaryGuidedForDeepL)
             val fixed = mutableMapOf<Int, String>()
             broken.chunked(DEEPL_LESSON_CHUNK_SIZE).forEach { part ->
-                val answer = backend.translate("", ClaudeChunk(0, part.map { segments[it].originalText }))
-                part.forEachIndexed { position, index -> answer.translations[position]?.let { fixed[index] = it } }
+                val answer = backend.translate("", ClaudeChunk(0, part.map { groups[it].text }))
+                part.forEachIndexed { position, group -> answer.translations[position]?.let { fixed[group] = it } }
                 _state.update { it.copy(done = fixed.size) }
             }
-            val lesson = stored.indices.associateWith { fixed[it] ?: stored[it] }
+            val lesson = stored.indices.associateWith { stored[it] } + spreadOverRows(groups, fixed)
             importSrt(formatSrt(translatedSegments(segments, lesson)), videoId, LessonEngine.DEEPL.label)
             _state.update { it.copy(running = false, message = "DeepL: ${fixed.size} ta inglizcha qolgan gap tuzatildi.") }
         } catch (cancel: CancellationException) {
@@ -226,7 +228,14 @@ internal class ClaudeLessonCoordinator(
     ) {
         try {
             val segments = segmentsFor(videoId)
-            val sentences = segments.map { it.originalText }
+            // DeepL gets whole sentences (split rows joined); Claude and Gemini rebuild sentences themselves.
+            val groups =
+                if (engine == LessonEngine.DEEPL) {
+                    sentenceGroups(segments)
+                } else {
+                    segments.indices.map { SentenceGroup(listOf(it), segments[it].originalText, emptyList()) }
+                }
+            val sentences = groups.map { it.text }
             _state.update { it.copy(total = sentences.size, message = "${engine.label} butun darsni tarjima qilmoqda…") }
             val doubts = mutableListOf<ClaudeDoubt>()
             val result =
@@ -241,7 +250,8 @@ internal class ClaudeLessonCoordinator(
                         it.copy(done = progress.done, total = progress.total, newTerms = it.newTerms + added, doubts = doubts.toList())
                     }
                 }
-            val count = importSrt(formatSrt(translatedSegments(segments, result.translations)), videoId, engine.label)
+            val count =
+                importSrt(formatSrt(translatedSegments(segments, spreadOverRows(groups, result.translations))), videoId, engine.label)
             // Speak the whole lesson into the voice cache now, so playback never waits for a sentence.
             if (DubbingSettings.enabled.value) {
                 LessonVoicePrefetch.start(

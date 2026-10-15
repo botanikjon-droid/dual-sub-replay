@@ -230,3 +230,17 @@ along with a kengayish oshqozon osti bezi yo‘li".
   function words (`looksUntranslated`) is sent again without the glossary terms. Lessons already stored by DeepL
   are mended once when opened: only the English-looking sentences are sent again and the lesson is stored again.
 - Tests: `DeepLLessonTest.aSentenceLeftInEnglishIsAskedAgainWithoutTheGlossary`. Unverified: live DeepL.
+
+## Field feedback 10 (2026-10-15): DeepL medical words and split sentences
+
+Screenshots: "pancreas" came out as "Lakundal bez" and "Langsha bezi"; "splenic vein" as "talsoqaro vena"; the
+sentence "…portal splenic confluence where the splenic vein / joins the portal vein…" was cut in two halves.
+
+- Cause 1: glossary guidance skips common glossary words (pancreas, liver are marked general), so DeepL chose
+  its own, unreliable Uzbek. DeepL now gets every glossary term, common ones included
+  (`glossaryGuidedSource(…, includeGeneral = true)`); Google keeps the old behaviour.
+- Cause 2: rows of one caption sentence were sent separately. DeepL now gets whole sentences
+  (`sentenceGroups`) and each translation is cut back into its rows with the player's own slicing
+  (`spreadOverRows` → `translationSlices`). Claude and Gemini are unchanged (they rebuild sentences).
+- Lessons stored before this fix keep their text until "Shu darsni DeepL bilan tarjima qilish" is pressed again.
+- Tests: `LessonSentenceGroupsTest` (3). Unverified: live DeepL quality.
