@@ -1,5 +1,5 @@
 # UZI darslar mundarijasi v1: bo‘lim, mavzu, YouTube video ID, videoning asl nomi.
-# Har bir havola tools/catalog/check_catalog_links.py bilan tekshiriladi (mavjudligi, nomi, inglizcha subtitr).
+# Havolalar tools/catalog/check_catalog_links.py bilan tekshiriladi: video mavjud, ochiq va uni boshqa saytga qo‘yish mumkin (oEmbed).
 section	topic	video_id	title
 Qorin bo‘shlig‘i a’zolari	Jigar: tekshirish texnikasi	J5gRFeZ7cZU	How to ultrasound the liver
 Qorin bo‘shlig‘i a’zolari	Jigar: diffuz kasalliklar (yog‘li gepatoz, sirroz)	8pETh6qhIdM	Ultrasound of diffuse liver diseases
@@ -8,11 +8,11 @@ Qorin bo‘shlig‘i a’zolari	O‘t pufagi va o‘t yo‘llari: anatomiya	enp-
 Qorin bo‘shlig‘i a’zolari	O‘t pufagi: patologiya	374A77l6es0	Ultrasound of the Abnormal Gallbladder
 Qorin bo‘shlig‘i a’zolari	Oshqozon osti bezi: tekshirish texnikasi	IsJeMgxTFMU	How to perform an ultrasound exam of the pancreas
 Qorin bo‘shlig‘i a’zolari	Oshqozon osti bezi: pankreatit	e-DBRFgQPYw	How to diagnose pancreatitis with the help of ultrasound
-Qorin bo‘shlig‘i a’zolari	Taloq	xigBZjS8aog	Ultrasound Training: Spleen
+Qorin bo‘shlig‘i a’zolari	Taloq	CZpeA_lJ6rE	Spleen Ultrasound Normal Vs Abnormal Image Appearances Comparison | Splenic Pathologies On USG
 Qorin bo‘shlig‘i a’zolari	Qorin aortasi: anevrizma	4JTq2gyW5Nw	Ultrasound of Abdominal Aortic Aneurysm (AAA)
 Qorin bo‘shlig‘i a’zolari	Appenditsit	FpiqQs0gwgI	Ultrasound of Acute Appendicitis
 Qorin bo‘shlig‘i a’zolari	Appenditsit: nozik jihatlar	GcS3jKyR5sg	Ultrasound of Acute Appendicitis: Pearls and Pitfalls
-Ginekologiya	Kichik chanoq UZI: kirish	yG4GapymYUo	Introduction to Female Pelvic Ultrasound
+Ginekologiya	Kichik chanoq a’zolari anatomiyasi	sD-aFMQxT08	Gynecologic Radiology Anatomy
 Ginekologiya	Transvaginal tekshiruv	JoQtlTNrGZA	Bedside Transvaginal Ultrasound, Part 1
 Ginekologiya	Bachadon miomasi	veQhbLyqLyU	Ultrasound of Uterine Fibroids: Sonographic Appearance & Differential Diagnosis
 Ginekologiya	Endometriy poliplari	qdlb0bl2eOI	Ultrasound of Endometrial Polyps
@@ -30,22 +30,23 @@ Urologiya	Yorg‘oq: tekshiruv	FbXwoxwS1Dw	Bedside Testicular Ultrasound
 Urologiya	Moyak buralishi	IQ5pUWIu6mI	Ultrasound of Testicular Torsion
 Neyrosonografiya	Kirish	c6A81JiJMSE	Introduction to neonatal cranial ultrasound
 Neyrosonografiya	Tekshirish texnikasi	vpmcgZ7lGFs	How to Perform a Neonatal Cranial USS
-Neyrosonografiya	Bosh va umurtqa: normal anatomiya	uyaaVrrBj0I	Ultrasound of the Neonatal Head and Spine
+Neyrosonografiya	Bosh va umurtqa: normal anatomiya	uyaaVrrBj0I	Ultrasound of the Neonatal Head and Spine | GE Healthcare
 Neyrosonografiya	Qorinchalarni o‘lchash	zG8ZZHEMLGA	ventricular measurements on neonatal head ultrasound
 Neyrosonografiya	Patologiyani tanish	0QdwB2Jr4_o	Paediatric Head/Brain ultrasound - 101 Pattern recognition
-Neyrosonografiya	Chala tug‘ilgan bola miyasi: PVL va qon quyilish	vAxb7bDqDuw	Imaging the preterm brain! Periventricular leukomalacia and ...
+Neyrosonografiya	Chala tug‘ilgan bola miyasi: PVL va IVH darajalari	im0gKSxURbg	Hypoxic ischemic encephalopathy in preterm neonatesl Periventricular leukomalacia l IVH grading l
 Neyrosonografiya	Qorinchalar ichiga qon quyilish (IVH)	6IV2OcpLUz4	IVH and the Preterm Brain
 Neyrosonografiya	Chaqaloq umurtqa pog‘onasi	JJFx_Se8kvc	Ultrasound of the Neonatal Spine
 Yurak exokardiografiyasi	Asosiy pozitsiyalar	fPPNqhd9DRk	Standard views for a basic echocardiogram
 Yurak exokardiografiyasi	Apikal to‘rt kamerali pozitsiya	_xXJgRVC0pU	Basic Cardiac Ultrasound Views 3: Apical 4 Chamber (A4C)
 Yurak exokardiografiyasi	Chap qorincha otish fraksiyasi	7qIoGhlrbVc	Echo Core Curriculum: A Practical Approach to Left Ventricular Ejection Fraction (LVEF) by Echo
 Yurak exokardiografiyasi	Mitral stenoz	xrHiJtoggUI	Mitral Stenosis. Echocardiographic Assessment
-Yurak exokardiografiyasi	Mitral regurgitatsiya	fKcafFbgOjM	Proper Qualification and Quantification of MR with Echocardiography
+Yurak exokardiografiyasi	Mitral regurgitatsiya	l8heXKDGcOA	Mitral Regurgitation: The New 2017 ASE Guidelines. Role of 2D/3D (WILLIAM A. ZOGHBI, MD)
 Yurak exokardiografiyasi	Aortal stenoz	hW9FYG60OUY	Echocardiographic Assessment of Aortic Stenosis
 Yurak exokardiografiyasi	Perikard suyuqligi va tamponada	LQGIWOlGW0E	Level 1 Video Lecture: Pericardial Effusions and Cardiac Tamponade
 Qalqonsimon bez	Normal anatomiya	qAyRTluQxU8	Anatomy Normal Thyroid Ultrasound Teaching Video Part 1
-Qalqonsimon bez	Tekshirish texnikasi	1aB9uqKGe9U	Teaching Video of Thyroid Ultrasonography
-Qalqonsimon bez	Tugunlar: ACR TI-RADS	sA8Sje-Amu0	ACR TIRADS Classification Of Thyroid Nodules Ultrasound
+Qalqonsimon bez	Tekshirish texnikasi	yGg7Ci88HrQ	Thyroid Ultrasound Probe Positioning | Transducer Placement, Scanning Technique USG
+Qalqonsimon bez	To‘liq kurs	bwuUR_Z8kb4	Thyroid Ultrasound Course
+Qalqonsimon bez	Tugunlar: ACR TI-RADS	sA8Sje-Amu0	ACR TIRADS Classification Of Thyroid Nodules Ultrasound | Thyroid Imaging Reporting and Data System
 Qalqonsimon bez	Diffuz kasalliklar	22qAYGU1Y0o	Ultrasound findings of diffuse thyroid diseases
 Qalqonsimon bez	Xashimoto tireoiditi	Q7KWVNuxHDU	Ultrasound of Hashimoto’s Thyroiditis
 Qalqonsimon bez	Graves kasalligi	L8nAxK3fSpU	Ultrasound Findings of Graves’ Disease
@@ -57,8 +58,8 @@ Ko‘krak bezi	BI-RADS tasnifi	3_7pAMUD588	Bi-Rads for Ultrasound
 Ko‘krak bezi	Qo‘ltiq osti limfa tugunlari	K3JX3u59UhY	Breast Cancer Axillary Ultrasound: Find involved nodes
 Homila skriningi	11–14 hafta: yoqa sohasi (NT)	yJs1OxjtPu8	Fetal Medicine Foundation - Nuchal translucency
 Homila skriningi	Homila biometriyasi	YCnH12uhPDU	Normal fetal ultrasound biometry
-Homila skriningi	20 hafta anomaliya skriningi	fUEKqJQC2w0	Second Trimester: The 20-Week Anomaly Scan
-Homila skriningi	Homila bosh miyasi	g6UY4tR60DI	Normal Ultrasound of Fetal Head Anatomy
+Homila skriningi	20 hafta anomaliya skriningi	AltM6ycwADA	Scan of the Week: 20 Week Detailed Anomaly Scan
+Homila skriningi	Homila bosh miyasi	KKwAIzhnpCA	Fetal Brain Ultrasound Normal Vs Abnormal Image Appearances Comparison | Fetal Brain Pathologies USG
 Homila skriningi	Homila yuragi: to‘rt kamerali kesim	XTi_JtdnMJM	Key screening views of the fetal heart - Part 3 - 4-chamber view
 Homila skriningi	Homila yuragi: chiqish yo‘llari	MBXIHbNMIH4	TMT: FETAL IMAGING: OUTFLOW TRACTS by Dr Alpana Joshi
 Homila skriningi	Yo‘ldosh va kindik	s729yinUGbY	The Placenta and Umbilical Cord Ultrasound Video Lecture
@@ -72,14 +73,13 @@ Qon tomir doppleri	Jigar tomirlari doppleri	mOrHMGMVSh4	Liver Doppler Ultrasound
 Transkranial doppler	Kirish	WP1xj15MjnM	An Introduction to Transcranial Doppler
 Transkranial doppler	Asoslar	dLuWKMY8cV8	Transcranial Doppler TCD Basics for the Perfusionist - Zsolt Garami, MD
 Transkranial doppler	Bosqichma-bosqich tekshiruv	M-X7PIuxHS0	the complete story [How to do transcranial doppler step by step approach]
-Transkranial doppler	Tekshirish texnikasi	b3NaWMh6tgQ	How to scan a Transcranial Doppler ultrasound exam
+Transkranial doppler	Tekshirish texnikasi	b3NaWMh6tgQ	How to scan a Transcranial Doppler ultrasound exam | Neurosonography
 Transkranial doppler	Shoshilinch holatlarda (POCUS)	sWR9a3tBZVY	Transcranial Doppler Point of Care Ultrasound
 Transkranial doppler	O‘tkir ishemik insult (TCCD)	1pkokOa9arg	A very simple step by step approach to diagnose an acute ischemic stroke by TCCD
-Mushak, bo‘g‘im va nerv tizimi	Yelka: rotator manjet	BwSJCkTBN0c	Ultrasound Tutorial: MSK Series: Shoulder / Rotator Cuff
+Mushak, bo‘g‘im va nerv tizimi	Yelka: rotator manjet	BwSJCkTBN0c	Ultrasound Tutorial: MSK Series: Shoulder / Rotator Cuff | Radiology Nation
 Mushak, bo‘g‘im va nerv tizimi	Yelka: asosiy tekshiruv	TCpKWtJ9g9A	SHOULDER: Basic Ultrasound Examination Tutorial
 Mushak, bo‘g‘im va nerv tizimi	Tizza bo‘g‘imi	BkBcQBgUdWw	Ultrasound of the Knee
 Mushak, bo‘g‘im va nerv tizimi	Chaqaloq chanoq-son bo‘g‘imi (Graf)	_rakGya8Y3E	Baby Hip Ultrasound (Graf method) with Professor Dr. Reinhard Graf
-Mushak, bo‘g‘im va nerv tizimi	Chaqaloq chanoq-son bo‘g‘imini baholash	RQ7ucGnWBzI	How to interpret the infant hip ultrasound
-Mushak, bo‘g‘im va nerv tizimi	Axill payi	DY_RDyZBSL4	Ultrasound Tutorial: MSK Series: Achilles Tendon
+Mushak, bo‘g‘im va nerv tizimi	Axill payi	DY_RDyZBSL4	Ultrasound Tutorial: MSK Series: Achilles Tendon | Radiology Nation
 Mushak, bo‘g‘im va nerv tizimi	Karpal kanal sindromi	D91jcPrxIJw	Ultrasound of Carpal Tunnel Syndrome
 Mushak, bo‘g‘im va nerv tizimi	Qo‘l nervlari (o‘rta, tirsak, bilak)	7KNgLUA587w	How to Scan the Upper Extremity Peripheral Nerves (Ulnar Nerve, Median Nerve and Radial Nerves)
