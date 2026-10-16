@@ -62,6 +62,50 @@ def player_response(html: str) -> dict:
         return {}
 
 
+PLAYER_CLIENTS = [
+    # The app's own first two logged-out caption clients (data/YouTubeCaptionProvider.kt).
+    {
+        "clientName": "VISIONOS", "clientVersion": "1.02", "number": "101",
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) "
+        "Version/26.0 Safari/605.1.15",
+        "extra": {"deviceMake": "Apple", "deviceModel": "RealityDevice17,1", "osName": "visionOS",
+                  "osVersion": "26.5.23O471"},
+    },
+    {
+        "clientName": "ANDROID_VR", "clientVersion": "1.65.10", "number": "28",
+        "userAgent": "com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; "
+        "eureka-user Build/SQ3A.220605.009.A1) gzip",
+        "extra": {"androidSdkVersion": 32, "deviceMake": "Oculus", "deviceModel": "Quest 3",
+                  "osName": "Android", "osVersion": "12L"},
+    },
+]
+
+
+def innertube_player(video_id: str) -> dict:
+    """The player answer from the first client that YouTube lets play the video, else the last answer."""
+    last: dict = {}
+    for client in PLAYER_CLIENTS:
+        context = {"clientName": client["clientName"], "clientVersion": client["clientVersion"],
+                   "hl": "en", "gl": "US", **client["extra"]}
+        body = json.dumps({"context": {"client": context}, "videoId": video_id,
+                           "contentCheckOk": True, "racyCheckOk": True}).encode()
+        request = urllib.request.Request(
+            "https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
+            data=body,
+            headers={"Content-Type": "application/json", "User-Agent": client["userAgent"],
+                     "X-YouTube-Client-Name": client["number"],
+                     "X-YouTube-Client-Version": client["clientVersion"]},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                last = json.loads(response.read().decode("utf-8", "replace"))
+        except (urllib.error.URLError, json.JSONDecodeError):
+            continue
+        if last.get("playabilityStatus", {}).get("status") == "OK":
+            return last
+    return last
+
+
 def check(video_id: str) -> dict:
     result: dict = {"video_id": video_id}
     if not VIDEO_ID.match(video_id):
@@ -76,6 +120,9 @@ def check(video_id: str) -> dict:
         result["channel"] = data.get("author_name", "")
     status, html = get(watch + "&hl=en&gl=US")
     player = player_response(html) if status == 200 else {}
+    if player.get("playabilityStatus", {}).get("status") != "OK":
+        # Datacenter addresses get "sign in to confirm you're not a bot" on the watch page.
+        player = innertube_player(video_id) or player
     playability = player.get("playabilityStatus", {})
     details = player.get("videoDetails", {})
     result["playability"] = playability.get("status", "UNKNOWN" if not player else "")
@@ -88,9 +135,13 @@ def check(video_id: str) -> dict:
     result["captions"] = ",".join(
         sorted({("en-auto" if t.get("kind") == "asr" else "en") for t in english})
     ) or ("other" if tracks else "none")
-    exists = result["oembed_status"] in (200, 401, 403) or result["playability"] == "OK"
+    # oEmbed 200: public and embeddable. 401/403: private, blocked or restricted. 400/404: removed.
+    exists = result["oembed_status"] == 200 or result["playability"] == "OK"
     if not exists:
-        result["verdict"] = "MISSING"
+        result["verdict"] = "MISSING" if result["oembed_status"] in (400, 404) else "RESTRICTED"
+    elif result["playability"] == "LOGIN_REQUIRED":
+        # YouTube asked this computer to sign in (bot check), so captions could not be read here.
+        result["verdict"] = "EXISTS_CAPTIONS_UNCHECKED"
     elif result["playability"] not in ("OK", "UNKNOWN", ""):
         result["verdict"] = "UNPLAYABLE"
     elif result["captions"] in ("none", "other"):
@@ -122,7 +173,7 @@ def main(argv: list[str]) -> int:
         time.sleep(0.5)
     if out:
         out.write_text(json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8")
-    bad = [r for r in results if r["verdict"] in ("MISSING", "UNPLAYABLE", "BAD_ID")]
+    bad = [r for r in results if r["verdict"] in ("MISSING", "RESTRICTED", "UNPLAYABLE", "BAD_ID")]
     print(f"\n{len(results)} videos, {len(bad)} missing or unplayable, "
           f"{sum(r['verdict'] == 'NO_ENGLISH_CAPTIONS' for r in results)} without English captions")
     return 1 if bad else 0

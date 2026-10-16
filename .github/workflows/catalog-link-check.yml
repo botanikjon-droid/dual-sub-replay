@@ -12,8 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 tools/catalog/check_catalog_links.py --json tools/catalog/links-report.json || true
+      - run: python3 tools/catalog/check_catalog_links.py tools/catalog/candidates.tsv --json tools/catalog/candidates-report.json || true
       - run: |
           git config user.name "link-check"
           git config user.email "link-check@users.noreply.github.com"
-          git add tools/catalog/links-report.json
+          git add tools/catalog/*-report.json
           git commit -m "report" && git push
