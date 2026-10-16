@@ -221,6 +221,14 @@ private fun LessonToolsHost(
         onDeepLTranslate = viewModel::translateLessonWithDeepL,
         onClaudeCancel = viewModel::cancelClaudeTranslation,
         lessonList = {
+            LessonCatalogCard(
+                translatedVideoIds = lessons.mapTo(HashSet()) { it.videoId },
+                knownTitles = lessons.filter { it.title.isNotBlank() }.associate { it.videoId to it.title },
+                activeVideoId = state.activeVideoId,
+            ) { videoId ->
+                viewModel.openTranslatedLesson(videoId)
+                onDismiss()
+            }
             LessonLibraryCard(lessons, state.activeVideoId) { videoId ->
                 viewModel.openTranslatedLesson(videoId)
                 onDismiss()

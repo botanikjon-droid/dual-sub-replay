@@ -459,7 +459,7 @@ class AppViewModel internal constructor(
 
     private fun toast(message: String) = Toast.makeText(getApplication(), message, Toast.LENGTH_LONG).show()
 
-    /** Reopens a lesson from the list of translated lessons. */
+    /** Opens a lesson from the catalog or reopens one from the list of translated lessons. */
     fun openTranslatedLesson(videoId: String) {
         openLessonLink(mobileWatchUrl(videoId))
     }
