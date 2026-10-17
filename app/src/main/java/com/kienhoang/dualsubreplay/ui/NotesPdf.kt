@@ -209,7 +209,7 @@ internal suspend fun buildNotesPdf(
             LessonLibraryStore.allNotes().filter { videoId == null || it.videoId == videoId }
         check(lessons.isNotEmpty()) { "Konspekt yo‘q. Avval “Konspekt va test” ni yozdiring." }
         val day = SimpleDateFormat("dd.MM.yyyy", Locale.ROOT).format(Date())
-        val subtitle = "${lessons.size} ta dars · $day · DualSub Replay"
+        val subtitle = "${lessons.size} ta dars · $day · ${appBrand().name}"
         val folder = File(context.cacheDir, "notes-pdf").apply { mkdirs() }
         val name = if (videoId == null) "UZI-konspektlar.pdf" else "UZI-konspekt-$videoId.pdf"
         val file = File(folder, name)

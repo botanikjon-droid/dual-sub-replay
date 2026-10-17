@@ -2,6 +2,7 @@ package com.kienhoang.dualsubreplay.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -19,6 +20,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import com.kienhoang.dualsubreplay.R
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -139,21 +143,30 @@ private fun DrawerHeader(onClose: () -> Unit) {
         modifier = Modifier.fillMaxWidth().padding(start = 12.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Surface(
-            modifier = Modifier.size(40.dp),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.primary,
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.ClosedCaption, contentDescription = null, modifier = Modifier.size(22.dp))
+        val brand = remember { appBrand() }
+        if (brand.hasLogo) {
+            Image(
+                painter = painterResource(R.drawable.drawer_logo),
+                contentDescription = null,
+                modifier = Modifier.size(48.dp).clip(CircleShape),
+            )
+        } else {
+            Surface(
+                modifier = Modifier.size(40.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.primary,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.ClosedCaption, contentDescription = null, modifier = Modifier.size(22.dp))
+                }
             }
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("DualSub Replay", style = MaterialTheme.typography.titleLarge)
+            Text(brand.name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.testTag("app_brand_name"))
             Text(
-                "Learn languages with YouTube",
+                brand.tagline,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
