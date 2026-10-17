@@ -26,6 +26,7 @@ internal object UziCatalogStore {
     private val lock = Mutex()
     private var files: File? = null
     private var builtIn: List<CatalogSection> = emptyList()
+    private var builtInVersion = 1
 
     suspend fun load(context: Context) =
         lock.withLock {
@@ -33,13 +34,16 @@ internal object UziCatalogStore {
             val app = context.applicationContext
             files = app.filesDir
             withContext(Dispatchers.IO) {
-                builtIn =
+                val assetText =
                     try {
-                        app.assets.open(UZI_CATALOG_ASSET).use { parseUziCatalog(it.readBytes().toString(Charsets.UTF_8)) }
+                        app.assets.open(UZI_CATALOG_ASSET).use { it.readBytes().toString(Charsets.UTF_8) }
                     } catch (error: IOException) {
                         Log.w(TAG, "Built-in catalog not read", error)
-                        emptyList()
+                        ""
                     }
+                builtIn = parseUziCatalog(assetText)
+                val rows = parseUziCatalogRows(assetText)
+                builtInVersion = catalogVersion(rows)
                 val own = File(app.filesDir, OWN_FILE)
                 val ownSections =
                     try {
@@ -48,8 +52,16 @@ internal object UziCatalogStore {
                         Log.w(TAG, "Own catalog not read", error)
                         null
                     }
-                _edited.value = ownSections != null
-                _sections.value = ownSections ?: builtIn
+                val seenVersion = readSeenVersion(app.filesDir)
+                val current =
+                    if (ownSections != null && builtInVersion > seenVersion) {
+                        // Lectures added to the built-in catalog since his copy was made join his copy.
+                        mergeCatalogAdditions(ownSections, rows, seenVersion).also { save(app.filesDir, it) }
+                    } else {
+                        ownSections
+                    }
+                _edited.value = current != null
+                _sections.value = current ?: builtIn
             }
         }
 
@@ -60,29 +72,55 @@ internal object UziCatalogStore {
             _sections.value = next
             _edited.value = true
             val folder = files ?: return@withLock
-            withContext(Dispatchers.IO) {
-                try {
-                    val target = File(folder, OWN_FILE)
-                    val temporary = File(folder, "$OWN_FILE.tmp")
-                    temporary.writeText(encodeUziCatalog(next), Charsets.UTF_8)
-                    if (!temporary.renameTo(target)) {
-                        target.writeText(encodeUziCatalog(next), Charsets.UTF_8)
-                        temporary.delete()
-                    }
-                } catch (error: IOException) {
-                    Log.w(TAG, "Own catalog not saved", error)
-                }
+            withContext(Dispatchers.IO) { save(folder, next) }
+        }
+
+    /** Writes the doctor's copy and the built-in version it already contains. Call on the IO dispatcher. */
+    private fun save(
+        folder: File,
+        sections: List<CatalogSection>,
+    ) {
+        try {
+            val target = File(folder, OWN_FILE)
+            val temporary = File(folder, "$OWN_FILE.tmp")
+            temporary.writeText(encodeUziCatalog(sections), Charsets.UTF_8)
+            if (!temporary.renameTo(target)) {
+                target.writeText(encodeUziCatalog(sections), Charsets.UTF_8)
+                temporary.delete()
             }
+            File(folder, VERSION_FILE).writeText(builtInVersion.toString(), Charsets.UTF_8)
+        } catch (error: IOException) {
+            Log.w(TAG, "Own catalog not saved", error)
+        }
+    }
+
+    /** The built-in version the doctor's copy already has; 1 for a copy made before versions existed. */
+    private fun readSeenVersion(folder: File): Int =
+        try {
+            File(folder, VERSION_FILE)
+                .takeIf { it.isFile }
+                ?.readText(Charsets.UTF_8)
+                ?.trim()
+                ?.toIntOrNull() ?: 1
+        } catch (error: IOException) {
+            Log.w(TAG, "Catalog version not read", error)
+            1
         }
 
     /** Drops the doctor's copy: the built-in catalog comes back. */
     suspend fun reset() =
         lock.withLock {
-            files?.let { folder -> withContext(Dispatchers.IO) { File(folder, OWN_FILE).delete() } }
+            files?.let { folder ->
+                withContext(Dispatchers.IO) {
+                    File(folder, OWN_FILE).delete()
+                    File(folder, VERSION_FILE).delete()
+                }
+            }
             _sections.value = builtIn
             _edited.value = false
         }
 
     private const val OWN_FILE = "uzi-catalog.tsv"
+    private const val VERSION_FILE = "uzi-catalog-version.txt"
     private const val TAG = "UziCatalog"
 }

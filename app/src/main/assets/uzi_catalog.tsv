@@ -1,85 +1,136 @@
-# UZI darslar mundarijasi v1: bo‘lim, mavzu, YouTube video ID, videoning asl nomi.
+# UZI darslar mundarijasi: bo‘lim, mavzu, YouTube video ID, videoning asl nomi, qo‘shilgan versiya.
 # Havolalar tools/catalog/check_catalog_links.py bilan tekshiriladi: video mavjud, ochiq va uni boshqa saytga qo‘yish mumkin (oEmbed).
-section	topic	video_id	title
-Qorin bo‘shlig‘i a’zolari	Jigar: tekshirish texnikasi	J5gRFeZ7cZU	How to ultrasound the liver
-Qorin bo‘shlig‘i a’zolari	Jigar: diffuz kasalliklar (yog‘li gepatoz, sirroz)	8pETh6qhIdM	Ultrasound of diffuse liver diseases
-Qorin bo‘shlig‘i a’zolari	Jigar: o‘choqli o‘zgarishlar	A9jHe08T4VE	Ultrasound in Focal Liver Lesions and Beyond
-Qorin bo‘shlig‘i a’zolari	O‘t pufagi va o‘t yo‘llari: anatomiya	enp-lIVqyBQ	Sonographic anatomy of the gallbladder and biliary ducts
-Qorin bo‘shlig‘i a’zolari	O‘t pufagi: patologiya	374A77l6es0	Ultrasound of the Abnormal Gallbladder
-Qorin bo‘shlig‘i a’zolari	Oshqozon osti bezi: tekshirish texnikasi	IsJeMgxTFMU	How to perform an ultrasound exam of the pancreas
-Qorin bo‘shlig‘i a’zolari	Oshqozon osti bezi: pankreatit	e-DBRFgQPYw	How to diagnose pancreatitis with the help of ultrasound
-Qorin bo‘shlig‘i a’zolari	Taloq	CZpeA_lJ6rE	Spleen Ultrasound Normal Vs Abnormal Image Appearances Comparison | Splenic Pathologies On USG
-Qorin bo‘shlig‘i a’zolari	Qorin aortasi: anevrizma	4JTq2gyW5Nw	Ultrasound of Abdominal Aortic Aneurysm (AAA)
-Qorin bo‘shlig‘i a’zolari	Appenditsit	FpiqQs0gwgI	Ultrasound of Acute Appendicitis
-Qorin bo‘shlig‘i a’zolari	Appenditsit: nozik jihatlar	GcS3jKyR5sg	Ultrasound of Acute Appendicitis: Pearls and Pitfalls
-Ginekologiya	Kichik chanoq a’zolari anatomiyasi	sD-aFMQxT08	Gynecologic Radiology Anatomy
-Ginekologiya	Transvaginal tekshiruv	JoQtlTNrGZA	Bedside Transvaginal Ultrasound, Part 1
-Ginekologiya	Bachadon miomasi	veQhbLyqLyU	Ultrasound of Uterine Fibroids: Sonographic Appearance & Differential Diagnosis
-Ginekologiya	Endometriy poliplari	qdlb0bl2eOI	Ultrasound of Endometrial Polyps
-Ginekologiya	Tuxumdon kistalari	vSba7T95CXQ	Ultrasound of Common Adnexal Cysts
-Ginekologiya	O-RADS tasnifi	ji2I3Pv1R0g	O-Rads Ultrasound Applying Version 2022 in Daily Clinical Practice
-Ginekologiya	Erta homiladorlik asoratlari va ektopik homiladorlik	YC3-xfRxwYU	Ultrasound of Failed First Trimester Pregnancies and Ectopic Pregnancies
-Ginekologiya	Ektopik homiladorlik	R6rX5Qclgl8	"Ectopic Pregnancy" Ultrasound SonoWorld Lecture
-Urologiya	Buyrak: normal anatomiya	gcGHNdrgYW8	Ultrasound of the Normal Kidney
-Urologiya	Buyrak: tekshirish texnikasi	sxLmYjilCxM	Scanning Technique: Renal
-Urologiya	Gidronefroz	ULezXrne5n4	How to diagnose hydronephrosis with the help of ultrasound
-Urologiya	Siydik pufagi	nPoCYs7uKC0	Scanning Technique: Bladder
-Urologiya	Qoldiq siydik hajmi	LEd7IzICClE	Ultrasound Estimated Post-Void Residual Bladder
-Urologiya	Prostata bezi	nhVo53WChSA	Key aspects of Prostate Ultrasound
-Urologiya	Yorg‘oq: tekshiruv	FbXwoxwS1Dw	Bedside Testicular Ultrasound
-Urologiya	Moyak buralishi	IQ5pUWIu6mI	Ultrasound of Testicular Torsion
-Neyrosonografiya	Kirish	c6A81JiJMSE	Introduction to neonatal cranial ultrasound
-Neyrosonografiya	Tekshirish texnikasi	vpmcgZ7lGFs	How to Perform a Neonatal Cranial USS
-Neyrosonografiya	Bosh va umurtqa: normal anatomiya	uyaaVrrBj0I	Ultrasound of the Neonatal Head and Spine | GE Healthcare
-Neyrosonografiya	Qorinchalarni o‘lchash	zG8ZZHEMLGA	ventricular measurements on neonatal head ultrasound
-Neyrosonografiya	Patologiyani tanish	0QdwB2Jr4_o	Paediatric Head/Brain ultrasound - 101 Pattern recognition
-Neyrosonografiya	Chala tug‘ilgan bola miyasi: PVL va IVH darajalari	im0gKSxURbg	Hypoxic ischemic encephalopathy in preterm neonatesl Periventricular leukomalacia l IVH grading l
-Neyrosonografiya	Qorinchalar ichiga qon quyilish (IVH)	6IV2OcpLUz4	IVH and the Preterm Brain
-Neyrosonografiya	Chaqaloq umurtqa pog‘onasi	JJFx_Se8kvc	Ultrasound of the Neonatal Spine
-Yurak exokardiografiyasi	Asosiy pozitsiyalar	fPPNqhd9DRk	Standard views for a basic echocardiogram
-Yurak exokardiografiyasi	Apikal to‘rt kamerali pozitsiya	_xXJgRVC0pU	Basic Cardiac Ultrasound Views 3: Apical 4 Chamber (A4C)
-Yurak exokardiografiyasi	Chap qorincha otish fraksiyasi	7qIoGhlrbVc	Echo Core Curriculum: A Practical Approach to Left Ventricular Ejection Fraction (LVEF) by Echo
-Yurak exokardiografiyasi	Mitral stenoz	xrHiJtoggUI	Mitral Stenosis. Echocardiographic Assessment
-Yurak exokardiografiyasi	Mitral regurgitatsiya	l8heXKDGcOA	Mitral Regurgitation: The New 2017 ASE Guidelines. Role of 2D/3D (WILLIAM A. ZOGHBI, MD)
-Yurak exokardiografiyasi	Aortal stenoz	hW9FYG60OUY	Echocardiographic Assessment of Aortic Stenosis
-Yurak exokardiografiyasi	Perikard suyuqligi va tamponada	LQGIWOlGW0E	Level 1 Video Lecture: Pericardial Effusions and Cardiac Tamponade
-Qalqonsimon bez	Normal anatomiya	qAyRTluQxU8	Anatomy Normal Thyroid Ultrasound Teaching Video Part 1
-Qalqonsimon bez	Tekshirish texnikasi	yGg7Ci88HrQ	Thyroid Ultrasound Probe Positioning | Transducer Placement, Scanning Technique USG
-Qalqonsimon bez	To‘liq kurs	bwuUR_Z8kb4	Thyroid Ultrasound Course
-Qalqonsimon bez	Tugunlar: ACR TI-RADS	sA8Sje-Amu0	ACR TIRADS Classification Of Thyroid Nodules Ultrasound | Thyroid Imaging Reporting and Data System
-Qalqonsimon bez	Diffuz kasalliklar	22qAYGU1Y0o	Ultrasound findings of diffuse thyroid diseases
-Qalqonsimon bez	Xashimoto tireoiditi	Q7KWVNuxHDU	Ultrasound of Hashimoto’s Thyroiditis
-Qalqonsimon bez	Graves kasalligi	L8nAxK3fSpU	Ultrasound Findings of Graves’ Disease
-Qalqonsimon bez	Qalqonsimon oldi bezlari	CENa72T47j0	Ultrasound Evaluation of the Parathyroid
-Qalqonsimon bez	Bo‘yin limfa tugunlari	g2_xvYaH7QI	Neck US - Lymph Nodes and Abscesses
-Ko‘krak bezi	Tekshirish texnikasi	Ooy4tdaxGg0	How to: Performing basic breast ultrasound
-Ko‘krak bezi	Texnika va keng uchraydigan patologiya	BA4K6lfcdAM	Breast Ultrasound scanning tips and common pathologies
-Ko‘krak bezi	BI-RADS tasnifi	3_7pAMUD588	Bi-Rads for Ultrasound
-Ko‘krak bezi	Qo‘ltiq osti limfa tugunlari	K3JX3u59UhY	Breast Cancer Axillary Ultrasound: Find involved nodes
-Homila skriningi	11–14 hafta: yoqa sohasi (NT)	yJs1OxjtPu8	Fetal Medicine Foundation - Nuchal translucency
-Homila skriningi	Homila biometriyasi	YCnH12uhPDU	Normal fetal ultrasound biometry
-Homila skriningi	20 hafta anomaliya skriningi	AltM6ycwADA	Scan of the Week: 20 Week Detailed Anomaly Scan
-Homila skriningi	Homila bosh miyasi	KKwAIzhnpCA	Fetal Brain Ultrasound Normal Vs Abnormal Image Appearances Comparison | Fetal Brain Pathologies USG
-Homila skriningi	Homila yuragi: to‘rt kamerali kesim	XTi_JtdnMJM	Key screening views of the fetal heart - Part 3 - 4-chamber view
-Homila skriningi	Homila yuragi: chiqish yo‘llari	MBXIHbNMIH4	TMT: FETAL IMAGING: OUTFLOW TRACTS by Dr Alpana Joshi
-Homila skriningi	Yo‘ldosh va kindik	s729yinUGbY	The Placenta and Umbilical Cord Ultrasound Video Lecture
-Qon tomir doppleri	Uyqu arteriyalari	kK-KIbFOzQw	Carotid Duplex Interpretations (Zsolt Garami, MD) January 18, 2022
-Qon tomir doppleri	Uyqu arteriyalari: normal va patologik spektr	BWQaxujCQOs	Normal & Abnormal Patterns of Carotid Doppler
-Qon tomir doppleri	Oyoq venalari: tromboz (DVT)	UN4SN43I_6A	Introduction to the Lower Extremity Venous Doppler Study
-Qon tomir doppleri	Oyoq venalari: bosqichma-bosqich tekshiruv	-i6o2uF0r8s	DVT Ultrasound of the Lower Extremities STEP by STEP
-Qon tomir doppleri	Oyoq arteriyalari	asGR_FOFljA	Lower Extremity Arterial Duplex Anatomy and Protocol
-Qon tomir doppleri	Buyrak arteriyalari	KD67TdZK70Q	Renal Artery Duplex Anatomy, Protocol and Pathology
-Qon tomir doppleri	Jigar tomirlari doppleri	mOrHMGMVSh4	Liver Doppler Ultrasound
-Transkranial doppler	Kirish	WP1xj15MjnM	An Introduction to Transcranial Doppler
-Transkranial doppler	Asoslar	dLuWKMY8cV8	Transcranial Doppler TCD Basics for the Perfusionist - Zsolt Garami, MD
-Transkranial doppler	Bosqichma-bosqich tekshiruv	M-X7PIuxHS0	the complete story [How to do transcranial doppler step by step approach]
-Transkranial doppler	Tekshirish texnikasi	b3NaWMh6tgQ	How to scan a Transcranial Doppler ultrasound exam | Neurosonography
-Transkranial doppler	Shoshilinch holatlarda (POCUS)	sWR9a3tBZVY	Transcranial Doppler Point of Care Ultrasound
-Transkranial doppler	O‘tkir ishemik insult (TCCD)	1pkokOa9arg	A very simple step by step approach to diagnose an acute ischemic stroke by TCCD
-Mushak, bo‘g‘im va nerv tizimi	Yelka: rotator manjet	BwSJCkTBN0c	Ultrasound Tutorial: MSK Series: Shoulder / Rotator Cuff | Radiology Nation
-Mushak, bo‘g‘im va nerv tizimi	Yelka: asosiy tekshiruv	TCpKWtJ9g9A	SHOULDER: Basic Ultrasound Examination Tutorial
-Mushak, bo‘g‘im va nerv tizimi	Tizza bo‘g‘imi	BkBcQBgUdWw	Ultrasound of the Knee
-Mushak, bo‘g‘im va nerv tizimi	Chaqaloq chanoq-son bo‘g‘imi (Graf)	_rakGya8Y3E	Baby Hip Ultrasound (Graf method) with Professor Dr. Reinhard Graf
-Mushak, bo‘g‘im va nerv tizimi	Axill payi	DY_RDyZBSL4	Ultrasound Tutorial: MSK Series: Achilles Tendon | Radiology Nation
-Mushak, bo‘g‘im va nerv tizimi	Karpal kanal sindromi	D91jcPrxIJw	Ultrasound of Carpal Tunnel Syndrome
-Mushak, bo‘g‘im va nerv tizimi	Qo‘l nervlari (o‘rta, tirsak, bilak)	7KNgLUA587w	How to Scan the Upper Extremity Peripheral Nerves (Ulnar Nerve, Median Nerve and Radial Nerves)
+# added: shu qator mundarijaning qaysi versiyasida qo‘shilgan. Shifokorning o‘z nusxasiga faqat u ko‘rmagan versiyadagi yangi darslar qo‘shiladi.
+section	topic	video_id	title	added
+Ultratovush asoslari: fizika va apparat	Fizika: tovush to‘lqini va parametrlari	jv748J0XB-0	Ultrasound Physics 1 - Sound as Waves	2
+Ultratovush asoslari: fizika va apparat	Fizika: tovush to‘lqini va parametrlari	c6PQzbzJgUg	Ultrasound Physics with Sononerds Unit 2	2
+Ultratovush asoslari: fizika va apparat	Fizika: tovush to‘lqini va parametrlari	UFU9zVAa6WM	Ultrasound Physics with Sononerds Unit 3	2
+Ultratovush asoslari: fizika va apparat	Fizika: akustik impedans va aks-sado	-zXuz0mqe_Q	Acoustic Impedance and Reflection Explained | Radiology Ultrasound Physics	2
+Ultratovush asoslari: fizika va apparat	Fizika: akustik impedans va aks-sado	Q1YPZ-04dag	Ultrasound Physics 2 - Interactions with Tissue	2
+Ultratovush asoslari: fizika va apparat	Fizika: akustik impedans va aks-sado	htzA4DUZz_s	Ultrasound Physics with Sononerds Unit 6b	2
+Ultratovush asoslari: fizika va apparat	Fizika: attenuatsiya	77LZeskg4Eg	Ultrasound Physics with Sononerds Unit 6a	2
+Ultratovush asoslari: fizika va apparat	Datchik: pyezoelement va tuzilishi	HC_tHnNZJ-Q	Ultrasound Physics with Sononerds Unit 8	2
+Ultratovush asoslari: fizika va apparat	Datchik turlari	C0OFM297MlU	Ultrasound Transducers	2
+Ultratovush asoslari: fizika va apparat	Datchik turlari	QzZEKS1x0l8	Ultrasound Physics with Sononerds Unit 12a	2
+Ultratovush asoslari: fizika va apparat	Ultratovush nuri va fokus	imM2qJY_bEI	Ultrasound Physics 4 - Beam Geometry	2
+Ultratovush asoslari: fizika va apparat	Ultratovush nuri va fokus	AvbdjCMA8OU	Ultrasound Physics with Sononerds Unit 9	2
+Ultratovush asoslari: fizika va apparat	Rezolyutsiya: aksial, lateral, elevatsion	iLVeRa95WQc	Ultrasound Physics with Sononerds Unit 10	2
+Ultratovush asoslari: fizika va apparat	Rezolyutsiya: aksial, lateral, elevatsion	0rmwXyPXwhs	Ultrasound Physics with Sononerds Unit 12b	2
+Ultratovush asoslari: fizika va apparat	Rezolyutsiya: aksial, lateral, elevatsion	EvZSiMTiePI	Ultrasound Physics with Sononerds Unit 15b	2
+Ultratovush asoslari: fizika va apparat	A, B, M rejimlar va apparat tuzilishi	TSHVXMbS2jM	Ultrasound Physics with Sononerds Unit 11	2
+Ultratovush asoslari: fizika va apparat	A, B, M rejimlar va apparat tuzilishi	UYtaDkhVrmQ	Ultrasound Physics with Sononerds Unit 14	2
+Ultratovush asoslari: fizika va apparat	Tasvirni sozlash: gain va TGC	z6n7C_4rHhk	Ultrasound 5 - Knobology 1 - Gain	2
+Ultratovush asoslari: fizika va apparat	Tasvirni sozlash: gain va TGC	hMPA6hVPh0A	KNOBOLOGY 2: Focus, Gain, Frequency, Depth and Zoom	2
+Ultratovush asoslari: fizika va apparat	Tasvirni sozlash: chuqurlik, fokus, kadr tezligi	x8suZz5FeuM	Ultrasound 6 - Knobology 2 - Focus, Field of View, Frame Rate	2
+Ultratovush asoslari: fizika va apparat	Tasvirni sozlash: chuqurlik, fokus, kadr tezligi	48m-hcI8i1g	Physics with Sononerds Unit 13	2
+Ultratovush asoslari: fizika va apparat	Tasvirni sozlash: kompressiya (dynamic range)	_8R-IiuLM0k	Ultrasound Physics with Sononerds Unit 16	2
+Ultratovush asoslari: fizika va apparat	Garmonik tasvirlash	8nS4NYD_LnU	Ultrasound Physics with Sononerds Unit 17a	2
+Ultratovush asoslari: fizika va apparat	Artefaktlar: akustik soya va kuchayish	SN6_YKVl-U0	Ultrasound Artifacts, Part 1 (Shadowing, enhancement and edge artifacts)	2
+Ultratovush asoslari: fizika va apparat	Artefaktlar: reverberatsiya	SyYkOglVVLo	Ultrasound Artifacts, Part 2 (Reverberation artifacts)	2
+Ultratovush asoslari: fizika va apparat	Artefaktlar: umumiy sharh	NjcYR_tO1iw	Ultrasound Artifacts	2
+Ultratovush asoslari: fizika va apparat	Doppler: fizika va turlari	LeI3ns30mvg	Doppler Ultrasound 101 | The Basics	2
+Ultratovush asoslari: fizika va apparat	Doppler: fizika va turlari	NrWKEJD-_RA	Unit 19: Doppler Physics & Instrumentation with Sononerds	2
+Ultratovush asoslari: fizika va apparat	Doppler: rangli va power Doppler	dIvPZ6Mhraw	iMEP Tips & Tricks 30: Power Doppler vs. Color Doppler	2
+Ultratovush asoslari: fizika va apparat	Doppler: sozlamalar va aliasing	Xq7VJ864GIg	Aliasing on Doppler Ultrasound	2
+Ultratovush asoslari: fizika va apparat	Doppler: sozlamalar va aliasing	R2yTdxP-j8I	Unit 20: Doppler Application	2
+Ultratovush asoslari: fizika va apparat	Gemodinamika	U6swOcsO6c0	Unit 18 Hemodynamics :: Ultrasound Physics with Sononerds	2
+Ultratovush asoslari: fizika va apparat	Xavfsizlik: ALARA, TI va MI	wHdEZaY4M2g	ATTENTION: ALARA is Important - An Update on the Bioeffects of Ultrasound	2
+Ultratovush asoslari: fizika va apparat	Xavfsizlik: ALARA, TI va MI	3cWIePSocMA	Understanding ultrasound parameters: mechanical index and thermal index	2
+Ultratovush asoslari: fizika va apparat	Kontrast moddalar va mexanik indeks	XdSrvyKCpfw	Ultrasound Physics with Sononerds Unit 17b	2
+Ultratovush asoslari: fizika va apparat	Datchikni tozalash va dezinfeksiya	mKomnw4PEwE	Proper POCUS Cleaning and Disinfection	2
+Ultratovush asoslari: fizika va apparat	Sifat nazorati	0U2Pcu2SjeM	Unit 22: Quality & Performance Ultrasound Physics with Sononerds	2
+Ultratovush asoslari: fizika va apparat	Qorin UZI asoslari: tekisliklar, datchik, atamalar	3pIL7c-8UH8	Basic Abdominal Ultrasound Imaging :: Unit 1 :: Normal Abdomen Ultrasound with Sononerds	2
+Qorin bo‘shlig‘i a’zolari	To‘liq qorin protokoli	xLYBOf2da8s	US Abdomen Complete Protocol	2
+Qorin bo‘shlig‘i a’zolari	Qorin bo‘shlig‘i anatomiyasi va qorin parda	luK0ElID9Hs	Body Systems & Cavities :: Unit 2 :: Normal Abdominal Ultrasound with Sononerds	2
+Qorin bo‘shlig‘i a’zolari	Jigar: anatomiya va segmentlar	x6hXhLNc-jU	Liver: Anatomy, Physiology & Normal Ultrasound :: Unit 3 :: Abdominal Ultrasound with Sononerds	2
+Qorin bo‘shlig‘i a’zolari	Jigar: anatomiya va segmentlar	JSUsM8aN1XU	Ultrasound Couinaud's Liver Segments	2
+Qorin bo‘shlig‘i a’zolari	Jigar: tekshirish texnikasi	J5gRFeZ7cZU	How to ultrasound the liver	1
+Qorin bo‘shlig‘i a’zolari	Jigar: tekshirish texnikasi	GvvGZENUvWc	Liver Ultrasound Protocol	2
+Qorin bo‘shlig‘i a’zolari	Jigar: diffuz kasalliklar (yog‘li gepatoz, sirroz)	8pETh6qhIdM	Ultrasound of diffuse liver diseases	1
+Qorin bo‘shlig‘i a’zolari	Jigar: o‘choqli o‘zgarishlar	A9jHe08T4VE	Ultrasound in Focal Liver Lesions and Beyond	1
+Qorin bo‘shlig‘i a’zolari	Jigar: elastografiya	eoze_8nUjfA	Ultrasound Elastography for Liver Fibrosis	2
+Qorin bo‘shlig‘i a’zolari	Darvoza venasi Doppleri	SS-ATlJ9OCk	Portal Vein Doppler Protocol	2
+Qorin bo‘shlig‘i a’zolari	O‘t pufagi va o‘t yo‘llari: anatomiya	enp-lIVqyBQ	Sonographic anatomy of the gallbladder and biliary ducts	1
+Qorin bo‘shlig‘i a’zolari	O‘t pufagi va o‘t yo‘llari: anatomiya	U50O8_fsemY	Locating the Common Bile Duct with Ultrasound	2
+Qorin bo‘shlig‘i a’zolari	O‘t pufagi: patologiya	374A77l6es0	Ultrasound of the Abnormal Gallbladder	1
+Qorin bo‘shlig‘i a’zolari	Oshqozon osti bezi: tekshirish texnikasi	IsJeMgxTFMU	How to perform an ultrasound exam of the pancreas	1
+Qorin bo‘shlig‘i a’zolari	Oshqozon osti bezi: tekshirish texnikasi	yK_ETT0yZ5Q	Pancreas Sonoanatomy	2
+Qorin bo‘shlig‘i a’zolari	Oshqozon osti bezi: pankreatit	e-DBRFgQPYw	How to diagnose pancreatitis with the help of ultrasound	1
+Qorin bo‘shlig‘i a’zolari	Taloq	CZpeA_lJ6rE	Spleen Ultrasound Normal Vs Abnormal Image Appearances Comparison | Splenic Pathologies On USG	1
+Qorin bo‘shlig‘i a’zolari	Qorin aortasi: anevrizma	4JTq2gyW5Nw	Ultrasound of Abdominal Aortic Aneurysm (AAA)	1
+Qorin bo‘shlig‘i a’zolari	Appenditsit	FpiqQs0gwgI	Ultrasound of Acute Appendicitis	1
+Qorin bo‘shlig‘i a’zolari	Appenditsit: nozik jihatlar	GcS3jKyR5sg	Ultrasound of Acute Appendicitis: Pearls and Pitfalls	1
+Qorin bo‘shlig‘i a’zolari	Normal va patologik tasvirlar (takrorlash)	eSekFP_KIQk	Abdominal Ultrasound Normal Vs Abnormal Images | Liver, Gallbladder, Pancreas, Kidney, Hernia USG	2
+Ginekologiya	Kichik chanoq a’zolari anatomiyasi	sD-aFMQxT08	Gynecologic Radiology Anatomy	1
+Ginekologiya	Transvaginal tekshiruv	JoQtlTNrGZA	Bedside Transvaginal Ultrasound, Part 1	1
+Ginekologiya	Bachadon miomasi	veQhbLyqLyU	Ultrasound of Uterine Fibroids: Sonographic Appearance & Differential Diagnosis	1
+Ginekologiya	Endometriy poliplari	qdlb0bl2eOI	Ultrasound of Endometrial Polyps	1
+Ginekologiya	Tuxumdon kistalari	vSba7T95CXQ	Ultrasound of Common Adnexal Cysts	1
+Ginekologiya	O-RADS tasnifi	ji2I3Pv1R0g	O-Rads Ultrasound Applying Version 2022 in Daily Clinical Practice	1
+Ginekologiya	Erta homiladorlik asoratlari va ektopik homiladorlik	YC3-xfRxwYU	Ultrasound of Failed First Trimester Pregnancies and Ectopic Pregnancies	1
+Ginekologiya	Ektopik homiladorlik	R6rX5Qclgl8	"Ectopic Pregnancy" Ultrasound SonoWorld Lecture	1
+Urologiya	Buyrak: normal anatomiya	gcGHNdrgYW8	Ultrasound of the Normal Kidney	1
+Urologiya	Buyrak: tekshirish texnikasi	sxLmYjilCxM	Scanning Technique: Renal	1
+Urologiya	Buyrak: tekshirish texnikasi	8JjIbqp5kVI	Renal Ultrasound Protocol	2
+Urologiya	Gidronefroz	ULezXrne5n4	How to diagnose hydronephrosis with the help of ultrasound	1
+Urologiya	Buyrak: patologiya	LsK7ykAjHog	Renal Pathology	2
+Urologiya	Siydik pufagi	nPoCYs7uKC0	Scanning Technique: Bladder	1
+Urologiya	Qoldiq siydik hajmi	LEd7IzICClE	Ultrasound Estimated Post-Void Residual Bladder	1
+Urologiya	Prostata bezi	nhVo53WChSA	Key aspects of Prostate Ultrasound	1
+Urologiya	Yorg‘oq: tekshiruv	FbXwoxwS1Dw	Bedside Testicular Ultrasound	1
+Urologiya	Moyak buralishi	IQ5pUWIu6mI	Ultrasound of Testicular Torsion	1
+Neyrosonografiya	Kirish	c6A81JiJMSE	Introduction to neonatal cranial ultrasound	1
+Neyrosonografiya	Tekshirish texnikasi	vpmcgZ7lGFs	How to Perform a Neonatal Cranial USS	1
+Neyrosonografiya	Bosh va umurtqa: normal anatomiya	uyaaVrrBj0I	Ultrasound of the Neonatal Head and Spine | GE Healthcare	1
+Neyrosonografiya	Qorinchalarni o‘lchash	zG8ZZHEMLGA	ventricular measurements on neonatal head ultrasound	1
+Neyrosonografiya	Patologiyani tanish	0QdwB2Jr4_o	Paediatric Head/Brain ultrasound - 101 Pattern recognition	1
+Neyrosonografiya	Chala tug‘ilgan bola miyasi: PVL va IVH darajalari	im0gKSxURbg	Hypoxic ischemic encephalopathy in preterm neonatesl Periventricular leukomalacia l IVH grading l	1
+Neyrosonografiya	Qorinchalar ichiga qon quyilish (IVH)	6IV2OcpLUz4	IVH and the Preterm Brain	1
+Neyrosonografiya	Chaqaloq umurtqa pog‘onasi	JJFx_Se8kvc	Ultrasound of the Neonatal Spine	1
+Yurak exokardiografiyasi	Asosiy pozitsiyalar	fPPNqhd9DRk	Standard views for a basic echocardiogram	1
+Yurak exokardiografiyasi	Apikal to‘rt kamerali pozitsiya	_xXJgRVC0pU	Basic Cardiac Ultrasound Views 3: Apical 4 Chamber (A4C)	1
+Yurak exokardiografiyasi	Chap qorincha otish fraksiyasi	7qIoGhlrbVc	Echo Core Curriculum: A Practical Approach to Left Ventricular Ejection Fraction (LVEF) by Echo	1
+Yurak exokardiografiyasi	Mitral stenoz	xrHiJtoggUI	Mitral Stenosis. Echocardiographic Assessment	1
+Yurak exokardiografiyasi	Mitral regurgitatsiya	l8heXKDGcOA	Mitral Regurgitation: The New 2017 ASE Guidelines. Role of 2D/3D (WILLIAM A. ZOGHBI, MD)	1
+Yurak exokardiografiyasi	Aortal stenoz	hW9FYG60OUY	Echocardiographic Assessment of Aortic Stenosis	1
+Yurak exokardiografiyasi	Perikard suyuqligi va tamponada	LQGIWOlGW0E	Level 1 Video Lecture: Pericardial Effusions and Cardiac Tamponade	1
+Qalqonsimon bez	Normal anatomiya	qAyRTluQxU8	Anatomy Normal Thyroid Ultrasound Teaching Video Part 1	1
+Qalqonsimon bez	Tekshirish texnikasi	yGg7Ci88HrQ	Thyroid Ultrasound Probe Positioning | Transducer Placement, Scanning Technique USG	1
+Qalqonsimon bez	To‘liq kurs	bwuUR_Z8kb4	Thyroid Ultrasound Course	1
+Qalqonsimon bez	Tugunlar: ACR TI-RADS	sA8Sje-Amu0	ACR TIRADS Classification Of Thyroid Nodules Ultrasound | Thyroid Imaging Reporting and Data System	1
+Qalqonsimon bez	Diffuz kasalliklar	22qAYGU1Y0o	Ultrasound findings of diffuse thyroid diseases	1
+Qalqonsimon bez	Xashimoto tireoiditi	Q7KWVNuxHDU	Ultrasound of Hashimoto’s Thyroiditis	1
+Qalqonsimon bez	Graves kasalligi	L8nAxK3fSpU	Ultrasound Findings of Graves’ Disease	1
+Qalqonsimon bez	Qalqonsimon oldi bezlari	CENa72T47j0	Ultrasound Evaluation of the Parathyroid	1
+Qalqonsimon bez	Bo‘yin limfa tugunlari	g2_xvYaH7QI	Neck US - Lymph Nodes and Abscesses	1
+Ko‘krak bezi	Tekshirish texnikasi	Ooy4tdaxGg0	How to: Performing basic breast ultrasound	1
+Ko‘krak bezi	Texnika va keng uchraydigan patologiya	BA4K6lfcdAM	Breast Ultrasound scanning tips and common pathologies	1
+Ko‘krak bezi	BI-RADS tasnifi	3_7pAMUD588	Bi-Rads for Ultrasound	1
+Ko‘krak bezi	Qo‘ltiq osti limfa tugunlari	K3JX3u59UhY	Breast Cancer Axillary Ultrasound: Find involved nodes	1
+Homila skriningi	11–14 hafta: yoqa sohasi (NT)	yJs1OxjtPu8	Fetal Medicine Foundation - Nuchal translucency	1
+Homila skriningi	Homila biometriyasi	YCnH12uhPDU	Normal fetal ultrasound biometry	1
+Homila skriningi	20 hafta anomaliya skriningi	AltM6ycwADA	Scan of the Week: 20 Week Detailed Anomaly Scan	1
+Homila skriningi	Homila bosh miyasi	KKwAIzhnpCA	Fetal Brain Ultrasound Normal Vs Abnormal Image Appearances Comparison | Fetal Brain Pathologies USG	1
+Homila skriningi	Homila yuragi: to‘rt kamerali kesim	XTi_JtdnMJM	Key screening views of the fetal heart - Part 3 - 4-chamber view	1
+Homila skriningi	Homila yuragi: chiqish yo‘llari	MBXIHbNMIH4	TMT: FETAL IMAGING: OUTFLOW TRACTS by Dr Alpana Joshi	1
+Homila skriningi	Yo‘ldosh va kindik	s729yinUGbY	The Placenta and Umbilical Cord Ultrasound Video Lecture	1
+Qon tomir doppleri	Uyqu arteriyalari	kK-KIbFOzQw	Carotid Duplex Interpretations (Zsolt Garami, MD) January 18, 2022	1
+Qon tomir doppleri	Uyqu arteriyalari: normal va patologik spektr	BWQaxujCQOs	Normal & Abnormal Patterns of Carotid Doppler	1
+Qon tomir doppleri	Oyoq venalari: tromboz (DVT)	UN4SN43I_6A	Introduction to the Lower Extremity Venous Doppler Study	1
+Qon tomir doppleri	Oyoq venalari: bosqichma-bosqich tekshiruv	-i6o2uF0r8s	DVT Ultrasound of the Lower Extremities STEP by STEP	1
+Qon tomir doppleri	Oyoq arteriyalari	asGR_FOFljA	Lower Extremity Arterial Duplex Anatomy and Protocol	1
+Qon tomir doppleri	Buyrak arteriyalari	KD67TdZK70Q	Renal Artery Duplex Anatomy, Protocol and Pathology	1
+Qon tomir doppleri	Jigar tomirlari doppleri	mOrHMGMVSh4	Liver Doppler Ultrasound	1
+Transkranial doppler	Kirish	WP1xj15MjnM	An Introduction to Transcranial Doppler	1
+Transkranial doppler	Asoslar	dLuWKMY8cV8	Transcranial Doppler TCD Basics for the Perfusionist - Zsolt Garami, MD	1
+Transkranial doppler	Bosqichma-bosqich tekshiruv	M-X7PIuxHS0	the complete story [How to do transcranial doppler step by step approach]	1
+Transkranial doppler	Tekshirish texnikasi	b3NaWMh6tgQ	How to scan a Transcranial Doppler ultrasound exam | Neurosonography	1
+Transkranial doppler	Shoshilinch holatlarda (POCUS)	sWR9a3tBZVY	Transcranial Doppler Point of Care Ultrasound	1
+Transkranial doppler	O‘tkir ishemik insult (TCCD)	1pkokOa9arg	A very simple step by step approach to diagnose an acute ischemic stroke by TCCD	1
+Mushak, bo‘g‘im va nerv tizimi	Yelka: rotator manjet	BwSJCkTBN0c	Ultrasound Tutorial: MSK Series: Shoulder / Rotator Cuff | Radiology Nation	1
+Mushak, bo‘g‘im va nerv tizimi	Yelka: asosiy tekshiruv	TCpKWtJ9g9A	SHOULDER: Basic Ultrasound Examination Tutorial	1
+Mushak, bo‘g‘im va nerv tizimi	Tizza bo‘g‘imi	BkBcQBgUdWw	Ultrasound of the Knee	1
+Mushak, bo‘g‘im va nerv tizimi	Chaqaloq chanoq-son bo‘g‘imi (Graf)	_rakGya8Y3E	Baby Hip Ultrasound (Graf method) with Professor Dr. Reinhard Graf	1
+Mushak, bo‘g‘im va nerv tizimi	Axill payi	DY_RDyZBSL4	Ultrasound Tutorial: MSK Series: Achilles Tendon | Radiology Nation	1
+Mushak, bo‘g‘im va nerv tizimi	Karpal kanal sindromi	D91jcPrxIJw	Ultrasound of Carpal Tunnel Syndrome	1
+Mushak, bo‘g‘im va nerv tizimi	Qo‘l nervlari (o‘rta, tirsak, bilak)	7KNgLUA587w	How to Scan the Upper Extremity Peripheral Nerves (Ulnar Nerve, Median Nerve and Radial Nerves)	1

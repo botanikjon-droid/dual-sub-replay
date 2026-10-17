@@ -61,7 +61,7 @@ class UziCatalogTest {
     }
 
     @Test
-    fun shippedCatalogHasTheElevenSectionsInOrder() {
+    fun shippedCatalogHasTheBasicsFirstThenTheElevenExaminationsInOrder() {
         val text = File("src/main/assets/$UZI_CATALOG_ASSET").readText(Charsets.UTF_8)
         val rows = text.lines().count { it.isNotBlank() && !it.startsWith("#") } - 1
 
@@ -69,6 +69,7 @@ class UziCatalogTest {
 
         assertEquals(
             listOf(
+                "Ultratovush asoslari: fizika va apparat",
                 "Qorin bo‘shlig‘i a’zolari",
                 "Ginekologiya",
                 "Urologiya",
@@ -85,6 +86,81 @@ class UziCatalogTest {
         )
         assertEquals("every row is valid and unique", rows, sections.sumOf { it.videoCount })
         assertTrue(sections.all { section -> section.topics.isNotEmpty() })
+        val versions = parseUziCatalogRows(text)
+        assertEquals(rows, versions.size)
+        assertEquals(2, catalogVersion(versions))
+        // Version 1 is the 82 lectures checked on 2026-10-16; everything later says when it was added.
+        assertEquals(82, versions.count { it.added == 1 })
+    }
+
+    @Test
+    fun versionsAreReadFromTheFifthColumn() {
+        val rows =
+            parseUziCatalogRows(
+                listOf(
+                    "section\ttopic\tvideo_id\ttitle\tadded",
+                    "A\tT1\tveQhbLyqLyU\tone",
+                    "A\tT1\tqdlb0bl2eOI\ttwo\t2",
+                    "A\tT1\tgcGHNdrgYW8\tthree\tx",
+                ).joinToString("\n"),
+            )
+        assertEquals(listOf(1, 2, 1), rows.map { it.added })
+        assertEquals(2, catalogVersion(rows))
+        assertEquals(1, catalogVersion(emptyList()))
+    }
+
+    @Test
+    fun newLecturesJoinTheDoctorsCopyWithoutUndoingHisChanges() {
+        val builtIn =
+            parseUziCatalogRows(
+                listOf(
+                    "Asoslar\tFizika\tc6PQzbzJgUg\tphysics\t2",
+                    "A\tT1\tveQhbLyqLyU\tone\t1",
+                    "A\tT1\tqdlb0bl2eOI\ttwo\t1",
+                    "A\tT1\tx6hXhLNc-jU\tnew in T1\t2",
+                    "A\tT2\tgcGHNdrgYW8\tthree\t1",
+                    "B\tT3\tji2I3Pv1R0g\tfour\t1",
+                ).joinToString("\n"),
+            )
+        // He deleted "two", renamed nothing, moved B above A and added his own lecture.
+        val own =
+            listOf(
+                CatalogSection("B", listOf(CatalogTopic("T3", listOf(CatalogVideo("ji2I3Pv1R0g", "four"))))),
+                CatalogSection(
+                    "A",
+                    listOf(
+                        CatalogTopic("T1", listOf(CatalogVideo("veQhbLyqLyU", "one"), CatalogVideo("LsK7ykAjHog", "mine"))),
+                        CatalogTopic("T2", listOf(CatalogVideo("gcGHNdrgYW8", "three"))),
+                    ),
+                ),
+            )
+
+        val merged = mergeCatalogAdditions(own, builtIn, seenVersion = 1)
+
+        assertEquals(listOf("Asoslar", "B", "A"), merged.map { it.name })
+        assertEquals(
+            listOf("veQhbLyqLyU", "LsK7ykAjHog", "x6hXhLNc-jU"),
+            merged[2].topics[0].videos.map { it.videoId },
+        )
+        assertTrue(
+            "a deleted old lecture stays deleted",
+            merged.none { s ->
+                s.topics.any { t -> t.videos.any { it.videoId == "qdlb0bl2eOI" } }
+            },
+        )
+        // Nothing to do once his copy has version 2.
+        assertEquals(own, mergeCatalogAdditions(own, builtIn, seenVersion = 2))
+        // A newer lecture he already has elsewhere is not moved or repeated.
+        val has = addCatalogVideo(own, "B", "T3", CatalogVideo("x6hXhLNc-jU", "already"))
+        val again = mergeCatalogAdditions(has, builtIn, seenVersion = 1)
+        assertEquals(
+            listOf("ji2I3Pv1R0g", "x6hXhLNc-jU"),
+            again
+                .first { it.name == "B" }
+                .topics[0]
+                .videos
+                .map { it.videoId },
+        )
     }
 
     private val sample =

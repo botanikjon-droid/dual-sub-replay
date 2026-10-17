@@ -43,6 +43,59 @@ internal fun parseUziCatalog(text: String): List<CatalogSection> {
     return sections.map { (name, topics) -> CatalogSection(name, topics.map { (topic, videos) -> CatalogTopic(topic, videos) }) }
 }
 
+/** One built-in lecture and the catalog version that added it (the asset's fifth column; 1 when absent). */
+internal data class CatalogRow(
+    val section: String,
+    val topic: String,
+    val video: CatalogVideo,
+    val added: Int,
+)
+
+/** The asset's lectures with their versions, in file order, skipping what [parseUziCatalog] skips. */
+internal fun parseUziCatalogRows(text: String): List<CatalogRow> {
+    val seen = mutableSetOf<String>()
+    return text
+        .lineSequence()
+        .mapNotNull { line ->
+            if (line.isBlank() || line.startsWith("#")) return@mapNotNull null
+            val cells = line.split('\t').map(String::trim)
+            if (cells.size < CATALOG_FIELDS) return@mapNotNull null
+            val (section, topic, videoId, title) = cells
+            if (section.isEmpty() || topic.isEmpty() || !CATALOG_VIDEO_ID.matches(videoId) || !seen.add(videoId)) return@mapNotNull null
+            val added = cells.getOrNull(CATALOG_FIELDS)?.toIntOrNull()?.coerceAtLeast(1) ?: 1
+            CatalogRow(section, topic, CatalogVideo(videoId, title.ifEmpty { videoId }), added)
+        }.toList()
+}
+
+/** The newest version named in the asset; 1 for an asset without the version column. */
+internal fun catalogVersion(rows: List<CatalogRow>): Int = rows.maxOfOrNull { it.added } ?: 1
+
+/**
+ * Brings lectures added to the built-in catalog after [seenVersion] into the doctor's copy [own]. Lectures
+ * he already has stay where he put them; ones he deleted from an older version do not come back (they are
+ * not newer than [seenVersion]). A new section is placed where it is in the built-in catalog.
+ */
+internal fun mergeCatalogAdditions(
+    own: List<CatalogSection>,
+    rows: List<CatalogRow>,
+    seenVersion: Int,
+): List<CatalogSection> {
+    val present = own.flatMap { section -> section.topics.flatMap { topic -> topic.videos.map { it.videoId } } }.toSet()
+    val ownNames = own.map { it.name.lowercase() }.toSet()
+    var merged = own
+    rows.filter { it.added > seenVersion && it.video.videoId !in present }.forEach { row ->
+        merged = addCatalogVideo(merged, row.section, row.topic, row.video)
+    }
+    val builtInOrder = rows.map { it.section }.distinct()
+    builtInOrder.forEachIndexed { index, name ->
+        if (name.lowercase() in ownNames) return@forEachIndexed
+        val section = merged.firstOrNull { it.name.equals(name, ignoreCase = true) } ?: return@forEachIndexed
+        val rest = merged.filterNot { it === section }
+        merged = rest.toMutableList().apply { add(index.coerceAtMost(rest.size), section) }
+    }
+    return merged
+}
+
 /*
  * The doctor's own changes ("✏️ O‘zgartirish"): the whole catalog is kept as his copy in
  * filesDir/uzi-catalog.tsv in the asset's format; "Asl holiga qaytarish" deletes the copy.
