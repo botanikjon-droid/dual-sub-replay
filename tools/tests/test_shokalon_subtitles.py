@@ -164,6 +164,29 @@ class TranslationCheckTest(unittest.TestCase):
             self.assertEqual(["SHK_031004_V009_UZ-LATIN-V2.srt"], [target.name for _, target in matched])
             self.assertEqual(["SHK_031005_V010_UZ-LATIN.srt"], orphans)
 
+    def test_the_longest_glossary_term_wins_and_shorter_ones_inside_it_are_not_checked(self):
+        found = [term.english[0] for term in trcheck.source_terms(
+            "The common bile duct and the bile ducts; the interventricular septum; germinal matrix-intraventricular hemorrhage.",
+            self.glossary,
+        )]
+        self.assertEqual(
+            ["common bile duct", "bile duct", "interventricular septum", "germinal matrix-intraventricular hemorrhage"], found
+        )
+        source = GOOD.replace("The portal vein lies here.", "The common bile duct lies here.")
+        target = UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "Umumiy o‘t yo‘li shu yerda.")
+        self.assertEqual([], self.check(source, target).warnings)
+        wrong = self.check(source.replace("common bile duct", "bile duct"), target.replace("Umumiy o‘t yo‘li", "Xoledox"))
+        self.assertIn("lug‘at atamasi “o‘t yo‘li” yo‘q (bile duct)", " ".join(wrong.warnings))
+
+    def test_the_doctors_fixes_reach_the_checker(self):
+        uzbek = {term.english[0]: term.uzbek for term in self.glossary}
+        self.assertEqual("appenditsit", uzbek["appendicitis"])
+        self.assertEqual("appendiks", uzbek["appendix"])
+        self.assertEqual("limfadenopatiya", uzbek["lymphadenopathy"])
+        self.assertEqual("exogenlik", uzbek["echogenicity"])
+        self.assertEqual("yaxshi sifatli o‘sma", uzbek["benign tumor"])
+        self.assertEqual("fazoviy ajrata olish qobiliyati", uzbek["spatial resolution"])
+
     def test_the_shipped_glossary_skips_general_words(self):
         english = {term.english[0] for term in self.glossary}
         self.assertIn("portal vein", english)

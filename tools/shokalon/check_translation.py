@@ -49,18 +49,43 @@ class GlossaryTerm:
     english: list[str]
     uzbek: str
 
-    def in_source(self, text: str) -> bool:
+    def spans(self, text: str) -> list[tuple[int, int]]:
+        """Where a form of the term stands in [text]; spaces and hyphens between words are interchangeable."""
+        found = []
         for term in self.english:
             flags = 0 if term.isupper() else re.IGNORECASE
-            if re.search(rf"(?<![A-Za-z]){re.escape(term)}(?:s|es)?(?![A-Za-z])", text, flags):
-                return True
-        return False
+            words = r"[\s-]+".join(re.escape(word) for word in re.split(r"[\s-]+", term))
+            found += [match.span() for match in re.finditer(rf"(?<![A-Za-z]){words}(?:s|es)?(?![A-Za-z])", text, flags)]
+        return found
+
+    def in_source(self, text: str) -> bool:
+        return bool(self.spans(text))
 
     def in_translation(self, text: str) -> bool:
         lowered = text.lower()
         words = [word for word in re.split(r"[\s/,-]+", self.uzbek.lower()) if len(word) > 2]
         # Uzbek adds suffixes: a word counts as present when its stem (word minus up to 3 letters) is there.
         return all(word[: max(4, len(word) - 3)] in lowered for word in words) if words else True
+
+
+def source_terms(text: str, glossary: list[GlossaryTerm]) -> list[GlossaryTerm]:
+    """Glossary terms of [text], longest first and never overlapping, as the app matches them: "common bile duct" is
+    not also checked as "bile duct", nor "interventricular septum" as "septum"."""
+    candidates = sorted(
+        ((start, end, term) for term in glossary for start, end in term.spans(text)),
+        key=lambda item: (-(item[1] - item[0]), item[0]),
+    )
+    taken: list[tuple[int, int]] = []
+    chosen = []
+    for start, end, term in candidates:
+        if all(end <= other_start or start >= other_end for other_start, other_end in taken):
+            taken.append((start, end))
+            chosen.append((start, term))
+    unique = []
+    for _, term in sorted(chosen, key=lambda item: item[0]):
+        if term not in unique:
+            unique.append(term)
+    return unique
 
 
 def read_glossary(path: Path = GLOSSARY) -> list[GlossaryTerm]:
@@ -109,8 +134,8 @@ def check_cues(source: list[Cue], target: list[Cue], glossary: list[GlossaryTerm
         leftover = sorted({word for word in re.findall(r"[A-Za-z]+", uz.text) if word.lower() in ENGLISH})
         if leftover:
             report.warnings.append(f"{where}: inglizcha so‘z qolgan: {', '.join(leftover)}")
-        for term in glossary:
-            if term.in_source(src.text) and not term.in_translation(uz.text):
+        for term in source_terms(src.text, glossary):
+            if not term.in_translation(uz.text):
                 report.warnings.append(f"{where}: lug‘at atamasi “{term.uzbek}” yo‘q ({term.english[0]})")
         wrong = WRONG_OKINA.findall(uz.text)
         if wrong:

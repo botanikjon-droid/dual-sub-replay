@@ -19,18 +19,18 @@ class UziGlossaryTest {
     @Test
     fun assetHoldsEveryReviewedTerm() {
         assertEquals(emptyList<String>(), parsed.errors)
-        assertEquals(244, parsed.entries.size)
-        assertEquals(171, parsed.entries.count { it.status == GlossaryStatus.APPROVED })
-        assertEquals(56, parsed.entries.count { it.status == GlossaryStatus.CORRECTED })
-        assertEquals(17, parsed.entries.count { it.status == GlossaryStatus.NEW })
+        assertEquals(268, parsed.entries.size)
+        assertEquals(168, parsed.entries.count { it.status == GlossaryStatus.APPROVED })
+        assertEquals(59, parsed.entries.count { it.status == GlossaryStatus.CORRECTED })
+        assertEquals(41, parsed.entries.count { it.status == GlossaryStatus.NEW })
         assertEquals(20, parsed.entries.count { it.general })
-        assertEquals((1..244).toList(), parsed.entries.map { it.id })
+        assertEquals((1..268).toList(), parsed.entries.map { it.id })
         assertTrue(parsed.entries.all { it.uzbek.isNotBlank() })
     }
 
     @Test
     fun correctedRowsUseTheDoctorsValues() {
-        assertEquals("echogenlik", entry("echogenicity").uzbek)
+        assertEquals("exogenlik", entry("echogenicity").uzbek)
         assertEquals("rezistivlik indeksi (RI)", entry("resistive index").uzbek)
         assertEquals("(PSV − EDV) / PSV.", entry("resistive index").note)
         assertEquals("vaqt bo‘yicha kuchaytirishni kompensatsiya qilish (TGC)", entry("time gain compensation").uzbek)
@@ -79,7 +79,7 @@ class UziGlossaryTest {
     @Test
     fun echogenicityTermsAreDifferent() {
         val uzbek = listOf("echogenicity", "hypoechoic", "hyperechoic", "anechoic", "isoechoic").map { glossary.lookup(it)?.uzbek }
-        assertEquals(listOf("echogenlik", "gipoexogen", "giperexogen", "anexogen", "izoexogen"), uzbek)
+        assertEquals(listOf("exogenlik", "gipoexogen", "giperexogen", "anexogen", "izoexogen"), uzbek)
         assertEquals(listOf("echogenic focus"), terms("A small echogenic focus is seen."))
     }
 
@@ -156,6 +156,129 @@ class UziGlossaryTest {
         assertTrue(glossaryApplies(null, "uz"))
         assertFalse(glossaryApplies("en", "vi"))
         assertFalse(glossaryApplies("ru", "uz"))
+    }
+}
+
+/** The 12 doubtful entries fixed on 2026-10-18 (docs/glossary/review-2026-10-10.md) and the terms around them. */
+class UziGlossaryDoctorFixesTest {
+    private val glossary = UziGlossary(parseUziGlossary(File("src/main/assets/$UZI_GLOSSARY_ASSET").readText()).entries)
+
+    private fun uzbek(phrase: String) = glossary.lookup(phrase)?.uzbek
+
+    private fun terms(text: String) = glossary.findTerms(text).map { it.entry.english }
+
+    @Test
+    fun theEighteenCasesUseTheDoctorsTerms() {
+        val cases =
+            listOf(
+                "liver parenchyma" to "jigar parenximasi",
+                "brain parenchyma" to "miya parenximasi",
+                "bile duct" to "o‘t yo‘li",
+                "common bile duct" to "umumiy o‘t yo‘li (xoledox)",
+                "lymphadenopathy" to "limfadenopatiya",
+                "lymph node" to "limfa tuguni",
+                "appendicitis" to "appenditsit",
+                "appendix" to "appendiks (chuvalchangsimon o‘simta)",
+                "complex mass" to "murakkab tuzilishli hosila",
+                "complex cyst" to "murakkab tuzilishli kista",
+                "germinal matrix hemorrhage" to "germinal matriksga qon quyilishi",
+                "anterior fontanelle" to "oldingi liqildoq",
+                "posterior fontanelle" to "orqa liqildoq",
+                "interventricular septum" to "qorinchalararo to‘siq",
+                "interatrial septum" to "bo‘lmachalararo to‘siq",
+                "echogenicity" to "exogenlik",
+                "spatial resolution" to "fazoviy ajrata olish qobiliyati (fazoviy rezolyutsiya)",
+                "benign tumor" to "yaxshi sifatli o‘sma",
+            )
+        cases.forEach { (english, expected) -> assertEquals(english, expected, uzbek(english)) }
+        assertEquals("appendiks", uzbekPrimaryTerm(uzbek("appendix")!!))
+        assertEquals("fazoviy ajrata olish qobiliyati", uzbekPrimaryTerm(uzbek("spatial resolution")!!))
+    }
+
+    @Test
+    fun theGeneralTermNeverOverridesTheSpecificOne() {
+        assertEquals(
+            listOf("liver parenchyma", "brain parenchyma", "parenchyma"),
+            terms("The liver parenchyma, the brain parenchyma and the parenchyma."),
+        )
+        assertEquals("qalqonsimon bez parenximasi", uzbek("thyroid parenchyma"))
+        assertEquals(
+            listOf("common bile duct", "bile duct", "intrahepatic bile duct", "extrahepatic bile duct"),
+            terms("The CBD and the bile ducts; intrahepatic bile ducts and extrahepatic bile ducts."),
+        )
+        assertEquals("umumiy o‘t yo‘li (xoledox)", uzbek("CBD"))
+        assertEquals("jigardagi o‘t yo‘llari", uzbek("intrahepatic bile ducts"))
+        assertEquals("jigardan tashqari o‘t yo‘llari", uzbek("extrahepatic bile duct"))
+        assertEquals(
+            listOf("interventricular septum", "interatrial septum", "septum"),
+            terms("Interventricular septum, interatrial septum, septum."),
+        )
+        assertEquals(
+            listOf("anterior fontanelle", "posterior fontanelle", "fontanelle"),
+            terms("anterior fontanel, posterior fontanelle, fontanelle"),
+        )
+        assertEquals("liqildoq", uzbek("fontanelle"))
+        assertEquals(listOf("echogenic focus", "echogenic"), terms("An echogenic focus in an echogenic kidney."))
+        assertEquals("exogen", uzbek("echogenic"))
+        assertEquals("giperexogen", uzbek("hyperechoic"))
+        assertEquals(listOf("high frequency", "spatial resolution"), terms("A high frequency improves spatial resolution."))
+        assertEquals("chastota", uzbek("frequency"))
+        assertEquals("yuqori chastota", uzbek("high frequency"))
+    }
+
+    @Test
+    fun diseasesAndStructuresStayApart() {
+        assertEquals(
+            listOf("lymph node", "lymphadenopathy", "enlarged lymph node"),
+            terms("Lymph nodes: lymphadenopathy with enlarged lymph nodes."),
+        )
+        assertEquals("kattalashgan limfa tuguni", uzbek("enlarged lymph nodes"))
+        assertEquals(
+            listOf("appendix", "acute appendicitis", "appendicitis"),
+            terms("The appendix shows acute appendicitis; appendicitis."),
+        )
+        assertEquals("o‘tkir appenditsit", uzbek("acute appendicitis"))
+        // "mass" alone is a common word (J=Ha), so it is not listed.
+        assertEquals(listOf("complex cyst", "complex mass", "cystic mass"), terms("A complex cyst, a complex mass, a cystic mass, a mass."))
+        assertEquals("kistasimon hosila", uzbek("cystic mass"))
+        assertEquals("kista ichidagi to‘siq (septa)", uzbek("cyst septations"))
+    }
+
+    @Test
+    fun germinalMatrixHemorrhageKeepsEveryPart() {
+        assertEquals("germinal matriks", uzbek("germinal matrix"))
+        assertEquals("qon quyilishi", uzbek("hemorrhage"))
+        assertEquals("germinal matriksga qon quyilishi", uzbek("germinal matrix haemorrhage"))
+        val full = "germinal matriks va qorinchalar ichiga qon quyilishi (GM-IVH)"
+        assertEquals(full, uzbek("germinal matrix-intraventricular hemorrhage"))
+        assertEquals(full, uzbek("germinal matrix intraventricular hemorrhage"))
+        assertEquals("qorinchalar ichiga qon quyilishi (IVH)", uzbek("intraventricular hemorrhage"))
+        assertEquals("gemorragik kista", uzbek("hemorrhagic cyst"))
+    }
+
+    @Test
+    fun benignAndMalignantUseYaxshiAndYomonSifatli() {
+        assertEquals("yaxshi sifatli", uzbek("benign"))
+        assertEquals("yomon sifatli", uzbek("malignant"))
+        assertEquals("yomon sifatli o‘sma", uzbek("malignant tumour"))
+        assertEquals("o‘sma", uzbek("tumor"))
+        assertFalse(glossary.entries.any { "xavfsiz" in it.uzbek || "xavfsiz" in it.note })
+    }
+
+    @Test
+    fun theExoSpellingIsUsedEverywhere() {
+        val echo = Regex("\\becho", RegexOption.IGNORE_CASE)
+        assertEquals(emptyList<String>(), glossary.entries.filter { echo.containsMatchIn(it.uzbek + " " + it.note) }.map { it.english })
+        assertEquals("exogen o‘choq", uzbek("echogenic focus"))
+        assertEquals("periventrikulyar exogenlik", uzbek("periventricular echogenicity"))
+        assertEquals("exotuzilma", uzbek("echotexture"))
+    }
+
+    @Test
+    fun everyEnglishFormBelongsToOneEntry() {
+        val owners = glossary.entries.flatMap { entry -> entry.forms.map { it.lowercase().replace('-', ' ') to entry.english } }
+        val shared = owners.groupBy({ it.first }, { it.second }).filterValues { it.toSet().size > 1 }
+        assertEquals(emptyMap<String, List<String>>(), shared)
     }
 }
 

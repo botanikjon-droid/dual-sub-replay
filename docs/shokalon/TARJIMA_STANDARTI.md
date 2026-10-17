@@ -52,7 +52,7 @@ Ko‘nikmadagi `asl nom + _uz` nomlash SHOKALON fayllariga qo‘llanmaydi: bu ye
 
 Ustuvorlik tartibi:
 
-1. **Ilovadagi lug‘at** `app/src/main/assets/uzi_glossary.tsv`: 244 ta atama, shifokor tekshirgan (`approved`,
+1. **Ilovadagi lug‘at** `app/src/main/assets/uzi_glossary.tsv`: 268 ta atama, shifokor tekshirgan (`approved`,
    `corrected`, `new`). Majburiy. Inglizcha atama va uning sinonimlari (`aliases`) uchrasa, o‘zbekcha atama ishlatiladi.
    Qavs ichidagi qism (masalan, “datchik (zond)” dagi “zond”) birinchi uchraganda yozilishi mumkin, keyin asosiy shakl.
    `general = 1` belgili 20 ta umumiy so‘z (liver, kidney …) oddiy so‘z sifatida tarjima qilinadi.
@@ -64,8 +64,20 @@ Grammatik qo‘shimchalar gapga moslashtiriladi (“datchikni”, “o‘t pufag
 
 Ko‘nikmadagi 24 ta atamaning 9 tasi lug‘atda bor edi; qolgan 16 tasi shifokor qarori bilan 2026-10-18 da lug‘atga
 “Yangi” holatida qo‘shildi (229–244-yozuvlar). calcification — “kalsifikat” (ko‘nikmadagi “kalsinat / kalsifikatsiya”
-o‘rniga). Lug‘atning 12 ta shubhali yozuvi (`docs/glossary/review-2026-10-10.md`) shifokorga yuborildi; qaror
-kelguncha hozirgi shakl ishlatiladi.
+o‘rniga). Lug‘atning 12 ta shubhali yozuvi (`docs/glossary/review-2026-10-10.md`) shifokor qarori bilan 2026-10-18 da
+tuzatildi va 24 ta bog‘liq atama qo‘shildi (245–268-yozuvlar). Qoidalar:
+
+- Umumiy atama aniqroq atamani bosib ketmaydi: “bile duct” — o‘t yo‘li, “common bile duct” — umumiy o‘t yo‘li
+  (xoledox); “septum” — to‘siq, “interventricular septum” — qorinchalararo to‘siq. Ilova ham, tekshiruvchi ham eng uzun
+  atamani oladi.
+- Kasallik anatomik tuzilmaga aylanmaydi va aksincha: appendix — appendiks, appendicitis — appenditsit; lymph node —
+  limfa tuguni, lymphadenopathy — limfadenopatiya.
+- Manbada yo‘q joylashuv yoki belgi qo‘shilmaydi: “fontanelle” — liqildoq (“oldingi”, “katta” emas); “parenchyma” —
+  parenxima (“miya” emas).
+- Yozuv **exo-** asosida: anexogen, gipoexogen, izoexogen, giperexogen, exogen, exogenlik, exogen o‘choq, exotuzilma.
+  “echogenic” — exogen (har doim giperexogen emas).
+- benign — yaxshi sifatli, malignant — yomon sifatli (“xavfsiz / xavfli” emas).
+- frequency — chastota; resolution — ajrata olish qobiliyati. Bu ikki tushuncha aralashtirilmaydi.
 
 ## 5. YouTube avtomatik subtitrlari (ASR-EN)
 
@@ -118,4 +130,4 @@ to‘g‘rilikni isbotlamaydi: yakuniy tibbiy tekshiruvni shifokor qiladi.
 | calcification | “kalsifikat” |
 | Santimetr belgisi | “cm” |
 | Ko‘nikmadagi ⏳ atamalar | Lug‘atga qo‘shildi (16 ta yangi, 9 tasi oldin bor edi) |
-| Lug‘atning 12 ta shubhali yozuvi | Shifokorga yuborildi, javob kutilmoqda; vaqtincha hozirgi shakl |
+| Lug‘atning 12 ta shubhali yozuvi | Tuzatildi, 24 ta bog‘liq atama qo‘shildi (4-bo‘lim) |
