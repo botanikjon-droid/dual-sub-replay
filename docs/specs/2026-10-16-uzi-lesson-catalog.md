@@ -85,3 +85,26 @@ on the runner, so playability in Uzbekistan and caption tracks were not verified
    (#IMPOCUS), two artifact overviews (POCUS Geek; Dr Sanjeev Mani), transducers segment #6 (jchanmeister).
 3. Final catalog: 135 lectures in 12 sections, every ID unique. Captions and playability in Uzbekistan were not
    checkable (YouTube asked the runner to sign in).
+
+## Version 3 (2026-10-17): the whole SHOKALON catalog in the app
+
+Owner (2026-10-17): continue the project without waiting for confirmation; the lessons belong in the app,
+ordered by section. The app catalog now holds every working lecture of `docs/shokalon/02_VIDEO_CATALOG/SHOKALON_katalog_v12.xlsx`
+(481 lectures; the 3 marked "Ishlamaydi" are left out): 478 rows, 343 of them new (`added` = 3).
+
+- Rows of versions 1–2 keep their section, topic and order.
+- A new lecture whose curriculum code already has an app topic goes into that topic. Otherwise it goes to the
+  section of its chapter, under a topic named after the curriculum sub-topic.
+- Six new sections:
+  - "Tekshiruv metodikasi va xulosa yozish" (chapters 7–9)
+  - "Pediatrik ultratovush" (chapter 27, except neurosonography and the infant hip)
+  - "Yuzaki tuzilmalar" (chapter 24)
+  - "Shoshilinch UZI va POCUS" (chapter 29)
+  - "Elastografiya, kontrastli UZI va intervension UZI" (chapters 30–32)
+  - "Sifat nazorati va kasbiy rivojlanish" (chapter 33)
+- Chapter 14 (kidneys) goes to "Urologiya" and chapters 18–21 go to "Homila skriningi", as the app already did.
+- A doctor's edited copy receives the 343 new lectures through `mergeCatalogAdditions`. New sections take their
+  built-in position; his own order and deletions stay.
+- Every link was checked on a runner (oEmbed 200) when it entered the SHOKALON catalog. English captions and
+  playability in Uzbekistan were not verified.
+- Generator: the xlsx → TSV step is a one-off script, not kept in the repository. The catalog is the source.

@@ -61,7 +61,7 @@ class UziCatalogTest {
     }
 
     @Test
-    fun shippedCatalogHasTheBasicsFirstThenTheElevenExaminationsInOrder() {
+    fun shippedCatalogHasTheEighteenSectionsInOrder() {
         val text = File("src/main/assets/$UZI_CATALOG_ASSET").readText(Charsets.UTF_8)
         val rows = text.lines().count { it.isNotBlank() && !it.startsWith("#") } - 1
 
@@ -70,17 +70,23 @@ class UziCatalogTest {
         assertEquals(
             listOf(
                 "Ultratovush asoslari: fizika va apparat",
+                "Tekshiruv metodikasi va xulosa yozish",
                 "Qorin bo‘shlig‘i a’zolari",
                 "Ginekologiya",
                 "Urologiya",
                 "Neyrosonografiya",
+                "Pediatrik ultratovush",
                 "Yurak exokardiografiyasi",
                 "Qalqonsimon bez",
                 "Ko‘krak bezi",
+                "Yuzaki tuzilmalar",
                 "Homila skriningi",
                 "Qon tomir doppleri",
                 "Transkranial doppler",
                 "Mushak, bo‘g‘im va nerv tizimi",
+                "Shoshilinch UZI va POCUS",
+                "Elastografiya, kontrastli UZI va intervension UZI",
+                "Sifat nazorati va kasbiy rivojlanish",
             ),
             sections.map { it.name },
         )
@@ -88,9 +94,12 @@ class UziCatalogTest {
         assertTrue(sections.all { section -> section.topics.isNotEmpty() })
         val versions = parseUziCatalogRows(text)
         assertEquals(rows, versions.size)
-        assertEquals(2, catalogVersion(versions))
-        // Version 1 is the 82 lectures checked on 2026-10-16; everything later says when it was added.
+        assertEquals(3, catalogVersion(versions))
+        // Version 1 is the 82 lectures checked on 2026-10-16, version 2 the 53 of the basics section,
+        // version 3 the rest of the SHOKALON catalog (v12, 2026-10-17).
         assertEquals(82, versions.count { it.added == 1 })
+        assertEquals(53, versions.count { it.added == 2 })
+        assertEquals(343, versions.count { it.added == 3 })
     }
 
     @Test
