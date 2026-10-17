@@ -4,7 +4,7 @@ Bu papka SHOKALON loyihasining ilovadan tashqari materiallarini saqlaydi. Tuzilm
 
 | Papka | Mazmuni | Holat |
 | --- | --- | --- |
-| `02_VIDEO_CATALOG/SHOKALON_katalog_v3.xlsx` | 33 bob, 253 kichik mavzu (`BB.CC.TT` kodlari), 165 video (`V001…`), qamrov, audit, rad etilgan havolalar | 2026-10-17 |
+| `02_VIDEO_CATALOG/SHOKALON_katalog_v4.xlsx` | 33 bob, 253 kichik mavzu (`BB.CC.TT` kodlari), 192 video (`V001…`), qidiruv navbati (inglizcha kalit so‘zlar), qamrov, audit, rad etilgan havolalar | 2026-10-17 |
 | `03_SUBTITLES_ORIGINAL/` … `10_RELEASES/` | Keyingi bosqichlar | Hali boshlanmagan |
 
 - Ilovadagi mundarija (`app/src/main/assets/uzi_catalog.tsv`) — katalogning ilovadagi ko‘rinishi. Ilovadagi har bir dars
