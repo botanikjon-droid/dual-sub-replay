@@ -156,7 +156,7 @@ jobs:
           # Recreated each time so the tag follows the newest build; the download link stays the same.
           gh release delete uz-latest --cleanup-tag --yes 2>/dev/null || true
           gh release create uz-latest DualSub-Replay-uz.apk \
-            --prerelease --title "DualSub UZ (latest)" --notes "$notes" --target "$GITHUB_SHA"
+            --prerelease --title "SHOKALON (latest)" --notes "$notes" --target "$GITHUB_SHA"
 
       - name: Build optimized release APK with test signing
         run: |

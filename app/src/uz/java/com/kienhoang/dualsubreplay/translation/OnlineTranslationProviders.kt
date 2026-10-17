@@ -157,6 +157,33 @@ internal class GeminiBatchTranslator(
     }
 }
 
+/**
+ * DeepL with the user's own key (settings), one sentence per request like Google Translate. Errors
+ * carry their HTTP status, so the translator can rest DeepL longer after a wrong key or used-up quota.
+ */
+internal class DeepLTranslator(
+    private val apiKey: () -> String,
+) {
+    @Throws(IOException::class)
+    fun translate(
+        source: String,
+        target: String,
+        text: String,
+    ): String {
+        val key = apiKey().trim()
+        if (key.isEmpty()) throw IOException("DeepL API kaliti kiritilmagan.")
+        val body =
+            request(
+                deeplEndpoint(key),
+                deeplRequestBody(source, target, listOf(text)),
+                contentType = JSON_CONTENT_TYPE,
+                headers = mapOf("Authorization" to "DeepL-Auth-Key $key"),
+                errorMessage = ::deeplErrorMessage,
+            )
+        return parseDeepLTranslations(body, 1).single()
+    }
+}
+
 /** An HTTP error status, kept as an IOException so callers that only know IOException still work. */
 internal class HttpStatusException(
     val code: Int,
@@ -187,6 +214,9 @@ private fun request(
     contentType: String = FORM_CONTENT_TYPE,
     headers: Map<String, String> = emptyMap(),
     readTimeoutMs: Int = READ_TIMEOUT_MS,
+    errorMessage: (code: Int, body: String) -> String = { code, text ->
+        "HTTP $code${apiErrorMessage(text)?.let { " - $it" }.orEmpty()}"
+    },
 ): String {
     val connection = URL(url).openConnection() as HttpURLConnection
     try {
@@ -205,7 +235,7 @@ private fun request(
         val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
         if (code !in 200..299) {
             // Google Cloud explains rejected keys and quotas in its JSON error body.
-            throw HttpStatusException(code, "HTTP $code${apiErrorMessage(text)?.let { " - $it" }.orEmpty()}")
+            throw HttpStatusException(code, errorMessage(code, text))
         }
         return text
     } finally {

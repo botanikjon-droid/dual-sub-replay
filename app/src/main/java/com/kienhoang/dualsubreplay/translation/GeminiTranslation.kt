@@ -19,7 +19,8 @@ import java.io.IOException
 
 internal const val TRANSLATION_PROVIDER_GOOGLE = "google"
 internal const val TRANSLATION_PROVIDER_GEMINI = "gemini"
-internal val TRANSLATION_PROVIDERS = listOf(TRANSLATION_PROVIDER_GOOGLE, TRANSLATION_PROVIDER_GEMINI)
+internal const val TRANSLATION_PROVIDER_DEEPL = "deepl"
+internal val TRANSLATION_PROVIDERS = listOf(TRANSLATION_PROVIDER_GOOGLE, TRANSLATION_PROVIDER_GEMINI, TRANSLATION_PROVIDER_DEEPL)
 
 internal const val GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 

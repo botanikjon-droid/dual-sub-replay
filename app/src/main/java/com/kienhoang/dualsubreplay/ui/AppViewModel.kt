@@ -19,6 +19,13 @@ import com.kienhoang.dualsubreplay.data.immersionLanguage
 import com.kienhoang.dualsubreplay.data.initialDailyGoalPromptCompleted
 import com.kienhoang.dualsubreplay.data.storedDailyGoalMinutes
 import com.kienhoang.dualsubreplay.data.LearningWordSelection
+import com.kienhoang.dualsubreplay.data.LessonLibraryStore
+import com.kienhoang.dualsubreplay.data.LessonNotes
+import com.kienhoang.dualsubreplay.data.LessonRecord
+import com.kienhoang.dualsubreplay.data.NoteFrame
+import com.kienhoang.dualsubreplay.data.addManualFrame
+import com.kienhoang.dualsubreplay.data.formatVideoTime
+import com.kienhoang.dualsubreplay.data.withFrameImage
 import com.kienhoang.dualsubreplay.data.RawCaptionCue
 import com.kienhoang.dualsubreplay.data.RecentCaptionTracks
 import com.kienhoang.dualsubreplay.data.SavedWord
@@ -41,6 +48,7 @@ import com.kienhoang.dualsubreplay.data.retireLegacyDownloadJobs
 import com.kienhoang.dualsubreplay.data.savedWordFrom
 import com.kienhoang.dualsubreplay.data.subtitleFileName
 import com.kienhoang.dualsubreplay.dubbing.DubbingController
+import com.kienhoang.dualsubreplay.dubbing.LessonVoicePrefetch
 import com.kienhoang.dualsubreplay.dubbing.createDubbingVoice
 import com.kienhoang.dualsubreplay.translation.OnDeviceTranslator
 import com.kienhoang.dualsubreplay.translation.TranslationLanguages
@@ -194,6 +202,8 @@ internal fun activeWordIndex(
 
 internal const val YOUTUBE_HOME_URL = "https://m.youtube.com/"
 private const val NO_VIDEO_MESSAGE = "Avval dars videosini oching."
+private const val MS_PER_SECOND = 1_000L
+private const val JPEG_QUALITY = 88
 private const val MAX_IMPORTED_TRANSLATION_BYTES = 8L * 1024 * 1024
 private const val LAST_SHARED_VIDEO_PREFERENCE = "last_translation_share_video"
 
@@ -287,7 +297,8 @@ class AppViewModel internal constructor(
         )
 
     // Speaks translated sentences in the "uz" build; idle where no voice exists.
-    private val dubbing = DubbingController(viewModelScope, createDubbingVoice(application))
+    private val dubbingVoice = createDubbingVoice(application)
+    private val dubbing = DubbingController(viewModelScope, dubbingVoice)
     internal val vocabulary = VocabularyRepository.get(application)
     internal val immersion = ImmersionRepository.get(application)
 
@@ -296,7 +307,181 @@ class AppViewModel internal constructor(
         JapaneseMorphology.useStore(JapaneseDictionaryStore(File(application.filesDir, "japanese-dictionary")))
         // The UZI glossary (small asset) for term hints when English captions are shown in Uzbek.
         com.kienhoang.dualsubreplay.data.UziGlossaryStore.load(application, viewModelScope)
+        // Terms Claude suggested and the doctor approved, kept across lessons.
+        viewModelScope.launch { com.kienhoang.dualsubreplay.data.LearnedGlossaryStore.load(application) }
+        // The list of translated lessons and their notes.
+        viewModelScope.launch { LessonLibraryStore.load(application) }
+        // Speaking a translated lesson in advance uses the same voice as playback.
+        LessonVoicePrefetch.voice = dubbingVoice
+        LessonVoicePrefetch.currentLessonTexts = { importedLines(_state.value.activeVideoId).orEmpty() }
+        VideoFrameSource.onCaptureNow = ::captureCurrentFrame
     }
+
+    /** "Claude bilan tarjima": translates the open lesson with the doctor's own Claude API key. */
+    private val claude =
+        ClaudeLessonCoordinator(
+            scope = viewModelScope,
+            segmentsFor = { videoId -> lessonSegments(videoId).second },
+            importSrt = { text, videoId, source -> importTranslation(text, videoId, source) },
+            notify = { Toast.makeText(getApplication(), it, Toast.LENGTH_LONG).show() },
+        )
+    internal val claudeRun: StateFlow<ClaudeRunState> get() = claude.state
+
+    fun translateLessonWithClaude() {
+        val videoId = _state.value.activeVideoId ?: return
+        claude.start(videoId, LessonEngine.CLAUDE)
+    }
+
+    /** The whole open lesson in one Gemini request (the free tier counts requests, not sentences). */
+    fun translateLessonWithGemini() {
+        val videoId = _state.value.activeVideoId ?: return
+        claude.start(videoId, LessonEngine.GEMINI)
+    }
+
+    /** The whole open lesson with DeepL, 50 sentences per request, stored like the other engines' translations. */
+    fun translateLessonWithDeepL() {
+        val videoId = _state.value.activeVideoId ?: return
+        claude.start(videoId, LessonEngine.DEEPL)
+    }
+
+    fun cancelClaudeTranslation() = claude.cancel()
+
+    /** "Konspekt va test": the open lesson's summary and quiz, stored per video. */
+    private val lessonNotes =
+        LessonNotesCoordinator(
+            scope = viewModelScope,
+            inputFor = { videoId ->
+                val (title, segments) = lessonSegments(videoId)
+                val uzbek = importedLines(videoId)
+                LessonNotesInput(title, segments.map { it.originalText }, uzbek, segments.map { (it.startMs / MS_PER_SECOND).toInt() })
+            },
+            load = LessonLibraryStore::notes,
+            save = LessonLibraryStore::saveNotes,
+        )
+    internal val lessonNotesState: StateFlow<LessonNotesState> get() = lessonNotes.state
+
+    fun showLessonNotes() = lessonNotes.show(_state.value.activeVideoId)
+
+    internal fun writeLessonNotes(engine: LessonEngine) {
+        val videoId = _state.value.activeVideoId ?: return
+        lessonNotes.start(videoId, engine)
+    }
+
+    fun cancelLessonNotes() = lessonNotes.cancel()
+
+    private var frameJob: Job? = null
+
+    /** Takes every planned picture of the open lesson's notes from the video, one after another. */
+    fun captureNoteFrames() {
+        val videoId = _state.value.activeVideoId ?: return
+        if (frameJob?.isActive == true) return
+        frameJob =
+            viewModelScope.launch {
+                val notes = LessonLibraryStore.notes(videoId)
+                val todo = notes?.frames.orEmpty().filter { it.image.isEmpty() }
+                if (notes == null || todo.isEmpty()) {
+                    toast(if (notes == null) "Avval konspekt yozing." else "Barcha rasmlar olingan.")
+                    return@launch
+                }
+                toast("Rasmlar olinmoqda: video ${todo.size} ta joyga o\u2018tib to\u2018xtaydi.")
+                var current: LessonNotes = notes
+                var taken = 0
+                for (frame in todo) {
+                    if (_state.value.activeVideoId != videoId) break
+                    val (next, stop) = takeFrame(videoId, frame.seconds.toFloat()) { name -> current.withFrameImage(frame.seconds, name) }
+                    if (next != null) {
+                        current = next
+                        taken++
+                    }
+                    if (stop) break
+                }
+                toast("Rasmli konspekt: ${todo.size} tadan $taken ta kadr olindi.")
+            }
+    }
+
+    /** "📷": the frame on the screen now goes into the notes, with the current subtitle as its caption. */
+    fun captureCurrentFrame() {
+        val videoId = _state.value.activeVideoId ?: return
+        if (frameJob?.isActive == true) return
+        frameJob =
+            viewModelScope.launch {
+                val notes = LessonLibraryStore.notes(videoId)
+                val segment = _state.value.segments.getOrNull(_state.value.currentIndex)
+                val caption = segment?.translatedText?.takeIf(String::isNotBlank) ?: segment?.originalText.orEmpty()
+                takeFrame(videoId, second = null) { name ->
+                    val seconds = name.removeSuffix(".jpg").toIntOrNull() ?: 0
+                    addManualFrame(notes, NoteFrame(seconds, caption.ifBlank { "Kadr ${formatVideoTime(seconds)}" }, name))
+                }.first?.let { saved ->
+                    toast("\uD83D\uDCF7 Kadr konspektga qo\u2018shildi (${saved.frames.size} ta rasm).")
+                }
+            }
+    }
+
+    /**
+     * Takes one frame and stores it; returns the updated notes (null when nothing was saved) and
+     * whether the remaining frames should not be tried (black or failed copy).
+     */
+    private suspend fun takeFrame(
+        videoId: String,
+        second: Float?,
+        update: (String) -> LessonNotes,
+    ): Pair<LessonNotes?, Boolean> {
+        val grab = VideoFrameSource.grab
+        if (grab == null) {
+            toast("Avval dars videosini oching.")
+            return null to true
+        }
+        return when (val result = grab(second)) {
+            is FrameGrab.Taken -> {
+                val jpeg = withContext(Dispatchers.Default) { jpegOf(result.bitmap) }
+                val name = LessonLibraryStore.saveFrame(videoId, result.seconds, jpeg) ?: return null to false
+                val next = update(name)
+                LessonLibraryStore.saveNotes(videoId, next)
+                lessonNotes.replace(videoId, next)
+                next to false
+            }
+            FrameGrab.Black -> {
+                toast("Kadr qora chiqdi: bu telefonda video tasvirini dastur ichidan nusxalab bo\u2018lmadi.")
+                null to true
+            }
+            is FrameGrab.Failed -> {
+                toast(result.reason)
+                null to true
+            }
+        }
+    }
+
+    private fun jpegOf(bitmap: android.graphics.Bitmap): ByteArray =
+        java.io.ByteArrayOutputStream().use { out ->
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+            out.toByteArray()
+        }
+
+    private fun toast(message: String) = Toast.makeText(getApplication(), message, Toast.LENGTH_LONG).show()
+
+    /** Opens a lesson from the catalog or reopens one from the list of translated lessons. */
+    fun openTranslatedLesson(videoId: String) {
+        openLessonLink(mobileWatchUrl(videoId))
+    }
+
+    /** Fetches a caption track and remembers the video's title for the list of translated lessons. */
+    private suspend fun fetchCaptionTrack(
+        videoId: String,
+        languages: List<String>,
+    ): CaptionTrackResult {
+        val track = captionProvider.fetch(videoId, languages)
+        track.title?.takeIf(String::isNotBlank)?.let { lessonTitles[videoId] = it }
+        return track
+    }
+
+    /** The stored translation's lines of [videoId] when that lesson is open, else null. */
+    private fun importedLines(videoId: String?): List<String>? {
+        val (id, cues) = importedTranslation ?: return null
+        return if (id == videoId) cues.map { it.text } else null
+    }
+
+    /** Video titles seen in this session, for the list of translated lessons. */
+    private val lessonTitles = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     private val immersionTracker = ImmersionTimeTracker()
     private val immersionAccumulator = ImmersionAccumulator()
@@ -566,21 +751,28 @@ class AppViewModel internal constructor(
     internal suspend fun subtitleExport(): SubtitleExport {
         val current = _state.value
         val videoId = current.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        val (title, segments) = lessonSegments(videoId)
+        return SubtitleExport(
+            videoId = videoId,
+            title = title,
+            cueCount = segments.size,
+            text = withContext(Dispatchers.Default) { formatSrt(segments) },
+        )
+    }
+
+    /** A lesson's title and its sentences as the app shows them (the SubtitleMerger rows), for export and Claude. */
+    private suspend fun lessonSegments(videoId: String): Pair<String?, List<SubtitleSegment>> {
+        val current = _state.value
         val track =
             withContext(Dispatchers.IO) {
-                captionProvider.fetch(videoId, preferredCaptionLanguages(current.sourcePreference))
+                fetchCaptionTrack(videoId, preferredCaptionLanguages(current.sourcePreference))
             }
         val segments =
             withContext(Dispatchers.Default) {
                 SubtitleMerger.merge(track.cues, enhancedNaturalFlow = current.naturalSubtitlesEnabled)
             }
         if (segments.isEmpty()) throw IllegalStateException("Bu videoning subtitrida matn yo\u2018q.")
-        return SubtitleExport(
-            videoId = videoId,
-            title = track.title,
-            cueCount = segments.size,
-            text = withContext(Dispatchers.Default) { formatSrt(segments) },
-        )
+        return track.title to segments
     }
 
     /**
@@ -620,6 +812,7 @@ class AppViewModel internal constructor(
     internal suspend fun importTranslation(
         text: String,
         targetVideoId: String? = importTargetFor(text, _state.value.activeVideoId),
+        source: String = "Fayl",
     ): Int {
         val videoId = targetVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
         val incoming = withContext(Dispatchers.Default) { parseSubtitleFile(text) }
@@ -635,6 +828,9 @@ class AppViewModel internal constructor(
                 importedTranslationFile(videoId).writeText(formatSrt(merged.toSegments()), Charsets.UTF_8)
                 merged
             }
+        LessonLibraryStore.record(
+            LessonRecord(videoId, lessonTitles[videoId].orEmpty(), source, System.currentTimeMillis(), cues.size),
+        )
         if (_state.value.activeVideoId != videoId) return cues.size
         importedTranslation = videoId to cues
         loadVideo(videoId, showPanel = true)
@@ -1328,7 +1524,7 @@ class AppViewModel internal constructor(
                     val natural = _state.value.naturalSubtitlesEnabled
                     val track =
                         withContext(Dispatchers.IO) {
-                            persistCaptionTrack(captionProvider.fetch(videoId, preferredLanguages), natural) { rawStore = it }
+                            persistCaptionTrack(fetchCaptionTrack(videoId, preferredLanguages), natural) { rawStore = it }
                         }
                     if (!isCurrentLoad(_state.value, videoId, generation)) return@launch
                     liveTranslationGate.reset()
@@ -1420,6 +1616,8 @@ class AppViewModel internal constructor(
     ) {
         var displayStore: SubtitleStore? = null
         if (!restoreImportedTranslation(videoId, generation)) return
+        claude.onLessonLoaded(videoId, targetLanguage, hasStoredTranslation = importedTranslation?.first == videoId)
+        importedLines(videoId)?.let { claude.repairUntranslated(videoId, it) }
         liveCaptionTracker.reset()
         captionHighlightResolver.reset()
         _state.update {

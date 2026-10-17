@@ -199,6 +199,6 @@ private fun guidePages(): List<GuidePage> = listOf(
     ),
     GuidePage(
         title = "Open any video",
-        body = "Paste a YouTube link, share a video straight from the YouTube app, or just browse inside DualSub Replay.",
+        body = "Paste a YouTube link, share a video straight from the YouTube app, or just browse inside ${appBrand().name}.",
     ),
 )

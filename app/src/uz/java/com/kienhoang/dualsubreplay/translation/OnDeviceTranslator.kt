@@ -30,6 +30,9 @@ class OnDeviceTranslator(
         cacheDirectory?.let { TranslationDiskCache(File(it.parentFile, "${it.name}-$CACHE_VERSION")) }
     private val cache = TranslationCache()
     private val gemini = GeminiBatchTranslator { DubbingSettings.geminiApiKey.value }
+    private val deepl = DeepLTranslator { DubbingSettings.deeplApiKey.value }
+
+    @Volatile private var deeplPausedUntil = 0L
     private val prefetchScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val schedulers = HashMap<TranslationPair, GeminiBatchScheduler>()
 
@@ -122,7 +125,21 @@ class OnDeviceTranslator(
             val source = guidedSource(languages, text)
             return cached(languages, source) ?: translateOnline(languages, source)
         }
-        if (!usesGemini(languages)) return google()
+
+        suspend fun deeplOrGoogle(): String =
+            if (!usesDeepL(languages)) {
+                google()
+            } else {
+                withFallback(
+                    primary = { translateWithDeepL(languages, guidedSource(languages, text)) },
+                    onFailure = { error ->
+                        deeplPausedUntil = System.currentTimeMillis() + deeplRestMs((error as? HttpStatusException)?.code)
+                        DubbingSettings.publishTranslatorStatus("${error.message}. Hozir Google Translate ishlatilmoqda.")
+                    },
+                    fallback = { google() },
+                )
+            }
+        if (!usesGemini(languages)) return deeplOrGoogle()
         return withFallback(
             primary = { translateWithGemini(languages, text) },
             onFailure = { error ->
@@ -147,15 +164,43 @@ class OnDeviceTranslator(
         )
     }
 
+    // Uzbek lessons are translated by DeepL whole and stored (ClaudeLessonCoordinator), so the characters are
+    // spent once per lesson; meanwhile Google covers playback. Other target languages go sentence by sentence.
+    private fun usesDeepL(languages: TranslationPair): Boolean =
+        languages.target != "uz" &&
+            deeplEnabled(
+                DubbingSettings.translationProvider.value,
+                DubbingSettings.deeplApiKey.value,
+                deeplPausedUntil,
+                System.currentTimeMillis(),
+            )
+
+    /** DeepL results are cached apart from Google's, so switching translators shows each one's own text. */
+    private suspend fun translateWithDeepL(
+        languages: TranslationPair,
+        text: String,
+    ): String {
+        val pair = TranslationPair("${languages.source}$DEEPL_CACHE_SUFFIX", languages.target)
+        cached(pair, text)?.let { return it }
+        val translated = withContext(Dispatchers.IO) { deepl.translate(languages.source, languages.target, text) }
+        cache.put(pair.source, pair.target, text, translated)
+        withContext(Dispatchers.IO) { diskCache?.put(pair.source, pair.target, text, translated) }
+        DubbingSettings.publishTranslatorStatus("DeepL tarjima qilmoqda.")
+        return translated
+    }
+
+    // With whole-lesson Gemini on, playback uses Google until the lesson's Gemini translation is imported,
+    // so the free daily quota is spent on whole lessons, not on sentence batches.
     private fun usesGemini(languages: TranslationPair): Boolean =
-        geminiEnabled(
-            DubbingSettings.translationProvider.value,
-            DubbingSettings.geminiApiKey.value,
-            languages.source,
-            languages.target,
-            geminiPausedUntil,
-            System.currentTimeMillis(),
-        )
+        !DubbingSettings.geminiWholeLesson.value &&
+            geminiEnabled(
+                DubbingSettings.translationProvider.value,
+                DubbingSettings.geminiApiKey.value,
+                languages.source,
+                languages.target,
+                geminiPausedUntil,
+                System.currentTimeMillis(),
+            )
 
     /** Gemini results are cached apart from Google's, under the plain English sentence. */
     private fun geminiPair(languages: TranslationPair) = TranslationPair("${languages.source}$GEMINI_CACHE_SUFFIX", languages.target)
@@ -267,6 +312,7 @@ class OnDeviceTranslator(
         // Bump when the provider or its output changes, to drop stale cached translations.
         const val CACHE_VERSION = "uz-online-v1"
         const val GEMINI_CACHE_SUFFIX = "+gemini-v1"
+        const val DEEPL_CACHE_SUFFIX = "+deepl-v1"
         const val GEMINI_PAUSE_AFTER_FAILURE_MS = 60_000L
         const val MAX_SKIPPED_IN_A_ROW = 3
     }

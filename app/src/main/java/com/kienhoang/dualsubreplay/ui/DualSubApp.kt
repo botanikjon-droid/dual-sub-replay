@@ -202,6 +202,10 @@ private fun LessonToolsHost(
     viewModel: AppViewModel,
     onDismiss: () -> Unit,
 ) {
+    val claudeRun by viewModel.claudeRun.collectAsStateWithLifecycle()
+    val notes by viewModel.lessonNotesState.collectAsStateWithLifecycle()
+    val lessons by com.kienhoang.dualsubreplay.data.LessonLibraryStore.records.collectAsStateWithLifecycle()
+    LaunchedEffect(state.activeVideoId) { viewModel.showLessonNotes() }
     LessonToolsScreen(
         activeVideoId = state.activeVideoId,
         importedTranslationCues = state.importedTranslationCues,
@@ -211,6 +215,38 @@ private fun LessonToolsHost(
         importTranslation = { viewModel.importTranslation(it) },
         onClearImport = viewModel::clearImportedTranslation,
         onDismiss = onDismiss,
+        claudeRun = claudeRun,
+        onClaudeTranslate = viewModel::translateLessonWithClaude,
+        onGeminiTranslate = viewModel::translateLessonWithGemini,
+        onDeepLTranslate = viewModel::translateLessonWithDeepL,
+        onClaudeCancel = viewModel::cancelClaudeTranslation,
+        lessonList = {
+            LessonCatalogCard(
+                translatedVideoIds = lessons.mapTo(HashSet()) { it.videoId },
+                knownTitles = lessons.filter { it.title.isNotBlank() }.associate { it.videoId to it.title },
+                activeVideoId = state.activeVideoId,
+            ) { videoId ->
+                viewModel.openTranslatedLesson(videoId)
+                onDismiss()
+            }
+            SubtitleHarvestCard()
+            LessonLibraryCard(lessons, state.activeVideoId) { videoId ->
+                viewModel.openTranslatedLesson(videoId)
+                onDismiss()
+            }
+        },
+        notesCard = {
+            LessonNotesCard(
+                state.activeVideoId,
+                notes,
+                onWrite = viewModel::writeLessonNotes,
+                onCancel = viewModel::cancelLessonNotes,
+                onCaptureFrames = {
+                    onDismiss()
+                    viewModel.captureNoteFrames()
+                },
+            )
+        },
     )
 }
 
@@ -1078,6 +1114,7 @@ internal fun TranslatedSubtitleTimeline(
     onReplay: (SubtitleSegment) -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
+        TranslatorBadge(state.activeVideoId, state.targetLanguage, state.importedTranslationCues)
         state.translationError?.let { TranslationUnavailableBar(it, onRetryTranslation) }
         Box(Modifier.fillMaxWidth().weight(1f)) {
             SubtitleTimeline(state, onWordClick = onWordClick, onReplay = onReplay)

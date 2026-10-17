@@ -16,7 +16,7 @@ id	english	expected_uzbek	expected_terms
 12	Aliasing appears when the pulse repetition frequency is too low.	Impulslar takrorlanish chastotasi juda past bo‘lsa, aliasing paydo bo‘ladi.	aliasing; pulse repetition frequency
 13	Hepatofugal flow in the portal vein is a sign of portal hypertension.	Darvoza venasidagi gepatofugal oqim portal gipertenziya belgisidir.	hepatofugal flow; portal vein; portal hypertension
 14	The lesion is well defined, but the mass next to it has irregular margins.	O‘choq aniq chegarali, lekin uning yonidagi hosila notekis chegaraga ega.	well defined; irregular margins
-15	Not every tumor is malignant; a hemangioma is usually benign.	Har bir o‘sma xavfli emas; gemangioma odatda xavfsiz bo‘ladi.	tumor; malignant; hemangioma; benign
+15	Not every tumor is malignant; a hemangioma is usually benign.	Har bir o‘sma yomon sifatli emas; gemangioma odatda yaxshi sifatli bo‘ladi.	tumor; malignant; hemangioma; benign
 16	Microcalcifications in a thyroid nodule raise the TI-RADS score.	Qalqonsimon bez tugunidagi mikrokalsifikatlar TI-RADS tasnifi bo‘yicha xavf balini oshiradi.	microcalcification; thyroid nodule; TI-RADS
 17	A taller than wide nodule is suspicious.	Eniga nisbatan balandroq tugun shubhali hisoblanadi.	taller than wide; nodule
 18	Measure the crown rump length to date the pregnancy.	Homiladorlik muddatini aniqlash uchun tepa-dumg‘aza uzunligini o‘lchang.	crown rump length
@@ -26,7 +26,7 @@ id	english	expected_uzbek	expected_terms
 22	The endometrial thickness is 8 mm.	Endometriy qalinligi 8 mm.	endometrial thickness
 23	A dominant follicle is seen in the left ovary.	Chap tuxumdonda dominant follikul ko‘rinadi.	dominant follicle
 24	Free fluid in the pouch of Douglas may suggest an ectopic pregnancy.	Douglas bo‘shlig‘idagi erkin suyuqlik bachadondan tashqari homiladorlikdan dalolat berishi mumkin.	free fluid; pouch of Douglas; ectopic pregnancy
-25	Through the anterior fontanelle we assess the lateral ventricles.	Oldingi katta liqildoq orqali yon qorinchalarni baholaymiz.	anterior fontanelle; lateral ventricle
+25	Through the anterior fontanelle we assess the lateral ventricles.	Oldingi liqildoq orqali yon qorinchalarni baholaymiz.	anterior fontanelle; lateral ventricle
 26	Intraventricular hemorrhage starts in the germinal matrix.	Qorinchalar ichiga qon quyilishi germinal matriksdan boshlanadi.	intraventricular hemorrhage; germinal matrix
 27	Ventriculomegaly may progress to hydrocephalus.	Ventrikulomegaliya gidrosefaliyaga o‘tishi mumkin.	ventriculomegaly; hydrocephalus
 28	The ejection fraction of the left ventricle is reduced.	Chap qorinchaning otish fraksiyasi pasaygan.	ejection fraction; left ventricle
