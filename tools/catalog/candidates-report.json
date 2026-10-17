@@ -28,24 +28,10 @@
   "listed_title": "?"
  },
  {
-  "video_id": "X739XUv0xkE",
+  "video_id": "fWYo00L5w6o",
   "oembed_status": 200,
-  "title": "Vascular Imaging Webinar Series: Physics, Knobology, And Hemodynamics",
-  "channel": "PAHO TV",
-  "playability": "LOGIN_REQUIRED",
-  "reason": "Sign in to confirm you’re not a bot",
-  "length_s": 0,
-  "captions": "none",
-  "verdict": "EXISTS_CAPTIONS_UNCHECKED",
-  "section": "X",
-  "topic": "T",
-  "listed_title": "?"
- },
- {
-  "video_id": "hbVxhOV6NFw",
-  "oembed_status": 200,
-  "title": "Vascular ultrasound made simple",
-  "channel": "Radiology educational videos",
+  "title": "Vascular ultrasound free lectures: carotid and venous ultrasound",
+  "channel": "ABC Vascular Ultrasound",
   "playability": "LOGIN_REQUIRED",
   "reason": "Sign in to confirm you’re not a bot",
   "length_s": 0,
@@ -70,24 +56,10 @@
   "listed_title": "?"
  },
  {
-  "video_id": "dRVXK3DjBzk",
+  "video_id": "sOwTdJPSBeI",
   "oembed_status": 200,
-  "title": "Complete Subclavian Artery Steal Syndrome  ultrasound criteria",
-  "channel": "Radcliffe Cardiology",
-  "playability": "LOGIN_REQUIRED",
-  "reason": "Sign in to confirm you’re not a bot",
-  "length_s": 0,
-  "captions": "none",
-  "verdict": "EXISTS_CAPTIONS_UNCHECKED",
-  "section": "X",
-  "topic": "T",
-  "listed_title": "?"
- },
- {
-  "video_id": "VYhlgQu-JOI",
-  "oembed_status": 200,
-  "title": "Duplex Scanning of the Subclavian Veins and Arteries (September 2018)",
-  "channel": "Intersocietal Accreditation Commission",
+  "title": "Subclavian Artery Doppler Ultrasound Normal Vs Abnormal Images | Stenosis & Steal Syndrome USG",
+  "channel": "Dr. Sam's Imaging Library",
   "playability": "LOGIN_REQUIRED",
   "reason": "Sign in to confirm you’re not a bot",
   "length_s": 0,
@@ -140,20 +112,6 @@
   "listed_title": "?"
  },
  {
-  "video_id": "QFDDU7lpsuA",
-  "oembed_status": 200,
-  "title": "Part 3: Primary varicose veins of the great saphenous vein. Saphenofemoral junction reflux test",
-  "channel": "ABC Vascular Ultrasound",
-  "playability": "LOGIN_REQUIRED",
-  "reason": "Sign in to confirm you’re not a bot",
-  "length_s": 0,
-  "captions": "none",
-  "verdict": "EXISTS_CAPTIONS_UNCHECKED",
-  "section": "X",
-  "topic": "T",
-  "listed_title": "?"
- },
- {
   "video_id": "n5HblR27soE",
   "oembed_status": 200,
   "title": "Part 1: Varicose veins ultrasound assessment: GSV anatomy assessment",
@@ -168,10 +126,10 @@
   "listed_title": "?"
  },
  {
-  "video_id": "LcuG9zdK4tM",
+  "video_id": "QFDDU7lpsuA",
   "oembed_status": 200,
-  "title": "Venous ultrasound course: Identifying varicose veins in the insufficiency study",
-  "channel": "Medmastery",
+  "title": "Part 3: Primary varicose veins of the great saphenous vein. Saphenofemoral junction reflux test",
+  "channel": "ABC Vascular Ultrasound",
   "playability": "LOGIN_REQUIRED",
   "reason": "Sign in to confirm you’re not a bot",
   "length_s": 0,
@@ -182,10 +140,10 @@
   "listed_title": "?"
  },
  {
-  "video_id": "-4tJgiWazjA",
+  "video_id": "JwIWZuq5o14",
   "oembed_status": 200,
-  "title": "Saphenous Vein Doppler Ultrasound Normal Vs Abnormal | Varicose Veins | Lower Limb Vascular USG",
-  "channel": "Dr. Sam's Imaging Library",
+  "title": "Ultrasound and Venous Insufficiency (Ulises Baltazar, MD and William Marston, MD) October 28, 2020",
+  "channel": "Houston Methodist DeBakey CV Education",
   "playability": "LOGIN_REQUIRED",
   "reason": "Sign in to confirm you’re not a bot",
   "length_s": 0,
@@ -196,10 +154,10 @@
   "listed_title": "?"
  },
  {
-  "video_id": "fyegmq-hMhI",
+  "video_id": "IbSW2GCMsoQ",
   "oembed_status": 200,
-  "title": "How to Scan the Abdominal Aorta with Ultrasound",
-  "channel": "GE HealthCare",
+  "title": "Abdominal Aortic Aneurysm (AAA): Ultrasound Scanning Technique",
+  "channel": "Clarius Mobile Health",
   "playability": "LOGIN_REQUIRED",
   "reason": "Sign in to confirm you’re not a bot",
   "length_s": 0,
@@ -210,10 +168,10 @@
   "listed_title": "?"
  },
  {
-  "video_id": "tqt1Wr5-q-E",
+  "video_id": "QaQNYFjvKxs",
   "oembed_status": 200,
-  "title": "Duplex Exam of Aorta and IVC - Case Study",
-  "channel": "MintMedical",
+  "title": "POCUS: Differentiating the Aorta and IVC",
+  "channel": "POCUS Certification Academy",
   "playability": "LOGIN_REQUIRED",
   "reason": "Sign in to confirm you’re not a bot",
   "length_s": 0,
@@ -224,9 +182,9 @@
   "listed_title": "?"
  },
  {
-  "video_id": "Flc8xS2foOU",
+  "video_id": "w8wc8-40F1E",
   "oembed_status": 200,
-  "title": "Point of Care Ultrasound of the Inferior Vena Cava (IVC) - AMBOSS Video",
+  "title": "Point of Care Ultrasound of the Abdominal Aorta - AMBOSS Video",
   "channel": "AMBOSS: Medical Knowledge Distilled",
   "playability": "LOGIN_REQUIRED",
   "reason": "Sign in to confirm you’re not a bot",
@@ -238,10 +196,10 @@
   "listed_title": "?"
  },
  {
-  "video_id": "HFpPPCS1wAw",
+  "video_id": "3El9mtbhkX4",
   "oembed_status": 200,
-  "title": "Examining the Inferior Vena Cava (IVC) with Point of Care Ultrasound (POCUS)",
-  "channel": "Stanford Medicine 25",
+  "title": "Doppler Imaging of Liver Transplants Diagnoses and Dilemmas",
+  "channel": "Radiology Video - radiology made esay",
   "playability": "LOGIN_REQUIRED",
   "reason": "Sign in to confirm you’re not a bot",
   "length_s": 0,
@@ -280,10 +238,10 @@
   "listed_title": "?"
  },
  {
-  "video_id": "BnucQlkwEk4",
+  "video_id": "zFtlbk2yzn8",
   "oembed_status": 200,
-  "title": "Essentials in Liver Transplant: Vascular and Biliary Complications",
-  "channel": "Icahn School of Medicine",
+  "title": "Venous ultrasound course: Deciphering DVT waveforms",
+  "channel": "Medmastery",
   "playability": "LOGIN_REQUIRED",
   "reason": "Sign in to confirm you’re not a bot",
   "length_s": 0,
@@ -294,10 +252,24 @@
   "listed_title": "?"
  },
  {
-  "video_id": "KGFphcefwXA",
+  "video_id": "R_BbuhzjQzc",
   "oembed_status": 200,
-  "title": "Renal/Kidney Transplant Duplex Protocol",
-  "channel": "Sonographic Tendencies",
+  "title": "Doppler Ultrasound of the Liver and Portal Hypertension",
+  "channel": "Radiology Video - radiology made esay",
+  "playability": "LOGIN_REQUIRED",
+  "reason": "Sign in to confirm you’re not a bot",
+  "length_s": 0,
+  "captions": "none",
+  "verdict": "EXISTS_CAPTIONS_UNCHECKED",
+  "section": "X",
+  "topic": "T",
+  "listed_title": "?"
+ },
+ {
+  "video_id": "1kuYwCDc0tM",
+  "oembed_status": 200,
+  "title": "Hepatic Doppler Made Easy | Portal Vein, Tardus Parvus & Liver Waveforms",
+  "channel": "Medical Radiology by RADIOBITE",
   "playability": "LOGIN_REQUIRED",
   "reason": "Sign in to confirm you’re not a bot",
   "length_s": 0,
