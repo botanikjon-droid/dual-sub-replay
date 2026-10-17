@@ -75,3 +75,13 @@ Run on ubuntu-latest (GitHub Actions, throwaway branch, 2026-10-16), three passe
 
 The watch page and Innertube player (visionOS, Android VR clients) answered "Sign in to confirm you're not a bot"
 on the runner, so playability in Uzbekistan and caption tracks were not verified.
+
+### Link check, version 2 (ubuntu-latest, throwaway branch, 2026-10-17)
+
+1. 132 lectures: 129 public. Not available on the runner: "Ultrasound Transducers" (Ultrasound Board Review) and Core
+   Ultrasound's "Ultrasound Artifacts" parts 1 and 2 (oEmbed 401). Three titles had YouTube's own double spaces or a
+   prefix ("Hot Tips - …"); the catalog now uses YouTube's exact titles.
+2. 10 replacement candidates: all public. Used: clean and dirty shadowing (Radiology educational videos), reverberation
+   (#IMPOCUS), two artifact overviews (POCUS Geek; Dr Sanjeev Mani), transducers segment #6 (jchanmeister).
+3. Final catalog: 135 lectures in 12 sections, every ID unique. Captions and playability in Uzbekistan were not
+   checkable (YouTube asked the runner to sign in).
