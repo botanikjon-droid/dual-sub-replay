@@ -75,3 +75,29 @@ Run on ubuntu-latest (GitHub Actions, throwaway branch, 2026-10-16), three passe
 
 The watch page and Innertube player (visionOS, Android VR clients) answered "Sign in to confirm you're not a bot"
 on the runner, so playability in Uzbekistan and caption tracks were not verified.
+
+## Version 2 (2026-10-17): SHOKALON basics section, more lectures, updates reach the doctor's copy
+
+Owner (2026-10-17): "Sen yaratgan birlamchi mundarija papkalar endi ularni rivojlantirish kerak dastur logotipni
+ham o‘zgartiramiz" — the catalog grows from the SHOKALON video catalog (`SHOKALON_katalog_v1.xlsx`, section I of the
+33-chapter curriculum and the earlier abdominal list), and the app gets the SHOKALON name and the owner's portrait icon.
+
+- New first section **"Ultratovush asoslari: fizika va apparat"**: 24 topics, 37 lectures (Sononerds' 25-part physics
+  course, Marc Kohli, Core Ultrasound, AIUM bioeffects, USF cleaning, …). The owner can move it with ↑↓.
+- 12 more lectures in "Qorin bo‘shlig‘i a’zolari" (full abdominal protocol, liver anatomy and segments, portal vein
+  Doppler, elastography, CBD, pancreas, normal-vs-abnormal review) and "Urologiya" (renal protocol, renal pathology).
+- The asset gets a fifth column `added` (catalog version; rows without it are version 1). Before this, once the doctor
+  edited the catalog his copy hid every later built-in change. Now `UziCatalogStore` remembers the version his copy
+  contains (`filesDir/uzi-catalog-version.txt`, 1 when missing) and `mergeCatalogAdditions` adds only lectures of newer
+  versions that his copy lacks: his order, his own lectures and his deletions of older lectures stay; a new section is
+  placed where it is in the built-in catalog.
+- Launcher (uz build): name "SHOKALON" (`src/uzDebug/res/values/strings.xml`), adaptive icon from the owner's portrait
+  in a cyan ring on the app's dark teal (`src/uzDebug/res/mipmap-*/ic_shokalon_*.png`). The APK file name and the
+  `uz-latest` tag stay, because in-app updates look for them; the release title becomes "SHOKALON (latest)".
+
+| Check | Result |
+| --- | --- |
+| `UziCatalogTest` (10, incl. version column and merge) | passed locally (kotlinc 2.0.21 + JUnit 4.13.2) |
+| ktlint, detekt on changed files | passed |
+| Link check of the v2 catalog on ubuntu-latest | see below |
+| Phone: icon, name, new section, merge into an edited copy | not verified (owner) |
