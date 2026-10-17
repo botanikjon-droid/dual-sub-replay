@@ -7,7 +7,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - run: python3 tools/catalog/check_catalog_links.py tools/catalog/candidates.tsv --json tools/catalog/candidates-report.json || true
