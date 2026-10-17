@@ -1,0 +1,18 @@
+name: Catalog link check (temporary)
+on:
+  push:
+    branches: [claude/catalog-link-check-v2]
+permissions:
+  contents: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/catalog/check_catalog_links.py --json tools/catalog/links-report.json || true
+      - run: |
+          git config user.name "link-check"
+          git config user.email "link-check@users.noreply.github.com"
+          git add tools/catalog/links-report.json
+          git commit -m "report" && git push
