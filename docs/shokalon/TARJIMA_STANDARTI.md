@@ -2,7 +2,8 @@
 
 Bu standart SHOKALON videodarslari subtitrlarini o‘zbek tiliga tarjima qiladigan har bir ijrochi uchun bitta: Claude,
 ChatGPT yoki odam. U loyiha promptining 8-bandi, shifokorning `medical-uzbek-translator` ko‘nikmasi va ilovadagi
-tasdiqlangan UZI lug‘ati (`app/src/main/assets/uzi_glossary.tsv`) asosida tuzilgan.
+tasdiqlangan UZI lug‘ati (`app/src/main/assets/uzi_glossary.tsv`) asosida tuzilgan. Shifokor qarorlari 2026-10-18 da
+kiritildi (9-bo‘lim).
 
 **Holat:** loyiha (2026-10-17). Tarjima subtitrlar to‘liq yig‘ilgandan keyin boshlanadi. Faqat texnik jarayonni sinash
 uchun pilot tarjima shifokorning roziligi bilan qilinishi mumkin.
@@ -43,7 +44,7 @@ Ko‘nikmadagi `asl nom + _uz` nomlash SHOKALON fayllariga qo‘llanmaydi: bu ye
 | Tutuq belgisi | `’` (U+2019) bilan: `ta’minlanish`, `a’zo` |
 | Qisqartmalar | Lotin harflarida, asl ko‘rinishda: RI, PSV, CBD, SWE, TI-RADS, BI-RADS, O-RADS. Birinchi uchraganda lug‘atdagidek ochiladi: “rezistivlik indeksi (RI)” |
 | Sonlar | Raqamlar manbadagidek. O‘nlik kasr vergul bilan: 3.5 → 3,5 (tekshiruvchi ikkalasini bir xil son deb hisoblaydi) |
-| O‘lchov birliklari | Xalqaro belgilar o‘zgarmaydi: mm, cm, cm/s, kPa, MHz, mL, dB. (Ochiq qaror: “cm” o‘rniga “sm” yozilsinmi — 9-bo‘lim) |
+| O‘lchov birliklari | Xalqaro belgilar o‘zgarmaydi: mm, cm, cm/s, kPa, MHz, mL, dB. Santimetr — “cm”, “sm” emas |
 | Odam, kanal, apparat, dastur nomlari | Tarjima qilinmaydi: Sononerds, Voluson, Clarius, MedMastery |
 | Qator uzunligi | Bir qatorda 42 belgigacha, blokda ko‘pi bilan 2 qator. Ortiqcha so‘zlar hisobiga qisqartiriladi; termin, son va tibbiy mazmun tushirilmaydi |
 
@@ -51,21 +52,20 @@ Ko‘nikmadagi `asl nom + _uz` nomlash SHOKALON fayllariga qo‘llanmaydi: bu ye
 
 Ustuvorlik tartibi:
 
-1. **Ilovadagi lug‘at** `app/src/main/assets/uzi_glossary.tsv`: 228 ta atama, shifokor tekshirgan (`approved`,
+1. **Ilovadagi lug‘at** `app/src/main/assets/uzi_glossary.tsv`: 244 ta atama, shifokor tekshirgan (`approved`,
    `corrected`, `new`). Majburiy. Inglizcha atama va uning sinonimlari (`aliases`) uchrasa, o‘zbekcha atama ishlatiladi.
    Qavs ichidagi qism (masalan, “datchik (zond)” dagi “zond”) birinchi uchraganda yozilishi mumkin, keyin asosiy shakl.
    `general = 1` belgili 20 ta umumiy so‘z (liver, kidney …) oddiy so‘z sifatida tarjima qilinadi.
-2. **Ko‘nikmadagi ⏳ atamalar** (`medical-uzbek-translator`): ilovadagi lug‘atda yo‘q bo‘lsa ishlatiladi, lekin
-   hisobotning “Yangi terminlar” bo‘limiga yoziladi.
-3. **Lug‘atda umuman yo‘q atama**: o‘zbek tibbiy adabiyotida qabul qilingan shakl tanlanadi va “Yangi terminlar”ga
+2. **Lug‘atda umuman yo‘q atama**: o‘zbek tibbiy adabiyotida qabul qilingan shakl tanlanadi va “Yangi terminlar”ga
    yoziladi. Shifokor tasdiqlagandan keyingina lug‘atga kiradi (`docs/glossary/UZI_atamalari_tekshirilgan.xlsx` →
    `tools/glossary/convert_uzi_glossary.py`).
 
 Grammatik qo‘shimchalar gapga moslashtiriladi (“datchikni”, “o‘t pufagidagi”), tibbiy ma’no emas.
 
-**Ma’lum ziddiyat (shifokor hal qiladi):** calcification — ilovada “kalsifikat”, ko‘nikmada “kalsinat /
-kalsifikatsiya”. Hal bo‘lguncha ilovadagi shakl ishlatiladi. Lug‘atning 12 ta shubhali yozuvi
-(`docs/glossary/review-2026-10-10.md`) ham hali ochiq.
+Ko‘nikmadagi 24 ta atamaning 9 tasi lug‘atda bor edi; qolgan 16 tasi shifokor qarori bilan 2026-10-18 da lug‘atga
+“Yangi” holatida qo‘shildi (229–244-yozuvlar). calcification — “kalsifikat” (ko‘nikmadagi “kalsinat / kalsifikatsiya”
+o‘rniga). Lug‘atning 12 ta shubhali yozuvi (`docs/glossary/review-2026-10-10.md`) shifokorga yuborildi; qaror
+kelguncha hozirgi shakl ishlatiladi.
 
 ## 5. YouTube avtomatik subtitrlari (ASR-EN)
 
@@ -111,11 +111,11 @@ to‘g‘rilikni isbotlamaydi: yakuniy tibbiy tekshiruvni shifokor qiladi.
    qo‘shiladi.
 5. Tasdiqlangan tarjimalar 9-bosqichda ilovaga tayyorlanadi.
 
-## 9. Shifokor hal qiladigan ochiq qarorlar
+## 9. Shifokor qarorlari
 
-| Savol | Vaqtincha qoida |
+| Savol | Qaror (2026-10-18) |
 | --- | --- |
-| calcification: “kalsifikat” yoki “kalsinat / kalsifikatsiya”? | “kalsifikat” |
-| Santimetr belgisi: “cm” yoki “sm”? | “cm” (manbadagidek) |
-| Ko‘nikmadagi ⏳ atamalar (24 ta) lug‘atga qo‘shilsinmi? | Ishlatiladi, “Yangi terminlar”ga yoziladi |
-| Lug‘atning 12 ta shubhali yozuvi | Hozirgi shakl ishlatiladi |
+| calcification | “kalsifikat” |
+| Santimetr belgisi | “cm” |
+| Ko‘nikmadagi ⏳ atamalar | Lug‘atga qo‘shildi (16 ta yangi, 9 tasi oldin bor edi) |
+| Lug‘atning 12 ta shubhali yozuvi | Shifokorga yuborildi, javob kutilmoqda; vaqtincha hozirgi shakl |

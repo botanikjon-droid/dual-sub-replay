@@ -19,12 +19,12 @@ class UziGlossaryTest {
     @Test
     fun assetHoldsEveryReviewedTerm() {
         assertEquals(emptyList<String>(), parsed.errors)
-        assertEquals(228, parsed.entries.size)
+        assertEquals(244, parsed.entries.size)
         assertEquals(171, parsed.entries.count { it.status == GlossaryStatus.APPROVED })
         assertEquals(56, parsed.entries.count { it.status == GlossaryStatus.CORRECTED })
-        assertEquals(1, parsed.entries.count { it.status == GlossaryStatus.NEW })
+        assertEquals(17, parsed.entries.count { it.status == GlossaryStatus.NEW })
         assertEquals(20, parsed.entries.count { it.general })
-        assertEquals((1..228).toList(), parsed.entries.map { it.id })
+        assertEquals((1..244).toList(), parsed.entries.map { it.id })
         assertTrue(parsed.entries.all { it.uzbek.isNotBlank() })
     }
 

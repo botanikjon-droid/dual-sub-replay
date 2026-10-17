@@ -229,3 +229,19 @@ id	category	english	aliases	uzbek	note	status	general
 226	Exokardiografiya	E/A ratio	E over A	E/A nisbati		approved	0
 227	Exokardiografiya	interventricular septum	septum	qorinchalararo to‘siq		approved	0
 228	Tasvir va exogenlik	imaging		tasvir	Ultratovush yordamida olingan tasvir yoki tasvir olish jarayoni (masalan, "elastography imaging" — elastografiya tasviri).	new	0
+229	Qorin bo‘shlig‘i a’zolari	interstitial edematous pancreatitis	interstitial oedematous pancreatitis; edematous pancreatitis	interstitsial (shishli) pankreatit		new	0
+230	Qorin bo‘shlig‘i a’zolari	necrotizing pancreatitis	necrotising pancreatitis	nekrotik pankreatit		new	0
+231	Qorin bo‘shlig‘i a’zolari	peripancreatic fluid		bez atrofidagi suyuqlik		new	0
+232	Umumiy patologiya	fluid collection		suyuqlik to‘plami		new	0
+233	Qorin bo‘shlig‘i a’zolari	omental bursa	lesser sac	charvi xaltasi (omental bursa)		new	0
+234	Umumiy patologiya	atrophic		atrofik		new	0
+235	Umumiy patologiya	pseudocyst		psevdokista		new	0
+236	Umumiy patologiya	pseudoaneurysm	false aneurysm	psevdoanevrizma		new	0
+237	Doppler	splenic artery		taloq arteriyasi		new	0
+238	Tasvir va exogenlik	splenic window		taloq oynasi (taloq orqali kirish)		new	0
+239	Tasvir va exogenlik	cross section	cross-section; transverse section	ko‘ndalang kesim		new	0
+240	Tasvir va exogenlik	long section	longitudinal section	bo‘ylama kesim		new	0
+241	Doppler	vascularity	vascularization; vascularisation	qon bilan ta’minlanish (vaskulyarizatsiya)		new	0
+242	Umumiy patologiya	epigastric pain		epigastral og‘riq		new	0
+243	Umumiy patologiya	upper limit of normal	ULN	normaning yuqori chegarasi		new	0
+244	Tasvir va exogenlik	caudally		kaudal yo‘nalishda (pastga qarab)		new	0
