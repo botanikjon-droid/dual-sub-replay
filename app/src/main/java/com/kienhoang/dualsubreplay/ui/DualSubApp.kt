@@ -229,6 +229,7 @@ private fun LessonToolsHost(
                 viewModel.openTranslatedLesson(videoId)
                 onDismiss()
             }
+            SubtitleHarvestCard()
             LessonLibraryCard(lessons, state.activeVideoId) { videoId ->
                 viewModel.openTranslatedLesson(videoId)
                 onDismiss()
