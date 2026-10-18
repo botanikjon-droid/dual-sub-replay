@@ -101,6 +101,19 @@ def read_glossary(path: Path = GLOSSARY) -> list[GlossaryTerm]:
     return terms
 
 
+# Notes, review flags or editing marks must stay in the report, never in the subtitle text.
+NOTE_MARKERS = [
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (r"TODO|FIXME|XXX", r"\?\?", r"\(\s*\?\s*\)", r"[\[\]{}<>]", r"\b(izoh|eslatma|tekshirilsin|NB)\s*:", r"\*\*")
+]
+
+
+def is_untranslated(source: str, target: str) -> bool:
+    """The cue still holds the English text (three or more English words, the same as the source)."""
+    words = re.findall(r"[A-Za-z]+", target.lower())
+    return len(words) >= 3 and words == re.findall(r"[A-Za-z]+", source.lower())
+
+
 @dataclass
 class Report:
     name: str
@@ -116,6 +129,7 @@ def check_cues(source: list[Cue], target: list[Cue], glossary: list[GlossaryTerm
     if len(source) != len(target):
         report.errors.append(f"bloklar soni: asl {len(source)}, tarjima {len(target)}")
     marks = set()
+    previous: tuple[str, str] | None = None
     for number, (src, uz) in enumerate(zip(source, target), 1):
         where = f"blok {uz.index or number}"
         if (src.index, src.start, src.end) != (uz.index, uz.start, uz.end):
@@ -123,6 +137,13 @@ def check_cues(source: list[Cue], target: list[Cue], glossary: list[GlossaryTerm
         if not uz.text.strip():
             report.errors.append(f"{where}: tarjima bo‘sh")
             continue
+        if any(marker.search(uz.text) and not marker.search(src.text) for marker in NOTE_MARKERS):
+            report.errors.append(f"{where}: SRT ichida izoh yoki tahrir belgisi bor")
+        if is_untranslated(src.text, uz.text):
+            report.errors.append(f"{where}: tarjima qilinmagan (inglizcha matn qolgan)")
+        if previous is not None and uz.text.strip() == previous[1].strip() and src.text.strip() != previous[0].strip():
+            report.warnings.append(f"{where}: oldingi blok tarjimasi takrorlangan")
+        previous = (src.text, uz.text)
         if CYRILLIC.search(uz.text):
             report.errors.append(f"{where}: kirill harfi bor")
         missing = [value for value in numbers(src.text) if value not in numbers(uz.text)]

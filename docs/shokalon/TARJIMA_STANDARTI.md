@@ -35,6 +35,19 @@ Ko‘nikmadagi `asl nom + _uz` nomlash SHOKALON fayllariga qo‘llanmaydi: bu ye
 7. Noaniq yoki noto‘g‘ri eshitilgan atama taxmin bilan tasdiqlangan fakt sifatida berilmaydi: eng ehtimoliy variant
    ishlatiladi va hisobotda “Past” ishonchlilik bilan barcha variantlar yoziladi.
 
+### Shifokor talablari (2026-10-18)
+
+- Atama gap mazmuniga qarab tarjima qilinadi; bitta inglizcha so‘z hamma joyda bir xil o‘zbekcha so‘zga
+  almashtirilmaydi: parenchyma — parenxima, liver parenchyma — jigar parenximasi, brain parenchyma — miya
+  parenximasi; bile duct — o‘t yo‘li, common bile duct — umumiy o‘t yo‘li (xoledox); lymph node — limfa tuguni,
+  lymphatic vessel — limfa tomiri.
+- Gaplar ovozli o‘qishga qulay bo‘ladi.
+- Tibbiy ma’nosi noaniq joy taxmin bilan to‘ldirilmaydi: hisobotda belgilanadi va izohlanadi.
+- SRT ichiga izoh, hisobot yoki tahrir belgisi ([…], (?), ??, TODO, “izoh:”) qo‘shilmaydi — tekshiruvchi buni xato
+  deb oladi. Izohlar faqat alohida hisobotda.
+- Har bir to‘plam `tools/shokalon/package_translations.py` bilan asl fayllarga solishtiriladi: xatosi bor fayl ZIPga
+  kirmaydi; hisobotda fayllar soni, xatolar, tarjima qilinmaganlar va shubhali joylar ko‘rsatiladi.
+
 ## 3. Yozuv va imlo
 
 | Masala | Qoida |
@@ -104,6 +117,8 @@ tuzatildi va 24 ta bog‘liq atama qo‘shildi (245–268-yozuvlar). Qoidalar:
 | --- | --- |
 | Bloklar soni, raqamlari va vaqt kodlari bir xil | Xato |
 | Bo‘sh tarjima bloki, kirill harfi, UTF-8 emas | Xato |
+| Tarjima qilinmay qolgan blok, SRT ichidagi izoh yoki tahrir belgisi | Xato |
+| Oldingi blok tarjimasi takrorlangan | Ogohlantirish |
 | Asl blokdagi son tarjimada yo‘q | Xato |
 | O‘lchov birligi (mm, cm, kPa, MHz …) tushib qolgan | Ogohlantirish |
 | Inglizcha so‘zlar qolib ketgan (the, and, with …) | Ogohlantirish |

@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools" / "shokalon"))
 import check_subtitle_zip as zipcheck  # noqa: E402
 import check_translation as trcheck  # noqa: E402
+import package_translations as packer  # noqa: E402
 import srt  # noqa: E402
 
 GOOD = "1\n00:00:01,000 --> 00:00:03,500\nThe portal vein lies here.\n\n2\n00:00:04,000 --> 00:00:06,000\nIt measures 12 mm.\n"
@@ -151,6 +152,37 @@ class TranslationCheckTest(unittest.TestCase):
         long = self.check(GOOD, UZ_GOOD.replace("joylashgan.", "joylashgan va u juda uzun bir qatorda yozilgan gap."))
         self.assertIn("qator", " ".join(long.warnings))
         self.assertEqual([], long.errors)
+
+    def test_notes_untranslated_and_repeated_cues_are_caught(self):
+        noted = self.check(GOOD, UZ_GOOD.replace("joylashgan.", "joylashgan [tekshirilsin]."))
+        self.assertIn("izoh yoki tahrir belgisi", " ".join(noted.errors))
+        self.assertIn("izoh yoki tahrir belgisi", " ".join(self.check(GOOD, UZ_GOOD.replace("joylashgan.", "joylashgan (?)")).errors))
+        english = self.check(GOOD, UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "The portal vein lies here."))
+        self.assertIn("tarjima qilinmagan", " ".join(english.errors))
+        repeated = self.check(GOOD, UZ_GOOD.replace("Uning o‘lchami 12 mm.", "Darvoza venasi shu yerda joylashgan."))
+        self.assertIn("takrorlangan", " ".join(repeated.warnings))
+        # A source tag such as [Music] may stay a tag in the translation.
+        tagged = self.check(GOOD.replace("The portal vein lies here.", "[Music]"), UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "[musiqa]"))
+        self.assertEqual([], tagged.errors)
+
+    def test_a_batch_is_zipped_with_only_clean_files_and_a_report(self):
+        with tempfile.TemporaryDirectory() as src, tempfile.TemporaryDirectory() as uz, tempfile.TemporaryDirectory() as out:
+            write(src, "SHK_010101_V014_ASR-EN.srt", GOOD)
+            write(src, "SHK_010102_V015_ASR-EN.srt", GOOD)
+            write(src, "SHK_010103_V016_ORIGINAL.srt", GOOD)
+            write(src, "SHK_020701_V100_ASR-EN.srt", GOOD)
+            write(uz, "SHK_010101_V014_UZ-LATIN.srt", UZ_GOOD)
+            write(uz, "SHK_010102_V015_UZ-LATIN.srt", UZ_GOOD.replace("Uning o‘lchami 12 mm.", ""))
+            notes = write(out, "NOTES.tsv", "vid\tblok\tasl\ttarjima\tsabab\tishonch\nV014\t1\tportal\tdarvoza\tASR\tYuqori\n")
+            result = packer.package(Path(src), Path(uz), "01", Path(out) / "pkg", notes)
+            self.assertEqual((3, 2, 1, 1), (result["sources"], result["translated"], result["good"], result["bad"]))
+            self.assertEqual(["SHK_010103_V016_ORIGINAL.srt"], result["missing"])
+            with zipfile.ZipFile(result["zip"]) as archive:
+                self.assertEqual(["04_SUBTITLES_TRANSLATED/SHK_010101_V014_UZ-LATIN.srt", "HISOBOT.md"], archive.namelist())
+            report = (Path(out) / "pkg" / "HISOBOT.md").read_text(encoding="utf-8")
+            self.assertIn("| Hali tarjima qilinmagan | 1 |", report)
+            self.assertIn("tarjima bo‘sh", report)
+            self.assertIn("| V014 | 1 | portal | darvoza | ASR | Yuqori |", report)
 
     def test_uzbek_words_with_okina_are_not_english(self):
         target = UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "Darvoza venasi to‘lqin bilan ko‘rinadi.")

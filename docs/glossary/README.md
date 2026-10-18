@@ -14,7 +14,7 @@ python3 tools/glossary/convert_uzi_glossary.py docs/glossary/UZI_atamalari_teksh
 python3 -m unittest tools/tests/test_uzi_glossary.py -v
 ```
 Skript har bir holat bo‘yicha sonlarni chiqaradi. Bir inglizcha shakl ikki xil atamaga tegishli bo‘lsa, ogohlantiradi.
-Yozuvlar soni o‘zgarsa, quyidagi ikki testdagi kutilgan sonlarni ham yangilang (hozir 268 jami / 168 To‘g‘ri / 59 Tuzatildi / 41 Yangi / 20 umumiy):
+Yozuvlar soni o‘zgarsa, quyidagi ikki testdagi kutilgan sonlarni ham yangilang (hozir 269 jami / 168 To‘g‘ri / 59 Tuzatildi / 42 Yangi / 20 umumiy):
 - `tools/tests/test_uzi_glossary.py`
 - `app/src/test/.../UziGlossaryTest.kt`
 

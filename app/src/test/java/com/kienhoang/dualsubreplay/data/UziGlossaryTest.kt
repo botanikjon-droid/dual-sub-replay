@@ -19,12 +19,12 @@ class UziGlossaryTest {
     @Test
     fun assetHoldsEveryReviewedTerm() {
         assertEquals(emptyList<String>(), parsed.errors)
-        assertEquals(268, parsed.entries.size)
+        assertEquals(269, parsed.entries.size)
         assertEquals(168, parsed.entries.count { it.status == GlossaryStatus.APPROVED })
         assertEquals(59, parsed.entries.count { it.status == GlossaryStatus.CORRECTED })
-        assertEquals(41, parsed.entries.count { it.status == GlossaryStatus.NEW })
+        assertEquals(42, parsed.entries.count { it.status == GlossaryStatus.NEW })
         assertEquals(20, parsed.entries.count { it.general })
-        assertEquals((1..268).toList(), parsed.entries.map { it.id })
+        assertEquals((1..269).toList(), parsed.entries.map { it.id })
         assertTrue(parsed.entries.all { it.uzbek.isNotBlank() })
     }
 
@@ -168,7 +168,7 @@ class UziGlossaryDoctorFixesTest {
     private fun terms(text: String) = glossary.findTerms(text).map { it.entry.english }
 
     @Test
-    fun theEighteenCasesUseTheDoctorsTerms() {
+    fun theDoctorsCasesUseTheDoctorsTerms() {
         val cases =
             listOf(
                 "liver parenchyma" to "jigar parenximasi",
@@ -177,6 +177,7 @@ class UziGlossaryDoctorFixesTest {
                 "common bile duct" to "umumiy o‘t yo‘li (xoledox)",
                 "lymphadenopathy" to "limfadenopatiya",
                 "lymph node" to "limfa tuguni",
+                "lymphatic vessel" to "limfa tomiri",
                 "appendicitis" to "appenditsit",
                 "appendix" to "appendiks (chuvalchangsimon o‘simta)",
                 "complex mass" to "murakkab tuzilishli hosila",
