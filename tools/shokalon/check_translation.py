@@ -108,6 +108,12 @@ NOTE_MARKERS = [
 ]
 
 
+def section_letter(value):
+    """'6-8.6' or '128.1' as the Uzbek text writes it: 6A.6, 12A.1 (the A always follows a digit)."""
+    text = value.replace("8", "A")
+    return ("" if text[0].isdigit() else r"(?<=\d)") + re.escape(text)
+
+
 def is_untranslated(source: str, target: str) -> bool:
     """The cue still holds the English text (three or more English words, the same as the source)."""
     words = re.findall(r"[A-Za-z]+", target.lower())
@@ -156,7 +162,9 @@ def check_cues(source: list[Cue], target: list[Cue], glossary: list[GlossaryTerm
         missing = [value for value in missing if not (value.startswith("0.") and value[2:] in numbers(uz.text))]
         # ASR often hears a section letter "A" as "eight": "unit 6-8, section 6-8.6" = 6A, 6A.6.
         missing = [value for value in missing
-                   if not ("8" in value and re.search(r"(?<=\d)" + re.escape(value.replace("8", "A")), uz.text))]
+                   if not ("8" in value and re.search(section_letter(value), uz.text))]
+        # ...and "4D" as "40" ("for 40 requires even more processing").
+        missing = [value for value in missing if not (value in ("20", "30", "40") and value[0] + "D" in uz.text)]
         if missing:
             report.errors.append(f"{where}: son tushib qolgan: {', '.join(missing)}")
         units = [unit for unit in UNIT.findall(src.text) if unit.lower() not in uz.text.lower()]
