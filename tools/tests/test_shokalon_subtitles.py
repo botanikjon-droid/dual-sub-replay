@@ -184,6 +184,11 @@ class TranslationCheckTest(unittest.TestCase):
             self.assertIn("tarjima bo‘sh", report)
             self.assertIn("| V014 | 1 | portal | darvoza | ASR | Yuqori |", report)
 
+    def test_a_section_number_read_as_zero_point_is_accepted(self):
+        source = GOOD.replace("The portal vein lies here.", "section 6b 0.2 rules of the road")
+        target = UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "6b.2-qism — yo‘l qoidalari")
+        self.assertEqual([], self.check(source, target).errors)
+
     def test_uzbek_words_with_okina_are_not_english(self):
         target = UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "Darvoza venasi to‘lqin bilan ko‘rinadi.")
         self.assertEqual([], [w for w in self.check(GOOD, target).warnings if "inglizcha" in w])

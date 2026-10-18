@@ -152,6 +152,8 @@ def check_cues(source: list[Cue], target: list[Cue], glossary: list[GlossaryTerm
             missing = []
         # Auto captions drop "zero point" (".5 mm" becomes "5 mm"); the translation writes 0,5.
         missing = [value for value in missing if not any(n.endswith("." + value) for n in numbers(uz.text))]
+        # Auto captions also turn "section 6b point 2" into "6b 0.2"; the translation writes 6b.2.
+        missing = [value for value in missing if not (value.startswith("0.") and value[2:] in numbers(uz.text))]
         if missing:
             report.errors.append(f"{where}: son tushib qolgan: {', '.join(missing)}")
         units = [unit for unit in UNIT.findall(src.text) if unit.lower() not in uz.text.lower()]
