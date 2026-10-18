@@ -220,6 +220,15 @@ private fun LessonToolsHost(
         onGeminiTranslate = viewModel::translateLessonWithGemini,
         onDeepLTranslate = viewModel::translateLessonWithDeepL,
         onClaudeCancel = viewModel::cancelClaudeTranslation,
+        recordingCard = {
+            RecordedCaptionsCard(
+                summary = state.recordedCaptions,
+                liveFallback = state.liveFallback,
+                onUse = viewModel::useRecordedCaptions,
+                onContinue = viewModel::continueRecordingCaptions,
+                onDelete = viewModel::deleteRecordedCaptions,
+            )
+        },
         lessonList = {
             LessonCatalogCard(
                 translatedVideoIds = lessons.mapTo(HashSet()) { it.videoId },

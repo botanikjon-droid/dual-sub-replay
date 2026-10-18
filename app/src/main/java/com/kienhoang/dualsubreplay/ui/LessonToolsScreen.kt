@@ -89,6 +89,7 @@ internal fun LessonToolsScreen(
     onClaudeCancel: () -> Unit = {},
     lessonList: @Composable () -> Unit = {},
     notesCard: @Composable () -> Unit = {},
+    recordingCard: @Composable () -> Unit = {},
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
@@ -206,6 +207,8 @@ internal fun LessonToolsScreen(
                     }
 
                     lessonList()
+
+                    recordingCard()
 
                     SubtitleOutCard(
                         hasVideo = activeVideoId != null,

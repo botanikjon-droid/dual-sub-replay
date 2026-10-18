@@ -28,6 +28,8 @@ import com.kienhoang.dualsubreplay.data.formatVideoTime
 import com.kienhoang.dualsubreplay.data.withFrameImage
 import com.kienhoang.dualsubreplay.data.RawCaptionCue
 import com.kienhoang.dualsubreplay.data.RecentCaptionTracks
+import com.kienhoang.dualsubreplay.data.RecordedCaptionStore
+import com.kienhoang.dualsubreplay.data.RecordingSummary
 import com.kienhoang.dualsubreplay.data.SavedWord
 import com.kienhoang.dualsubreplay.data.SubtitleMerger
 import com.kienhoang.dualsubreplay.data.SubtitleSegment
@@ -124,6 +126,8 @@ data class DualSubUiState(
     val translationError: String? = null,
     /** Cues in the user's imported translation for the open video; 0 when none is imported. */
     val importedTranslationCues: Int = 0,
+    /** Captions recorded from the YouTube page for the open video (videos without a downloadable track), or null. */
+    val recordedCaptions: RecordingSummary? = null,
 )
 
 /**
@@ -469,6 +473,15 @@ class AppViewModel internal constructor(
         videoId: String,
         languages: List<String>,
     ): CaptionTrackResult {
+        // A recording the user chose to use stands in for the track YouTube does not let the app download.
+        captionRecorder.store.completeCues(videoId)?.let { (language, cues) ->
+            return CaptionTrackResult(
+                languageCode = TranslationLanguages.normalize(language ?: "en"),
+                isGenerated = true,
+                cues = cues,
+                title = lessonTitles[videoId],
+            )
+        }
         val track = captionProvider.fetch(videoId, languages)
         track.title?.takeIf(String::isNotBlank)?.let { lessonTitles[videoId] = it }
         return track
@@ -510,6 +523,12 @@ class AppViewModel internal constructor(
     /** The open video's imported translation, keyed by video id so a late load cannot mix videos. */
     private var importedTranslation: Pair<String, List<RawCaptionCue>>? = null
     private val importedTranslationDirectory = File(application.filesDir, "imported-translations")
+
+    /** Records the captions the page shows for videos whose caption track cannot be downloaded. */
+    private val captionRecorder =
+        CaptionRecorder(RecordedCaptionStore(File(application.filesDir, RecordedCaptionStore.FOLDER)), viewModelScope) { id, summary ->
+            _state.update { if (it.activeVideoId == id) it.copy(recordedCaptions = summary) else it }
+        }
 
     private val _state =
         MutableStateFlow(
@@ -634,6 +653,7 @@ class AppViewModel internal constructor(
         }
 
     override fun onCleared() {
+        captionRecorder.saveNow()
         flushImmersion()
         loadingJob?.cancel()
         dubbing.reset()
@@ -966,6 +986,7 @@ class AppViewModel internal constructor(
         seek: Boolean,
     ) {
         val current = _state.value
+        captionRecorder.onSample(videoId, liveCaption, seek)
         updateLiveSubtitle(videoId, liveCaption, seek)
         val accepted =
             liveCaption?.takeIf {
@@ -1424,6 +1445,48 @@ class AppViewModel internal constructor(
         loadVideo(videoId, showPanel = true)
     }
 
+    /** Uses the open video's recorded captions as its subtitles: replay, translation, export and voice then work. */
+    fun useRecordedCaptions() = changeRecording(complete = true) { "Yozib olingan subtitr ishlatilmoqda: ${it.cues} qator." }
+
+    /** Goes back to recording, for parts of the video not recorded yet. */
+    fun continueRecordingCaptions() =
+        changeRecording(complete = false) { "Yozish davom etadi. Videoning yozilmagan qismlarini ko\u2018ring." }
+
+    private fun changeRecording(
+        complete: Boolean,
+        message: (RecordingSummary) -> String,
+    ) {
+        val videoId = _state.value.activeVideoId ?: return
+        viewModelScope.launch {
+            val summary =
+                try {
+                    captionRecorder.setComplete(videoId, complete)
+                } catch (cancel: CancellationException) {
+                    throw cancel
+                } catch (error: Exception) {
+                    toast(error.message ?: "Yozib olingan subtitrni saqlab bo\u2018lmadi.")
+                    return@launch
+                }
+            if (summary == null || summary.cues == 0) {
+                toast("Bu video uchun hali subtitr yozilmagan.")
+                return@launch
+            }
+            toast(message(summary))
+            if (_state.value.activeVideoId == videoId) loadVideo(videoId, showPanel = true)
+        }
+    }
+
+    /** Deletes the open video's recorded captions. */
+    fun deleteRecordedCaptions() {
+        val videoId = _state.value.activeVideoId ?: return
+        viewModelScope.launch {
+            val wasUsed = _state.value.recordedCaptions?.complete == true
+            captionRecorder.delete(videoId)
+            toast("Yozib olingan subtitr o\u2018chirildi.")
+            if (wasUsed && _state.value.activeVideoId == videoId) loadVideo(videoId, showPanel = true)
+        }
+    }
+
     fun showSubtitlePanel() = _state.update { it.copy(subtitlePanelVisible = true) }
 
     fun hideSubtitlePanel() = _state.update { it.copy(subtitlePanelVisible = false) }
@@ -1431,11 +1494,14 @@ class AppViewModel internal constructor(
     private fun openVideo(videoId: String) {
         if (_state.value.activeVideoId == videoId) return
         loadVideo(videoId, showPanel = true)
+        // Every other loadVideo call reloads the open video, whose recording is already open.
+        captionRecorder.open(videoId)
     }
 
     private fun clearActiveVideo() {
         if (_state.value.activeVideoId == null) return
         importedTranslation = null
+        captionRecorder.close()
         dubbing.reset()
         immersionTracker.reset()
         flushImmersion()
@@ -1463,6 +1529,7 @@ class AppViewModel internal constructor(
                 generatedCaptions = false,
                 segments = emptyList(),
                 importedTranslationCues = 0,
+                recordedCaptions = null,
                 currentIndex = -1,
                 activeWordIndex = -1,
                 stage = LoadStage.IDLE,
