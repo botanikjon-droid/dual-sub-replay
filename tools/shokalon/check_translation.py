@@ -154,6 +154,9 @@ def check_cues(source: list[Cue], target: list[Cue], glossary: list[GlossaryTerm
         missing = [value for value in missing if not any(n.endswith("." + value) for n in numbers(uz.text))]
         # Auto captions also turn "section 6b point 2" into "6b 0.2"; the translation writes 6b.2.
         missing = [value for value in missing if not (value.startswith("0.") and value[2:] in numbers(uz.text))]
+        # ASR often hears a section letter "A" as "eight": "unit 6-8, section 6-8.6" = 6A, 6A.6.
+        missing = [value for value in missing
+                   if not ("8" in value and re.search(r"(?<=\d)" + re.escape(value.replace("8", "A")), uz.text))]
         if missing:
             report.errors.append(f"{where}: son tushib qolgan: {', '.join(missing)}")
         units = [unit for unit in UNIT.findall(src.text) if unit.lower() not in uz.text.lower()]
