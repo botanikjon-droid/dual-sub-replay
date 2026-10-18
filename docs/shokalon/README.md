@@ -5,7 +5,7 @@ Bu papka SHOKALON loyihasining ilovadan tashqari materiallarini saqlaydi. Tuzilm
 | Papka | Mazmuni | Holat |
 | --- | --- | --- |
 | `02_VIDEO_CATALOG/SHOKALON_katalog_v13.xlsx` | 33 bob, 253 kichik mavzu (`BB.CC.TT` kodlari), 481 video (`V001…`), 4-bosqich auditi (havolalar qayta tekshiruvi, manba darajasi A/B/C), qidiruv navbati (inglizcha kalit so‘zlar), boshqa tildagi zaxira, qamrov, audit, rad etilgan havolalar | 2026-10-17 |
-| `03_SUBTITLES_ORIGINAL/` (5-bosqich) | Ilovadagi "SHOKALON: subtitrlarni yig‘ish" kartochkasi telefonda yig‘adi va ZIP qiladi | 2026-10-18: 421 ta fayl keldi, 411 tasi inglizcha va yaroqli; 57 tasi qayta urinish kutmoqda; natija  |
+| `03_SUBTITLES_ORIGINAL/` (5-bosqich) | Ilovadagi "SHOKALON: subtitrlarni yig‘ish" kartochkasi telefonda yig‘adi va ZIP qiladi | 2026-10-18: 421 ta fayl keldi, 411 tasi inglizcha va yaroqli; 57 tasi qayta urinish kutmoqda; natija `03_SUBTITLES_ORIGINAL/2026-10-18_zip_tekshiruvi.md` |
 | Subtitri yuklanmaydigan videolar | Ilova video ko‘rilayotganda YouTube ekranda ko‘rsatgan subtitrni vaqti bilan yozib oladi ("Dars: havola va subtitr" → "Ekrandan yozilgan subtitr"). "Subtitr sifatida ishlatish" dan keyin yig‘ish ZIP’iga `ASR-EN` fayl bo‘lib kiradi, manifest izohi "ekrandan yozilgan" | Ilova tayyor (2026-10-18) |
 | 6-bosqich: ZIP tekshiruvi | `tools/shokalon/check_subtitle_zip.py ZIP` — katalog bilan solishtiradi: yo‘q, takroriy, nomi yoki kodi mos kelmagan, buzilgan SRT | Vosita tayyor |
 | `TARJIMA_STANDARTI.md` (7-bosqich) | Claude va ChatGPT uchun yagona tibbiy tarjima standarti; `prompts/tarjima_prompti.txt` — ChatGPT’ga beriladigan qisqa shakli | Shifokor qarorlari kiritildi (2026-10-18); 12 ta shubhali lug‘at yozuvi kutilmoqda |
