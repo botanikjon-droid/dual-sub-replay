@@ -65,7 +65,7 @@ Ko‘nikmadagi `asl nom + _uz` nomlash SHOKALON fayllariga qo‘llanmaydi: bu ye
 
 Ustuvorlik tartibi:
 
-1. **Ilovadagi lug‘at** `app/src/main/assets/uzi_glossary.tsv`: 268 ta atama, shifokor tekshirgan (`approved`,
+1. **Ilovadagi lug‘at** `app/src/main/assets/uzi_glossary.tsv`: 269 ta atama, shifokor tekshirgan (`approved`,
    `corrected`, `new`). Majburiy. Inglizcha atama va uning sinonimlari (`aliases`) uchrasa, o‘zbekcha atama ishlatiladi.
    Qavs ichidagi qism (masalan, “datchik (zond)” dagi “zond”) birinchi uchraganda yozilishi mumkin, keyin asosiy shakl.
    `general = 1` belgili 20 ta umumiy so‘z (liver, kidney …) oddiy so‘z sifatida tarjima qilinadi.
