@@ -152,6 +152,18 @@ class TranslationCheckTest(unittest.TestCase):
         self.assertIn("qator", " ".join(long.warnings))
         self.assertEqual([], long.errors)
 
+    def test_uzbek_words_with_okina_are_not_english(self):
+        target = UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "Darvoza venasi to‘lqin bilan ko‘rinadi.")
+        self.assertEqual([], [w for w in self.check(GOOD, target).warnings if "inglizcha" in w])
+
+    def test_a_number_split_by_auto_captions_may_be_written_whole(self):
+        source = GOOD.replace("It measures 12 mm.", "The speed is 15 40 meters per second.")
+        self.assertEqual([], self.check(source, UZ_GOOD.replace("Uning o‘lchami 12 mm.", "Tezlik 1540 metr/soniya.")).errors)
+
+    def test_a_decimal_whose_zero_point_auto_captions_dropped_may_be_restored(self):
+        source = GOOD.replace("12 mm", "05 mm to 5 mm")
+        self.assertEqual([], self.check(source, UZ_GOOD.replace("12 mm", "0,05 mm dan 0,5 mm gacha")).errors)
+
     def test_decimal_comma_counts_as_the_same_number(self):
         source = GOOD.replace("12 mm", "3.5 mm")
         self.assertEqual([], self.check(source, UZ_GOOD.replace("12 mm", "3,5 mm")).errors)

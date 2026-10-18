@@ -126,12 +126,18 @@ def check_cues(source: list[Cue], target: list[Cue], glossary: list[GlossaryTerm
         if CYRILLIC.search(uz.text):
             report.errors.append(f"{where}: kirill harfi bor")
         missing = [value for value in numbers(src.text) if value not in numbers(uz.text)]
+        # Auto captions split a number ("15 40" for 1540, "11 000"); the translation writes it whole.
+        if missing and "".join(missing) in "".join(numbers(uz.text)):
+            missing = []
+        # Auto captions drop "zero point" (".5 mm" becomes "5 mm"); the translation writes 0,5.
+        missing = [value for value in missing if not any(n.endswith("." + value) for n in numbers(uz.text))]
         if missing:
             report.errors.append(f"{where}: son tushib qolgan: {', '.join(missing)}")
         units = [unit for unit in UNIT.findall(src.text) if unit.lower() not in uz.text.lower()]
         if units:
             report.warnings.append(f"{where}: birlik tushib qolgan: {', '.join(units)}")
-        leftover = sorted({word for word in re.findall(r"[A-Za-z]+", uz.text) if word.lower() in ENGLISH})
+        # o‘/g‘ and ’ belong to the Uzbek word: "to‘lqin" is not the English "to".
+        leftover = sorted({word for word in re.findall(r"[A-Za-z‘’'ʻ`]+", uz.text) if word.lower() in ENGLISH})
         if leftover:
             report.warnings.append(f"{where}: inglizcha so‘z qolgan: {', '.join(leftover)}")
         for term in source_terms(src.text, glossary):
