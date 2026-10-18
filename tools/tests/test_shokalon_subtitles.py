@@ -214,6 +214,12 @@ class TranslationCheckTest(unittest.TestCase):
         target = UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "kadrlar chastotasiga ham teskari proporsional.")
         self.assertEqual([], self.check(source, target).errors)
 
+    def test_phased_heard_as_phase_3_is_accepted(self):
+        source = GOOD.replace("The portal vein lies here.", "compare that to a phase 3 transducer")
+        target = UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "buni fazali panjarali datchik bilan solishtiring")
+        self.assertEqual([], self.check(source, target).errors)
+        self.assertTrue(self.check(source, UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "buni datchik bilan solishtiring")).errors)
+
     def test_uzbek_words_with_okina_are_not_english(self):
         target = UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "Darvoza venasi to‘lqin bilan ko‘rinadi.")
         self.assertEqual([], [w for w in self.check(GOOD, target).warnings if "inglizcha" in w])

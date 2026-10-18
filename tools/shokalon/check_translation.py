@@ -172,6 +172,9 @@ def check_cues(source: list[Cue], target: list[Cue], glossary: list[GlossaryTerm
         # "...inversely related to frame rate too." comes out as "frame rate 2."
         if "2" in missing and re.search(r"[a-z] 2\.(\s|$)", src.text):
             missing = [value for value in missing if value != "2"]
+        # "phased array" heard as "phase 3": the translation says "fazali panjara".
+        if "3" in missing and re.search(r"\bphase 3\b", src.text, re.I) and "fazali" in uz.text.lower():
+            missing = [value for value in missing if value != "3"]
         if missing:
             report.errors.append(f"{where}: son tushib qolgan: {', '.join(missing)}")
         units = [unit for unit in UNIT.findall(src.text) if unit.lower() not in uz.text.lower()]
