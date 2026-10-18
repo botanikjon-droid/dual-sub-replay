@@ -56,6 +56,9 @@ class FileCheck:
     warnings: list[str] = field(default_factory=list)
 
 
+NOT_ENGLISH = "subtitr tili inglizcha emas"
+
+
 def check_srt_bytes(data: bytes, result: FileCheck) -> None:
     try:
         cues = parse_srt(read_text(data))
@@ -106,6 +109,9 @@ def check_zip(zip_path: Path, ids: dict[str, dict[str, str]]) -> dict:
                         result.errors.append("Video ID katalogda yo‘q")
                     elif known["code"] != parsed.dotted_code:
                         result.errors.append(f"mavzu kodi {parsed.dotted_code}, katalogda {known['code']}")
+                language = parsed.variant.partition("-")[2]
+                if language and language != "EN":
+                    result.warnings.append(f"{NOT_ENGLISH}: {language}")
             check_srt_bytes(archive.read(name), result)
             files.append(result)
 
@@ -124,6 +130,9 @@ def check_zip(zip_path: Path, ids: dict[str, dict[str, str]]) -> dict:
         row = manifest.get(vid, {})
         if group:
             state = "fayl bor" if not any(r.errors for r in group) else "fayl xato"
+            if state == "fayl bor" and any(w.startswith(NOT_ENGLISH) for r in group for w in r.warnings):
+                # YouTube sometimes transcribes an English lecture as Hindi, German …: the text is then unusable.
+                state = "fayl bor, inglizcha emas"
         else:
             state = {"subtitr yo‘q": "subtitr yo‘q", "xato": "yuklanmadi (xato)"}.get(row.get("status", ""), "fayl yo‘q")
             if row.get("status") == "bor":

@@ -90,6 +90,12 @@ class SubtitleZipTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as out:
             self.assertGreater(zipcheck.write_report(result, Path(out), path.name), 0)
 
+    def test_a_non_english_transcript_is_flagged_for_review(self):
+        path = make_zip({"03_SUBTITLES_ORIGINAL/SHK_031001_V001_ASR-HI.srt": GOOD, "03_SUBTITLES_ORIGINAL/SHK_031106_V004_ASR-EN.srt": GOOD})
+        states = {row["vid"]: row["state"] for row in zipcheck.check_zip(path, IDS)["lectures"]}
+        self.assertEqual("fayl bor, inglizcha emas", states["V001"])
+        self.assertEqual("fayl bor", states["V004"])
+
     def test_a_missing_manifest_and_a_manifest_file_absent_from_the_zip_are_reported(self):
         path = make_zip({"03_SUBTITLES_ORIGINAL/SHK_031001_V001_ORIGINAL.srt": GOOD})
         states = {row["vid"]: row["state"] for row in zipcheck.check_zip(path, IDS)["lectures"]}
