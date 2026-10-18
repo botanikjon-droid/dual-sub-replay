@@ -203,6 +203,12 @@ class TranslationCheckTest(unittest.TestCase):
         target = UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "4D esa yana ko‘proq ishlov talab qiladi")
         self.assertEqual([], self.check(source, target).errors)
 
+    def test_a_half_or_to_garbled_into_digits_is_accepted(self):
+        source = GOOD.replace("The portal vein lies here.", "which would be 72 mm and widen again 210 mm")
+        target = UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "ya’ni 7 1/2 mm, yana 10 mm gacha kengayadi")
+        self.assertEqual([], self.check(source, target).errors)
+        self.assertTrue(self.check(source, UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "ya’ni 7 mm")).errors)
+
     def test_uzbek_words_with_okina_are_not_english(self):
         target = UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "Darvoza venasi to‘lqin bilan ko‘rinadi.")
         self.assertEqual([], [w for w in self.check(GOOD, target).warnings if "inglizcha" in w])

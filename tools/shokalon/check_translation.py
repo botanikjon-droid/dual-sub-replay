@@ -165,6 +165,10 @@ def check_cues(source: list[Cue], target: list[Cue], glossary: list[GlossaryTerm
                    if not ("8" in value and re.search(section_letter(value), uz.text))]
         # ...and "4D" as "40" ("for 40 requires even more processing").
         missing = [value for value in missing if not (value in ("20", "30", "40") and value[0] + "D" in uz.text)]
+        # "seven and a half" written as "72", "to 10 mm" written as "210 mm".
+        missing = [value for value in missing if not (
+            re.fullmatch(r"\d2", value) and re.search(re.escape(value[0]) + r"(\.5| 1/2)", uz.text)
+            or re.fullmatch(r"2\d{2,}", value) and value[1:] in numbers(uz.text))]
         if missing:
             report.errors.append(f"{where}: son tushib qolgan: {', '.join(missing)}")
         units = [unit for unit in UNIT.findall(src.text) if unit.lower() not in uz.text.lower()]
