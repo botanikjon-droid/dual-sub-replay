@@ -209,6 +209,11 @@ class TranslationCheckTest(unittest.TestCase):
         self.assertEqual([], self.check(source, target).errors)
         self.assertTrue(self.check(source, UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "ya’ni 7 mm")).errors)
 
+    def test_too_heard_as_two_at_sentence_end_is_accepted(self):
+        source = GOOD.replace("The portal vein lies here.", "inversely related to frame rate 2. so we")
+        target = UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "kadrlar chastotasiga ham teskari proporsional.")
+        self.assertEqual([], self.check(source, target).errors)
+
     def test_uzbek_words_with_okina_are_not_english(self):
         target = UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "Darvoza venasi to‘lqin bilan ko‘rinadi.")
         self.assertEqual([], [w for w in self.check(GOOD, target).warnings if "inglizcha" in w])

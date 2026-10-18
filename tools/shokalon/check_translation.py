@@ -169,6 +169,9 @@ def check_cues(source: list[Cue], target: list[Cue], glossary: list[GlossaryTerm
         missing = [value for value in missing if not (
             re.fullmatch(r"\d2", value) and re.search(re.escape(value[0]) + r"(\.5| 1/2)", uz.text)
             or re.fullmatch(r"2\d{2,}", value) and value[1:] in numbers(uz.text))]
+        # "...inversely related to frame rate too." comes out as "frame rate 2."
+        if "2" in missing and re.search(r"[a-z] 2\.(\s|$)", src.text):
+            missing = [value for value in missing if value != "2"]
         if missing:
             report.errors.append(f"{where}: son tushib qolgan: {', '.join(missing)}")
         units = [unit for unit in UNIT.findall(src.text) if unit.lower() not in uz.text.lower()]
