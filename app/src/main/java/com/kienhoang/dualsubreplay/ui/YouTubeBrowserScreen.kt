@@ -419,12 +419,19 @@ internal fun SingleYouTubePage(
 
                 override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
                     super.doUpdateVisitedHistory(view, url, isReload)
+                    // YouTube changes pages without reloading; the focus style is checked again each time.
+                    if (shokalonFocusMode && url?.let(::isYouTubeWebUrl) == true) {
+                        view.evaluateJavascript(focusModeScript(enabled = true), null)
+                    }
                     reportNavigation(view, url)
                 }
 
                 override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
                     super.onPageStarted(view, url, favicon)
                     youtubeNativeDialogVisible.value = false
+                    if (shokalonFocusMode && url?.let(::isYouTubeWebUrl) == true) {
+                        view.evaluateJavascript(focusModeScript(enabled = true), null)
+                    }
                     pageError = null
                     if (url != null && handleMainFrameUrl(view, url)) return
                     reportNavigation(view, url)
@@ -447,6 +454,7 @@ internal fun SingleYouTubePage(
                             webCaptionVisibilityScript(currentSuppressPageCaptions),
                             null,
                         )
+                        if (shokalonFocusMode) view.evaluateJavascript(focusModeScript(enabled = true), null)
                     }
                 }
 

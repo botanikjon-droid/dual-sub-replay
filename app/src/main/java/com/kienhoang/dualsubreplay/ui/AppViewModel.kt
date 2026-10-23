@@ -77,6 +77,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
+import java.util.Collections
 import java.time.LocalDate
 import com.kienhoang.dualsubreplay.data.activeWordIndex as timedActiveWordIndex
 
@@ -321,6 +322,8 @@ class AppViewModel internal constructor(
         viewModelScope.launch { com.kienhoang.dualsubreplay.data.LearnedGlossaryStore.load(application) }
         // The list of translated lessons and their notes.
         viewModelScope.launch { LessonLibraryStore.load(application) }
+        // Focus mode needs the catalog to tell lessons from other YouTube videos.
+        if (shokalonFocusMode) viewModelScope.launch { com.kienhoang.dualsubreplay.data.UziCatalogStore.load(application) }
         // Speaking a translated lesson in advance uses the same voice as playback.
         LessonVoicePrefetch.voice = dubbingVoice
         LessonVoicePrefetch.currentLessonTexts = { importedLines(_state.value.activeVideoId).orEmpty() }
@@ -462,6 +465,25 @@ class AppViewModel internal constructor(
         }
 
     private fun toast(message: String) = Toast.makeText(getApplication(), message, Toast.LENGTH_LONG).show()
+
+    /** Videos the doctor opened himself (a pasted link, a shared video): lessons even if not in the catalog. */
+    private val requestedVideoIds = Collections.synchronizedSet(mutableSetOf<String>())
+
+    /** The last lesson page, where focus mode returns from a page that is not a lesson. */
+    private var lastLessonUrl: String? = null
+
+    /** A catalog lecture, a translated lesson or a video the doctor opened himself; unknown until the catalog loads. */
+    internal fun isLessonVideo(videoId: String): Boolean =
+        videoId in requestedVideoIds ||
+            LessonLibraryStore.records.value.any { it.videoId == videoId } ||
+            catalogHasVideo(com.kienhoang.dualsubreplay.data.UziCatalogStore.sections.value, videoId) != false
+
+    /** Focus mode: leaves another video, Shorts or a feed for the last lesson (or the empty home page). */
+    private fun leaveDistraction() {
+        val back = lastLessonUrl ?: YOUTUBE_HOME_URL
+        _state.update { it.copy(browserUrl = back, browserNavigationRequestId = it.browserNavigationRequestId + 1) }
+        toast(FOCUS_BLOCKED_MESSAGE)
+    }
 
     /** Opens a lesson from the catalog or reopens one from the list of translated lessons. */
     fun openTranslatedLesson(videoId: String) {
@@ -746,6 +768,7 @@ class AppViewModel internal constructor(
             return
         }
         val videoId = YouTubeUrlParser.extractVideoId(text) ?: return
+        requestedVideoIds += videoId
         val watchUrl = mobileWatchUrl(videoId)
         preferences.edit().putString("last_browser_url", watchUrl).apply()
         _state.update {
@@ -959,6 +982,13 @@ class AppViewModel internal constructor(
 
     fun onYouTubePageChanged(url: String) {
         if (classifyMainFrameUrl(url) != EmbeddedNavigationDecision.YOUTUBE_WEB) return
+        if (shokalonFocusMode) {
+            if (focusVerdict(url, ::isLessonVideo) == FocusVerdict.BLOCK) {
+                leaveDistraction()
+                return
+            }
+            if (YouTubeUrlParser.extractVideoId(url) != null) lastLessonUrl = url
+        }
         if (url != _state.value.browserUrl) {
             preferences.edit().putString("last_browser_url", url).apply()
             _state.update { it.copy(browserUrl = url) }

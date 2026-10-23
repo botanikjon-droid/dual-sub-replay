@@ -58,6 +58,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
@@ -130,6 +131,7 @@ fun DualSubApp(
                     showProgress = true
                 },
                 lessonTools = { onDismiss -> LessonToolsHost(state, viewModel, onDismiss) },
+                homeScreen = shokalonHomeScreen(state, viewModel),
                 onAutoPronounceChange = viewModel::setAutoPronounce,
                 playerMode = playerMode,
                 effectivePlayerMode = effectivePlayerMode,
@@ -194,6 +196,35 @@ fun DualSubApp(
             onDismiss = { showProgress = false },
         )
     }
+}
+
+/** SHOKALON's sections screen in the Uzbek build; null in the general builds. */
+private fun shokalonHomeScreen(
+    state: DualSubUiState,
+    viewModel: AppViewModel,
+): (@Composable (onDismiss: () -> Unit) -> Unit)? =
+    if (!shokalonFocusMode) {
+        null
+    } else {
+        { onDismiss ->
+            ShokalonHomeScreen(
+                activeVideoId = state.activeVideoId,
+                onOpen = { videoId ->
+                    viewModel.openTranslatedLesson(videoId)
+                    onDismiss()
+                },
+                onDismiss = onDismiss,
+            )
+        }
+    }
+
+/** Shows [homeScreen] when the app starts and returns how to open it again (null without one). */
+@Composable
+private fun homeScreenHost(homeScreen: (@Composable (onDismiss: () -> Unit) -> Unit)?): (() -> Unit)? {
+    if (homeScreen == null) return null
+    var showHome by rememberSaveable { mutableStateOf(true) }
+    if (showHome) homeScreen { showHome = false }
+    return { showHome = true }
 }
 
 @Composable
@@ -298,6 +329,8 @@ private fun DualSubExperience(
     onVocabulary: () -> Unit,
     onProgress: () -> Unit,
     lessonTools: @Composable (onDismiss: () -> Unit) -> Unit,
+    // SHOKALON's first screen (sections and lectures); null in the general builds.
+    homeScreen: (@Composable (onDismiss: () -> Unit) -> Unit)? = null,
     onAutoPronounceChange: (Boolean) -> Unit,
     playerMode: PlayerExperienceMode,
     effectivePlayerMode: PlayerExperienceMode = playerMode,
@@ -392,8 +425,11 @@ private fun DualSubExperience(
 
     var showLessonTools by remember { mutableStateOf(false) }
     if (showLessonTools) lessonTools { showLessonTools = false }
+    val openHome = homeScreenHost(homeScreen)
 
-    AppNavigation(onPractice = onVocabulary, onProgress = onProgress, onLesson = { showLessonTools = true }, onSettings = {
+    AppNavigation(onHome = openHome, onPractice = onVocabulary, onProgress = onProgress, onLesson = {
+        showLessonTools = true
+    }, onSettings = {
         showSettings = true
     }, onVisibilityChange = onNavigationVisibilityChange) { menuButton ->
         Scaffold(contentWindowInsets = contentInsets, topBar = {

@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ClosedCaption
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.School
@@ -30,6 +31,8 @@ import kotlinx.coroutines.launch
 
 @Composable
 internal fun AppNavigation(
+    // "Ultratovush bo‘limlari": SHOKALON's first screen; null hides the item in the general builds.
+    onHome: (() -> Unit)? = null,
     onPractice: () -> Unit,
     onSettings: () -> Unit,
     onProgress: () -> Unit = {},
@@ -61,6 +64,7 @@ internal fun AppNavigation(
                         Column {
                             DrawerHeader(onClose = { scope.launch { drawer.close() } })
                             Spacer(Modifier.height(8.dp))
+                            HomeDrawerItem(onHome, drawer)
                             NavigationDrawerItem(
                                 icon = { Icon(Icons.Default.VideoLibrary, contentDescription = null) },
                                 label = { Text("Dars: havola va subtitr") },
@@ -135,6 +139,28 @@ internal fun AppNavigation(
             }
         }
     }
+}
+
+/** "Ultratovush bo‘limlari": back to SHOKALON's sections screen; nothing when [onHome] is null. */
+@Composable
+private fun HomeDrawerItem(
+    onHome: (() -> Unit)?,
+    drawer: DrawerState,
+) {
+    if (onHome == null) return
+    val scope = rememberCoroutineScope()
+    NavigationDrawerItem(
+        icon = { Icon(Icons.Default.Home, contentDescription = null) },
+        label = { Text("Ultratovush bo‘limlari") },
+        selected = false,
+        modifier = Modifier.testTag("open_shokalon_home"),
+        onClick = {
+            scope.launch {
+                drawer.close()
+                onHome()
+            }
+        },
+    )
 }
 
 @Composable
