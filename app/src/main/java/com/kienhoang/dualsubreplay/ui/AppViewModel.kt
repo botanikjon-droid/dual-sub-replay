@@ -49,6 +49,11 @@ import com.kienhoang.dualsubreplay.data.translationRequest
 import com.kienhoang.dualsubreplay.data.retireLegacyDownloadJobs
 import com.kienhoang.dualsubreplay.data.savedWordFrom
 import com.kienhoang.dualsubreplay.data.subtitleFileName
+import com.kienhoang.dualsubreplay.data.SHOKALON_IDS_ASSET
+import com.kienhoang.dualsubreplay.data.SHOKALON_TRANSLATION_SOURCE
+import com.kienhoang.dualsubreplay.data.parseShokalonIds
+import com.kienhoang.dualsubreplay.data.readTranslationZip
+import com.kienhoang.dualsubreplay.data.translationZipSummary
 import com.kienhoang.dualsubreplay.dubbing.DubbingController
 import com.kienhoang.dualsubreplay.dubbing.LessonVoicePrefetch
 import com.kienhoang.dualsubreplay.dubbing.createDubbingVoice
@@ -71,6 +76,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.time.LocalDate
 import com.kienhoang.dualsubreplay.data.activeWordIndex as timedActiveWordIndex
 
@@ -849,6 +855,33 @@ class AppViewModel internal constructor(
         importedTranslation = videoId to cues
         loadVideo(videoId, showPanel = true)
         return cues.size
+    }
+
+    /**
+     * A ZIP of finished SHOKALON translations (SHK_…_V###_UZ-LATIN.srt): each file is stored for its
+     * catalog lecture like a translation imported by hand. Returns the Uzbek summary for the card.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    internal suspend fun importTranslationZip(uri: android.net.Uri): String {
+        val app = getApplication<Application>()
+        val contents =
+            withContext(Dispatchers.IO) {
+                val ids = app.assets.open(SHOKALON_IDS_ASSET).use { parseShokalonIds(it.readBytes().toString(Charsets.UTF_8)) }
+                val input = app.contentResolver.openInputStream(uri) ?: throw IOException("Faylni ochib bo‘lmadi.")
+                input.use { readTranslationZip(it, ids) }
+            }
+        var cues = 0
+        val failed = mutableListOf<String>()
+        contents.translations.forEach { translation ->
+            try {
+                cues += importTranslation(translation.text, translation.videoId, source = SHOKALON_TRANSLATION_SOURCE)
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (error: Exception) {
+                failed += "${translation.fileName} (${error.message})"
+            }
+        }
+        return translationZipSummary(contents.translations.size - failed.size, cues, contents.unknown, failed)
     }
 
     /** An .srt/.vtt file shared into the app (for example from a file manager or an AI chat). */
