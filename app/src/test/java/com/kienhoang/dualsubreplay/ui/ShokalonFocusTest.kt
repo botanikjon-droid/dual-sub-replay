@@ -44,4 +44,37 @@ class ShokalonFocusTest {
         assertTrue(css.endsWith("{ display: none !important; }"))
         assertTrue(focusModeScript(enabled = true).contains(FOCUS_STYLE_ID))
     }
+
+    @Test
+    fun stepsStayInsideTheSection() {
+        val sections =
+            listOf(
+                CatalogSection(
+                    "Fizika",
+                    listOf(
+                        CatalogTopic("Tovush", listOf(CatalogVideo("aaaaaaaaaaa", "A"), CatalogVideo("bbbbbbbbbbb", "B"))),
+                        CatalogTopic("Datchik", listOf(CatalogVideo("ccccccccccc", "C"))),
+                    ),
+                ),
+                CatalogSection("Jigar", listOf(CatalogTopic("Kirish", listOf(CatalogVideo("ddddddddddd", "D"))))),
+            )
+        val middle = lessonSteps(sections, "bbbbbbbbbbb")!!
+        assertEquals("aaaaaaaaaaa", middle.previous?.videoId)
+        assertEquals("ccccccccccc", middle.next?.videoId)
+        assertEquals(2, middle.position)
+        assertEquals(3, middle.total)
+        val last = lessonSteps(sections, "ccccccccccc")!!
+        assertNull(last.next)
+        assertNull(lessonSteps(sections, "ddddddddddd")!!.previous)
+        assertNull(lessonSteps(sections, "eeeeeeeeeee"))
+        assertNull(lessonSteps(null, "aaaaaaaaaaa"))
+    }
+
+    @Test
+    fun stepScriptCarriesTheNeighbours() {
+        val steps = LessonSteps("bbbbbbbbbbb", "Fizika", 2, 3, CatalogVideo("aaaaaaaaaaa", "A"), null)
+        val script = focusStepScript(steps)
+        assertTrue(script.contains("active: true, prev: \"aaaaaaaaaaa\", next: \"\""))
+        assertTrue(focusStepScript(null).contains("active: false"))
+    }
 }

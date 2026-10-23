@@ -209,6 +209,13 @@ internal class YouTubeWebController {
     private var playingClipVideo: String? = null
 
     fun bindScripts(action: (String) -> Unit) { scriptAction = action }
+
+    /** Opens another YouTube page in the same WebView, as a tap on a link would. */
+    fun navigateTo(url: String) {
+        if (!isYouTubeWebUrl(url)) return
+        pause()
+        scriptAction?.invoke("location.href = ${JSONObject.quote(url)};")
+    }
     fun pause() {
         pendingClip = null
         playingClipVideo = null
@@ -422,6 +429,7 @@ internal fun SingleYouTubePage(
                     // YouTube changes pages without reloading; the focus style is checked again each time.
                     if (shokalonFocusMode && url?.let(::isYouTubeWebUrl) == true) {
                         view.evaluateJavascript(focusModeScript(enabled = true), null)
+                        view.evaluateJavascript(focusStepScript(focusLessonSteps.value), null)
                     }
                     reportNavigation(view, url)
                 }
@@ -454,7 +462,10 @@ internal fun SingleYouTubePage(
                             webCaptionVisibilityScript(currentSuppressPageCaptions),
                             null,
                         )
-                        if (shokalonFocusMode) view.evaluateJavascript(focusModeScript(enabled = true), null)
+                        if (shokalonFocusMode) {
+                            view.evaluateJavascript(focusModeScript(enabled = true), null)
+                            view.evaluateJavascript(focusStepScript(focusLessonSteps.value), null)
+                        }
                     }
                 }
 
@@ -517,6 +528,14 @@ internal fun SingleYouTubePage(
     LaunchedEffect(webView, suppressPageCaptions) {
         if (webView.url.orEmpty().let(::isYouTubeWebUrl)) {
             webView.evaluateJavascript(webCaptionVisibilityScript(suppressPageCaptions), null)
+        }
+    }
+
+    // The section's next and previous lectures change with the open lesson.
+    LaunchedEffect(webView) {
+        if (!shokalonFocusMode) return@LaunchedEffect
+        focusLessonSteps.collect { steps ->
+            if (webView.url.orEmpty().let(::isYouTubeWebUrl)) webView.evaluateJavascript(focusStepScript(steps), null)
         }
     }
 

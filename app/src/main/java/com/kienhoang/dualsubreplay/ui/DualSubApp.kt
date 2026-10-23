@@ -436,6 +436,7 @@ private fun DualSubExperience(
             Surface {
                 Row(Modifier.fillMaxWidth().statusBarsPadding(), horizontalArrangement = Arrangement.Start) {
                     menuButton()
+                    LessonStepBar(state.activeVideoId) { videoId -> webController.navigateTo(lessonWatchUrl(videoId)) }
                 }
             }
         }) { innerPadding ->

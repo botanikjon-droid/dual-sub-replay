@@ -2,7 +2,10 @@ package com.kienhoang.dualsubreplay.ui
 
 import com.kienhoang.dualsubreplay.BuildConfig
 import com.kienhoang.dualsubreplay.data.CatalogSection
+import com.kienhoang.dualsubreplay.data.CatalogVideo
 import com.kienhoang.dualsubreplay.data.YouTubeUrlParser
+import kotlinx.coroutines.flow.MutableStateFlow
+import org.json.JSONObject
 import java.net.URI
 
 /*
@@ -72,7 +75,7 @@ internal fun focusModeCss(): String = DISTRACTION_SELECTORS.joinToString(",\n") 
 
 /** Adds (or removes) the focus style; safe to run on every page and every in-page navigation. */
 internal fun focusModeScript(enabled: Boolean): String {
-    val css = org.json.JSONObject.quote(focusModeCss())
+    val css = JSONObject.quote(focusModeCss())
     return """
         (function() {
           const existing = document.getElementById('$FOCUS_STYLE_ID');
@@ -121,3 +124,76 @@ internal fun catalogHasVideo(
 
 internal const val FOCUS_BLOCKED_MESSAGE =
     "Bu video SHOKALON mundarijasida yo‘q. Darslarni “Ultratovush bo‘limlari” dan tanlang."
+
+/** The open lecture's place in its catalog section: which lectures come before and after it there. */
+internal data class LessonSteps(
+    val videoId: String,
+    val section: String,
+    val position: Int,
+    val total: Int,
+    val previous: CatalogVideo?,
+    val next: CatalogVideo?,
+)
+
+/** The open lecture's neighbours within its section (topics in catalog order); null when it is not a catalog lecture. */
+internal fun lessonSteps(
+    sections: List<CatalogSection>?,
+    videoId: String?,
+): LessonSteps? {
+    if (sections == null || videoId == null) return null
+    for (section in sections) {
+        val videos = section.topics.flatMap { it.videos }.distinctBy { it.videoId }
+        val index = videos.indexOfFirst { it.videoId == videoId }
+        if (index < 0) continue
+        return LessonSteps(
+            videoId = videoId,
+            section = section.name,
+            position = index + 1,
+            total = videos.size,
+            previous = videos.getOrNull(index - 1),
+            next = videos.getOrNull(index + 1),
+        )
+    }
+    return null
+}
+
+/** The steps of the open lecture, published by the step bar for the YouTube page's own next/previous buttons. */
+internal val focusLessonSteps = MutableStateFlow<LessonSteps?>(null)
+
+internal fun lessonWatchUrl(videoId: String): String = "https://m.youtube.com/watch?v=$videoId"
+
+/**
+ * Makes the player's own "next" and "previous" buttons go to the neighbouring lectures of the section instead
+ * of YouTube's suggestions; at either end of the section they do nothing. Without [steps] YouTube keeps them.
+ */
+internal fun focusStepScript(steps: LessonSteps?): String {
+    val previous = JSONObject.quote(steps?.previous?.videoId.orEmpty())
+    val next = JSONObject.quote(steps?.next?.videoId.orEmpty())
+    val active = steps != null
+    return """
+        (function() {
+          window.__shokalonSteps = { active: $active, prev: $previous, next: $next };
+          if (window.__shokalonStepHook) return;
+          window.__shokalonStepHook = true;
+          const nextLabel = /next|keyingi|следующ/i;
+          const previousLabel = /previous|prev-|prev |oldingi|предыдущ/i;
+          document.addEventListener('click', function(event) {
+            const steps = window.__shokalonSteps || {};
+            if (!steps.active || !event.target || !event.target.closest) return;
+            const control = event.target.closest('button, a, [role="button"]');
+            if (!control) return;
+            const inPlayer = control.closest(
+              '#player-container-id, #player, ytm-player, .html5-video-player, .player-controls-content, ytm-custom-control');
+            if (!inPlayer) return;
+            const label = [control.getAttribute('aria-label'), control.getAttribute('title'), String(control.className || '')].join(' ');
+            const isNext = nextLabel.test(label);
+            const isPrevious = !isNext && previousLabel.test(label);
+            if (!isNext && !isPrevious) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            const target = isNext ? steps.next : steps.prev;
+            if (target) location.href = 'https://m.youtube.com/watch?v=' + target;
+          }, true);
+        })();
+        """.trimIndent()
+}
