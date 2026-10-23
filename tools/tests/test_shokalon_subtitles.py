@@ -220,6 +220,11 @@ class TranslationCheckTest(unittest.TestCase):
         self.assertEqual([], self.check(source, target).errors)
         self.assertTrue(self.check(source, UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "buni datchik bilan solishtiring")).errors)
 
+    def test_hyperechoic_heard_as_hyper_co2_is_accepted(self):
+        source = GOOD.replace("The portal vein lies here.", "and hyper co2 the surrounding tissues")
+        target = UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "atrofdagi to‘qimalarga nisbatan giperexogen")
+        self.assertEqual([], self.check(source, target).errors)
+
     def test_uzbek_words_with_okina_are_not_english(self):
         target = UZ_GOOD.replace("Darvoza venasi shu yerda joylashgan.", "Darvoza venasi to‘lqin bilan ko‘rinadi.")
         self.assertEqual([], [w for w in self.check(GOOD, target).warnings if "inglizcha" in w])
