@@ -31,7 +31,11 @@ internal data class TranslationZipContents(
 
 /** The Video ID (V041) of a SHOKALON translation file name, folders ignored; null for any other file. */
 internal fun translatedSubtitleVid(entryName: String): String? =
-    TRANSLATED_SUBTITLE_NAME.matchEntire(entryName.substringAfterLast('/'))?.groupValues?.get(1)?.uppercase()
+    TRANSLATED_SUBTITLE_NAME
+        .matchEntire(entryName.substringAfterLast('/'))
+        ?.groupValues
+        ?.get(1)
+        ?.uppercase()
 
 /** Reads every SHOKALON translation in [input]; [ids] is the catalog table keyed by YouTube video ID. */
 internal fun readTranslationZip(
@@ -51,7 +55,7 @@ internal fun readTranslationZip(
             if (videoId == null) {
                 unknown += fileName
             } else {
-                translations += ZipTranslation(fileName, vid, videoId, readBoundedText(zip).removePrefix("﻿"))
+                translations += ZipTranslation(fileName, vid, videoId, readBoundedText(zip).removePrefix("\uFEFF"))
             }
         }
     }

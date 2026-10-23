@@ -41,7 +41,7 @@ class TranslationZipImportTest {
         val contents =
             readTranslationZip(
                 zip(
-                    "uz/SHK_010406_V041_UZ-LATIN.srt" to "﻿$srt",
+                    "uz/SHK_010406_V041_UZ-LATIN.srt" to "\uFEFF$srt",
                     "uz/SHK_031001_V001_UZ-LATIN.srt" to srt,
                     "uz/SHK_999999_V999_UZ-LATIN.srt" to srt,
                     "HISOBOT.md" to "# hisobot",
