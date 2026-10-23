@@ -1,7 +1,6 @@
 package com.kienhoang.dualsubreplay.ui
 
 import com.kienhoang.dualsubreplay.data.LessonNotes
-import com.kienhoang.dualsubreplay.data.LessonNotesException
 import com.kienhoang.dualsubreplay.data.distinctFrames
 import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
 import com.kienhoang.dualsubreplay.translation.ClaudeBackend
@@ -46,7 +45,6 @@ internal fun lessonNotesWriterFor(engine: LessonEngine): LessonNotesWriter =
     when (engine) {
         LessonEngine.CLAUDE -> claudeNotesWriter(ClaudeBackend(DubbingSettings.claudeApiKey.value, DubbingSettings.claudeModel.value))
         LessonEngine.GEMINI -> geminiNotesWriter(GeminiBackend(DubbingSettings.geminiApiKey.value, geminiNotesQuota))
-        LessonEngine.DEEPL -> LessonNotesWriter { throw LessonNotesException("Konspekt uchun Gemini yoki Claude kerak.") }
     }
 
 /**

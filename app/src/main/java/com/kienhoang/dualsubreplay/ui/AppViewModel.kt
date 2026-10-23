@@ -342,12 +342,6 @@ class AppViewModel internal constructor(
         claude.start(videoId, LessonEngine.GEMINI)
     }
 
-    /** The whole open lesson with DeepL, 50 sentences per request, stored like the other engines' translations. */
-    fun translateLessonWithDeepL() {
-        val videoId = _state.value.activeVideoId ?: return
-        claude.start(videoId, LessonEngine.DEEPL)
-    }
-
     fun cancelClaudeTranslation() = claude.cancel()
 
     /** "Konspekt va test": the open lesson's summary and quiz, stored per video. */
@@ -1684,7 +1678,6 @@ class AppViewModel internal constructor(
         var displayStore: SubtitleStore? = null
         if (!restoreImportedTranslation(videoId, generation)) return
         claude.onLessonLoaded(videoId, targetLanguage, hasStoredTranslation = importedTranslation?.first == videoId)
-        importedLines(videoId)?.let { claude.repairUntranslated(videoId, it) }
         liveCaptionTracker.reset()
         captionHighlightResolver.reset()
         _state.update {

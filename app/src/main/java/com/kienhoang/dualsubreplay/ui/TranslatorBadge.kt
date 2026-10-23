@@ -21,9 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kienhoang.dualsubreplay.data.LessonLibraryStore
 import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
-import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_DEEPL
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GEMINI
-import com.kienhoang.dualsubreplay.translation.TranslationLanguages
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -42,13 +40,12 @@ internal data class TranslatorFacts(
     val activeVideoId: String?,
     val targetLanguage: String,
     val importedCues: Int,
-    /** "Claude", "Gemini", "DeepL" or "Fayl" from the list of translated lessons; null when unknown. */
+    /** "Claude", "Gemini", "Fayl" (or "DeepL" from older lessons) from the list of translated lessons; null when unknown. */
     val storedEngine: String?,
     val run: ClaudeRunState,
     val provider: String,
     val geminiWholeLesson: Boolean,
     val geminiKey: Boolean,
-    val deeplKey: Boolean,
 )
 
 /**
@@ -74,14 +71,12 @@ internal fun translatorLabel(facts: TranslatorFacts): String {
     return "Tarjima: $live"
 }
 
-private fun liveTranslatorName(facts: TranslatorFacts): String {
-    val uzbek = TranslationLanguages.normalize(facts.targetLanguage) == "uz"
-    return when {
-        facts.provider == TRANSLATION_PROVIDER_GEMINI && facts.geminiKey && !facts.geminiWholeLesson -> "Gemini (gapma-gap)"
-        facts.provider == TRANSLATION_PROVIDER_DEEPL && facts.deeplKey && !uzbek -> "DeepL (gapma-gap)"
-        else -> "Google Translate"
+private fun liveTranslatorName(facts: TranslatorFacts): String =
+    if (facts.provider == TRANSLATION_PROVIDER_GEMINI && facts.geminiKey && !facts.geminiWholeLesson) {
+        "Gemini (gapma-gap)"
+    } else {
+        "Google Translate"
     }
-}
 
 /** The translator line above the subtitles; shown only in the build with the Uzbek settings. */
 @Composable
@@ -97,7 +92,6 @@ internal fun TranslatorBadge(
     val provider by DubbingSettings.translationProvider.collectAsStateWithLifecycle()
     val whole by DubbingSettings.geminiWholeLesson.collectAsStateWithLifecycle()
     val geminiKey by DubbingSettings.geminiApiKey.collectAsStateWithLifecycle()
-    val deeplKey by DubbingSettings.deeplApiKey.collectAsStateWithLifecycle()
     val facts =
         TranslatorFacts(
             activeVideoId = activeVideoId,
@@ -108,7 +102,6 @@ internal fun TranslatorBadge(
             provider = provider,
             geminiWholeLesson = whole,
             geminiKey = geminiKey.isNotBlank(),
-            deeplKey = deeplKey.isNotBlank(),
         )
     Row(Modifier.fillMaxWidth().padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(

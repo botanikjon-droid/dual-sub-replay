@@ -29,7 +29,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_DEEPL
+import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_CLAUDE
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GEMINI
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GOOGLE
 
@@ -231,13 +231,13 @@ private fun TranslatorControls() {
             modifier = Modifier.testTag("translator_gemini"),
         )
         FilterChip(
-            selected = provider == TRANSLATION_PROVIDER_DEEPL,
-            onClick = { DubbingSettings.setTranslationProvider(TRANSLATION_PROVIDER_DEEPL) },
-            label = { Text("DeepL") },
-            modifier = Modifier.testTag("translator_deepl"),
+            selected = provider == TRANSLATION_PROVIDER_CLAUDE,
+            onClick = { DubbingSettings.setTranslationProvider(TRANSLATION_PROVIDER_CLAUDE) },
+            label = { Text("Claude") },
+            modifier = Modifier.testTag("translator_claude"),
         )
     }
-    if (provider == TRANSLATION_PROVIDER_DEEPL) DeepLKeyField()
+    if (provider == TRANSLATION_PROVIDER_CLAUDE) ClaudeKeyField()
     if (provider == TRANSLATION_PROVIDER_GEMINI) {
         OutlinedTextField(
             value = key,
@@ -260,25 +260,30 @@ private fun TranslatorControls() {
     if (status.isNotBlank()) Hint(status, Modifier.padding(top = 4.dp).testTag("translator_status"))
 }
 
-/** The DeepL key: DeepL then translates playback sentence by sentence, Google Translate stands in on failure. */
+/**
+ * The Claude key (the same one as on the "Dars" screen): Claude then translates every newly opened Uzbek
+ * lesson whole, once, and stores it; Google Translate covers playback until then and on failure.
+ */
 @Composable
-private fun DeepLKeyField() {
-    val key by DubbingSettings.deeplApiKey.collectAsStateWithLifecycle()
+private fun ClaudeKeyField() {
+    val key by DubbingSettings.claudeApiKey.collectAsStateWithLifecycle()
     OutlinedTextField(
         value = key,
-        onValueChange = DubbingSettings::setDeeplApiKey,
-        label = { Text("DeepL API kaliti") },
+        onValueChange = DubbingSettings::setClaudeApiKey,
+        label = { Text("Claude API kaliti") },
+        placeholder = { Text("sk-ant-\u2026") },
         singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
-        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).testTag("deepl_api_key"),
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).testTag("claude_provider_api_key"),
     )
     Hint(
         if (key.isBlank()) {
-            "Kalitni deepl.com/pro-api (DeepL API Free, oyiga 500 000 belgi bepul) \u2192 Account \u2192 " +
-                "\u201CAuthentication Key for DeepL API\u201D dan oling. Kalit faqat shu telefonda saqlanadi."
+            "Kalitni console.anthropic.com \u2192 API keys \u2192 Create Key dan oling (pullik, foydalanilgan token uchun " +
+                "to\u2018lanadi). Kalit faqat shu telefonda saqlanadi."
         } else {
-            "DeepL har bir yangi darsni UZI lug\u2018ati bilan butunligicha bir marta tarjima qiladi va saqlaydi: " +
-                "qayta ochilganda belgi sarflanmaydi va kutilmaydi. Tayyor bo\u2018lguncha yoki xato bo\u2018lsa Google Translate ishlaydi."
+            "Claude har bir yangi darsni UZI lug\u2018ati bilan butunligicha bir marta tarjima qiladi va saqlaydi: " +
+                "qayta ochilganda pul sarflanmaydi. Model \u201CDars\u201D ekranida tanlanadi. " +
+                "Tayyor bo\u2018lguncha yoki xato bo\u2018lsa Google Translate ishlaydi."
         },
     )
 }

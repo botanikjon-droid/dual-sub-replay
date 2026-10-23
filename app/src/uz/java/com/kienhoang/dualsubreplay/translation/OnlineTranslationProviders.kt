@@ -157,33 +157,6 @@ internal class GeminiBatchTranslator(
     }
 }
 
-/**
- * DeepL with the user's own key (settings), one sentence per request like Google Translate. Errors
- * carry their HTTP status, so the translator can rest DeepL longer after a wrong key or used-up quota.
- */
-internal class DeepLTranslator(
-    private val apiKey: () -> String,
-) {
-    @Throws(IOException::class)
-    fun translate(
-        source: String,
-        target: String,
-        text: String,
-    ): String {
-        val key = apiKey().trim()
-        if (key.isEmpty()) throw IOException("DeepL API kaliti kiritilmagan.")
-        val body =
-            request(
-                deeplEndpoint(key),
-                deeplRequestBody(source, target, listOf(text)),
-                contentType = JSON_CONTENT_TYPE,
-                headers = mapOf("Authorization" to "DeepL-Auth-Key $key"),
-                errorMessage = ::deeplErrorMessage,
-            )
-        return parseDeepLTranslations(body, 1).single()
-    }
-}
-
 /** An HTTP error status, kept as an IOException so callers that only know IOException still work. */
 internal class HttpStatusException(
     val code: Int,

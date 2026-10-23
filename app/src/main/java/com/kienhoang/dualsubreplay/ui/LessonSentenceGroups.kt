@@ -3,10 +3,10 @@ package com.kienhoang.dualsubreplay.ui
 import com.kienhoang.dualsubreplay.data.SubtitleSegment
 
 /*
- * DeepL translates what it is given, one text at a time. A sentence the captions split over two rows
- * ("…where the splenic vein" / "joins the portal vein…") translated row by row leaves a dangling half
- * in each. So DeepL gets whole sentences, and each translation is cut back into the sentence's rows with
- * the same slicing the player uses for live translation.
+ * For translators that take one text at a time (DeepL did, before Claude replaced it). A sentence the
+ * captions split over two rows ("…where the splenic vein" / "joins the portal vein…") translated row by
+ * row leaves a dangling half in each. So such a translator gets whole sentences, and each translation is
+ * cut back into the sentence's rows with the same slicing the player uses for live translation.
  */
 
 /** One sentence of the lesson and the rows that show it. */

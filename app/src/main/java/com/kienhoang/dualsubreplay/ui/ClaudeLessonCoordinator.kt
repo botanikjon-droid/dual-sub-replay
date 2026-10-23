@@ -1,31 +1,25 @@
 package com.kienhoang.dualsubreplay.ui
 
 import com.kienhoang.dualsubreplay.data.LearnedGlossaryStore
-import com.kienhoang.dualsubreplay.data.LessonLibraryStore
 import com.kienhoang.dualsubreplay.data.SubtitleSegment
 import com.kienhoang.dualsubreplay.data.UziGlossaryStore
 import com.kienhoang.dualsubreplay.data.checkTranslation
 import com.kienhoang.dualsubreplay.data.formatSrt
-import com.kienhoang.dualsubreplay.data.glossaryGuidedSource
 import com.kienhoang.dualsubreplay.data.mergeLearnedSuggestions
 import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
 import com.kienhoang.dualsubreplay.dubbing.LessonVoicePrefetch
 import com.kienhoang.dualsubreplay.translation.ClaudeBackend
-import com.kienhoang.dualsubreplay.translation.ClaudeChunk
 import com.kienhoang.dualsubreplay.translation.ClaudeChunkResult
-import com.kienhoang.dualsubreplay.translation.DEEPL_LESSON_CHUNK_SIZE
-import com.kienhoang.dualsubreplay.translation.DeepLBackend
 import com.kienhoang.dualsubreplay.translation.GEMINI_LESSON_CHUNK_SIZE
 import com.kienhoang.dualsubreplay.translation.GeminiBackend
 import com.kienhoang.dualsubreplay.translation.GeminiModelQuota
 import com.kienhoang.dualsubreplay.translation.GeminiQuotaExhausted
 import com.kienhoang.dualsubreplay.translation.LessonTranslator
-import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_DEEPL
+import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_CLAUDE
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GEMINI
 import com.kienhoang.dualsubreplay.translation.TranslationLanguages
 import com.kienhoang.dualsubreplay.translation.geminiQuotaMessage
 import com.kienhoang.dualsubreplay.translation.glossaryForBatch
-import com.kienhoang.dualsubreplay.translation.looksUntranslated
 import com.kienhoang.dualsubreplay.translation.translatedSegments
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -51,7 +45,6 @@ internal enum class LessonEngine(
 ) {
     CLAUDE("Claude"),
     GEMINI("Gemini"),
-    DEEPL("DeepL"),
 }
 
 /** The latest whole-lesson run, for the lesson screen. */
@@ -81,23 +74,12 @@ internal fun lessonTranslatorFor(engine: LessonEngine): LessonTranslator =
                 }),
                 chunkSize = GEMINI_LESSON_CHUNK_SIZE,
             )
-        LessonEngine.DEEPL ->
-            LessonTranslator(DeepLBackend(DubbingSettings.deeplApiKey.value, ::glossaryGuidedForDeepL), DEEPL_LESSON_CHUNK_SIZE)
     }
-
-/** With the glossary switch on, DeepL gets the approved Uzbek terms in place of the English ones, like Google. */
-private fun glossaryGuidedForDeepL(english: String): String {
-    if (!DubbingSettings.glossaryInTranslation.value) return english
-    val glossary = UziGlossaryStore.glossary.value ?: return english
-    // Common words too ("pancreas", "liver"): DeepL's Uzbek medical words are unreliable ("Lakundal bez").
-    return glossaryGuidedSource(glossary, english, includeGeneral = true)
-}
 
 private fun keyFor(engine: LessonEngine): String =
     when (engine) {
         LessonEngine.CLAUDE -> DubbingSettings.claudeApiKey.value
         LessonEngine.GEMINI -> DubbingSettings.geminiApiKey.value
-        LessonEngine.DEEPL -> DubbingSettings.deeplApiKey.value
     }
 
 /**
@@ -106,8 +88,8 @@ private fun keyFor(engine: LessonEngine): String =
  * would blank the rows it does not cover), so a reopened lesson needs no request at all. Suggested
  * terms go to the learned glossary as they arrive, so the next chunks and lessons use them.
  * Automatic runs, once per lesson and app session, for a lesson without a stored translation:
- * Claude when its "avtomatik" switch is on, otherwise Gemini when it is the chosen translator in
- * whole-lesson mode, otherwise DeepL when it is the chosen translator.
+ * Claude when its "avtomatik" switch is on or it is the chosen translator, otherwise Gemini when it is
+ * the chosen translator in whole-lesson mode.
  */
 internal class ClaudeLessonCoordinator(
     private val scope: CoroutineScope,
@@ -135,12 +117,12 @@ internal class ClaudeLessonCoordinator(
         if (hasStoredTranslation || TranslationLanguages.normalize(targetLanguage) != "uz") return
         val engine =
             when {
-                DubbingSettings.claudeAuto.value && DubbingSettings.claudeApiKey.value.isNotBlank() -> LessonEngine.CLAUDE
+                DubbingSettings.claudeApiKey.value.isNotBlank() &&
+                    (DubbingSettings.claudeAuto.value || DubbingSettings.translationProvider.value == TRANSLATION_PROVIDER_CLAUDE) ->
+                    LessonEngine.CLAUDE
                 DubbingSettings.translationProvider.value == TRANSLATION_PROVIDER_GEMINI &&
                     DubbingSettings.geminiWholeLesson.value &&
                     DubbingSettings.geminiApiKey.value.isNotBlank() -> LessonEngine.GEMINI
-                DubbingSettings.translationProvider.value == TRANSLATION_PROVIDER_DEEPL &&
-                    DubbingSettings.deeplApiKey.value.isNotBlank() -> LessonEngine.DEEPL
                 else -> return
             }
         if (autoTried.add(videoId)) start(videoId, engine, automatic = true)
@@ -163,58 +145,6 @@ internal class ClaudeLessonCoordinator(
         job = scope.launch { run(videoId, engine, automatic) }
     }
 
-    private val repairTried = mutableSetOf<String>()
-
-    /**
-     * A stored DeepL lesson with sentences left in English (DeepL took glossary-guided sentences for Uzbek
-     * before the source language was named) is mended once: only those sentences are sent again, without
-     * the glossary terms, and the whole lesson is stored again.
-     */
-    fun repairUntranslated(
-        videoId: String,
-        stored: List<String>,
-    ) {
-        val record = LessonLibraryStore.records.value.firstOrNull { it.videoId == videoId }
-        if (record?.engine != LessonEngine.DEEPL.label || DubbingSettings.deeplApiKey.value.isBlank()) return
-        if (job?.isActive == true || stored.none(::looksUntranslated) || !repairTried.add(videoId)) return
-        job = scope.launch { repair(videoId, stored) }
-    }
-
-    @Suppress("TooGenericExceptionCaught")
-    private suspend fun repair(
-        videoId: String,
-        stored: List<String>,
-    ) {
-        try {
-            val segments = segmentsFor(videoId)
-            if (segments.size != stored.size) return
-            val groups = sentenceGroups(segments)
-            val broken = groups.indices.filter { group -> groups[group].rows.any { looksUntranslated(stored[it]) } }
-            _state.value =
-                ClaudeRunState(
-                    videoId,
-                    LessonEngine.DEEPL,
-                    running = true,
-                    total = broken.size,
-                    message = "DeepL inglizcha qolgan gaplarni tuzatmoqda…",
-                )
-            val backend = DeepLBackend(DubbingSettings.deeplApiKey.value, ::glossaryGuidedForDeepL)
-            val fixed = mutableMapOf<Int, String>()
-            broken.chunked(DEEPL_LESSON_CHUNK_SIZE).forEach { part ->
-                val answer = backend.translate("", ClaudeChunk(0, part.map { groups[it].text }))
-                part.forEachIndexed { position, group -> answer.translations[position]?.let { fixed[group] = it } }
-                _state.update { it.copy(done = fixed.size) }
-            }
-            val lesson = stored.indices.associateWith { stored[it] } + spreadOverRows(groups, fixed)
-            importSrt(formatSrt(translatedSegments(segments, lesson)), videoId, LessonEngine.DEEPL.label)
-            _state.update { it.copy(running = false, message = "DeepL: ${fixed.size} ta inglizcha qolgan gap tuzatildi.") }
-        } catch (cancel: CancellationException) {
-            throw cancel
-        } catch (error: Exception) {
-            _state.update { it.copy(running = false, message = "Tuzatib bo‘lmadi: ${error.message}") }
-        }
-    }
-
     fun cancel() {
         job?.cancel()
         _state.update { it.copy(running = false, message = "To‘xtatildi.") }
@@ -228,13 +158,8 @@ internal class ClaudeLessonCoordinator(
     ) {
         try {
             val segments = segmentsFor(videoId)
-            // DeepL gets whole sentences (split rows joined); Claude and Gemini rebuild sentences themselves.
-            val groups =
-                if (engine == LessonEngine.DEEPL) {
-                    sentenceGroups(segments)
-                } else {
-                    segments.indices.map { SentenceGroup(listOf(it), segments[it].originalText, emptyList()) }
-                }
+            // Claude and Gemini get every caption row and rebuild the sentences themselves.
+            val groups = segments.indices.map { SentenceGroup(listOf(it), segments[it].originalText, emptyList()) }
             val sentences = groups.map { it.text }
             _state.update { it.copy(total = sentences.size, message = "${engine.label} butun darsni tarjima qilmoqda…") }
             val doubts = mutableListOf<ClaudeDoubt>()

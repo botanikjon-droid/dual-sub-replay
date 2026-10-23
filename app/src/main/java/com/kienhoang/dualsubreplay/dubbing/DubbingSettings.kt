@@ -3,7 +3,9 @@ package com.kienhoang.dualsubreplay.dubbing
 import android.content.Context
 import android.content.SharedPreferences
 import com.kienhoang.dualsubreplay.translation.CLAUDE_MODELS
+import com.kienhoang.dualsubreplay.translation.LEGACY_TRANSLATION_PROVIDER_DEEPL
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDERS
+import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_CLAUDE
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GOOGLE
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,7 +33,6 @@ internal object DubbingSettings {
     private const val KEY_GLOSSARY_IN_TRANSLATION = "glossary_in_translation"
     private const val KEY_TRANSLATION_PROVIDER = "translation_provider"
     private const val KEY_GEMINI_API_KEY = "gemini_api_key"
-    private const val KEY_DEEPL_API_KEY = "deepl_api_key"
     private const val KEY_CLAUDE_API_KEY = "claude_api_key"
     private const val KEY_CLAUDE_MODEL = "claude_model"
     private const val KEY_CLAUDE_AUTO = "claude_auto"
@@ -53,7 +54,6 @@ internal object DubbingSettings {
     private val _glossaryInTranslation = MutableStateFlow(true)
     private val _translationProvider = MutableStateFlow(TRANSLATION_PROVIDER_GOOGLE)
     private val _geminiApiKey = MutableStateFlow("")
-    private val _deeplApiKey = MutableStateFlow("")
     private val _translatorStatus = MutableStateFlow("")
     private val _claudeApiKey = MutableStateFlow("")
     private val _claudeModel = MutableStateFlow(CLAUDE_MODELS.first().id)
@@ -86,14 +86,11 @@ internal object DubbingSettings {
     /** Send approved UZI glossary terms to the translator in place of the English terms (on by default). */
     val glossaryInTranslation: StateFlow<Boolean> = _glossaryInTranslation
 
-    /** "google" (keyless Google Translate), "gemini" or "deepl" (the user's own API key). */
+    /** "google" (keyless Google Translate), "gemini" or "claude" (the user's own API key). */
     val translationProvider: StateFlow<String> = _translationProvider
 
     /** The user's Gemini API key: kept only in this app's private preferences, never in the code. */
     val geminiApiKey: StateFlow<String> = _geminiApiKey
-
-    /** The user's DeepL API key, kept like the Gemini key: only in this app's private preferences. */
-    val deeplApiKey: StateFlow<String> = _deeplApiKey
 
     /** What the translator last did, for the settings card ("Gemini: 25 gap", or why it fell back). */
     val translatorStatus: StateFlow<String> = _translatorStatus
@@ -150,9 +147,11 @@ internal object DubbingSettings {
             )
         _glossaryInTranslation.value = saved.getBoolean(KEY_GLOSSARY_IN_TRANSLATION, true)
         _translationProvider.value =
-            saved.getString(KEY_TRANSLATION_PROVIDER, null)?.takeIf { it in TRANSLATION_PROVIDERS } ?: TRANSLATION_PROVIDER_GOOGLE
+            saved
+                .getString(KEY_TRANSLATION_PROVIDER, null)
+                ?.let { if (it == LEGACY_TRANSLATION_PROVIDER_DEEPL) TRANSLATION_PROVIDER_CLAUDE else it }
+                ?.takeIf { it in TRANSLATION_PROVIDERS } ?: TRANSLATION_PROVIDER_GOOGLE
         _geminiApiKey.value = saved.getString(KEY_GEMINI_API_KEY, null).orEmpty()
-        _deeplApiKey.value = saved.getString(KEY_DEEPL_API_KEY, null).orEmpty()
         loadClaude(saved)
         _available.value = true
     }
@@ -166,11 +165,6 @@ internal object DubbingSettings {
     fun setGeminiApiKey(key: String) {
         _geminiApiKey.value = key.trim()
         preferences?.edit()?.putString(KEY_GEMINI_API_KEY, _geminiApiKey.value)?.apply()
-    }
-
-    fun setDeeplApiKey(key: String) {
-        _deeplApiKey.value = key.trim()
-        preferences?.edit()?.putString(KEY_DEEPL_API_KEY, _deeplApiKey.value)?.apply()
     }
 
     private fun loadClaude(saved: SharedPreferences) {

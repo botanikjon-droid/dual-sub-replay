@@ -49,7 +49,7 @@ import com.kienhoang.dualsubreplay.data.upsertDoctorTerm
 import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
 import com.kienhoang.dualsubreplay.dubbing.LessonVoicePrefetch
 import com.kienhoang.dualsubreplay.translation.CLAUDE_MODELS
-import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_DEEPL
+import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_CLAUDE
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GEMINI
 import kotlinx.coroutines.launch
 
@@ -71,7 +71,6 @@ internal fun ClaudeTranslateCard(
     onTranslate: () -> Unit,
     onCancel: () -> Unit,
     onGeminiTranslate: () -> Unit = {},
-    onDeepLTranslate: () -> Unit = {},
 ) {
     val available by DubbingSettings.available.collectAsStateWithLifecycle()
     if (!available) return
@@ -82,8 +81,6 @@ internal fun ClaudeTranslateCard(
                 "yuklanadi, ovozda o‘qiladi va dars qayta ochilganda so‘rov sarflanmaydi. Kalitlar faqat shu telefonda saqlanadi.",
         )
         GeminiLessonControls(enabled = activeVideoId != null && !run.running, onTranslate = onGeminiTranslate)
-        HorizontalDivider()
-        DeepLLessonControls(enabled = activeVideoId != null && !run.running, onTranslate = onDeepLTranslate)
         HorizontalDivider()
         ClaudeLessonControls(enabled = activeVideoId != null && !run.running, onTranslate = onTranslate)
         if (runningHere) {
@@ -160,31 +157,6 @@ private fun GeminiLessonControls(
     ) { Text("Shu darsni Gemini bilan tarjima qilish") }
 }
 
-/** DeepL: 500,000 free characters a month; the whole lesson in requests of 50 sentences, stored like the others. */
-@Composable
-private fun DeepLLessonControls(
-    enabled: Boolean,
-    onTranslate: () -> Unit,
-) {
-    val key by DubbingSettings.deeplApiKey.collectAsStateWithLifecycle()
-    val provider by DubbingSettings.translationProvider.collectAsStateWithLifecycle()
-    Text("DeepL (oyiga 500 000 belgi bepul)", fontWeight = FontWeight.SemiBold)
-    Hint(
-        when {
-            key.isBlank() -> "DeepL kalitini sozlamalardagi \u201CTarjimon\u201D bo\u2018limiga kiriting."
-            provider == TRANSLATION_PROVIDER_DEEPL ->
-                "Tarjimon DeepL bo\u2018lgani uchun har bir yangi dars ochilganda butunligicha bir marta tarjima qilinadi va saqlanadi: " +
-                    "qayta ochilganda belgi sarflanmaydi va kutilmaydi. Tayyor bo\u2018lguncha Google Translate ishlaydi."
-            else -> "Avtomatik ishlashi uchun sozlamalarda tarjimon sifatida DeepL ni tanlang yoki tugmani bosing."
-        },
-    )
-    Button(
-        enabled = enabled && key.isNotBlank(),
-        modifier = Modifier.fillMaxWidth().testTag("deepl_translate_lesson"),
-        onClick = onTranslate,
-    ) { Text("Shu darsni DeepL bilan tarjima qilish") }
-}
-
 /** Claude: the doctor's paid API key and model, and its own automatic switch. */
 @Composable
 private fun ClaudeLessonControls(
@@ -194,6 +166,7 @@ private fun ClaudeLessonControls(
     val key by DubbingSettings.claudeApiKey.collectAsStateWithLifecycle()
     val model by DubbingSettings.claudeModel.collectAsStateWithLifecycle()
     val auto by DubbingSettings.claudeAuto.collectAsStateWithLifecycle()
+    val provider by DubbingSettings.translationProvider.collectAsStateWithLifecycle()
     Text("Claude (pullik, eng aniq)", fontWeight = FontWeight.SemiBold)
     OutlinedTextField(
         value = key,
@@ -216,6 +189,12 @@ private fun ClaudeLessonControls(
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("Har bir yangi darsni Claude bilan avtomatik tarjima qilish", modifier = Modifier.weight(1f))
         Switch(checked = auto, onCheckedChange = DubbingSettings::setClaudeAuto, modifier = Modifier.testTag("claude_auto"))
+    }
+    if (provider == TRANSLATION_PROVIDER_CLAUDE && key.isNotBlank()) {
+        Hint(
+            "Tarjimon Claude bo\u2018lgani uchun har bir yangi dars ochilganda butunligicha bir marta tarjima qilinadi va " +
+                "saqlanadi. Tayyor bo\u2018lguncha Google Translate ishlaydi.",
+        )
     }
     Button(
         enabled = enabled && key.isNotBlank(),
