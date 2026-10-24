@@ -67,22 +67,23 @@ internal data class EdgeEndpoint(
 )
 
 /**
- * Where the voices answer, tried in this order. Microsoft has moved them before: since October 2026
- * speech.platform.bing.com answers this client with HTTP 403 while api.msedgeservices.com works (checked
- * from CI by the uz-voice-check workflow, which also runs daily). If one address stops working, the next
- * is used and remembered, so a single move no longer silences the app.
+ * Where the voices answer, tried in this order. Microsoft has moved them before: in October 2026
+ * speech.platform.bing.com refused the old (v1) token with HTTP 403 and api.msedgeservices.com stopped
+ * opening the voice socket; with the v2 token (EdgeTokenV2.kt) the Read Aloud address answers again, as it
+ * does for edge-tts. The uz-voice-check workflow checks both from CI daily. If one address stops working,
+ * the next is used and remembered, so a single move no longer silences the app.
  */
 internal val EDGE_ENDPOINTS =
     listOf(
         EdgeEndpoint(
-            "msedgeservices",
-            "wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1?Ocp-Apim-Subscription-Key=$EDGE_TRUSTED_CLIENT_TOKEN",
-            "synthesize",
-        ),
-        EdgeEndpoint(
             "bing",
             "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=$EDGE_TRUSTED_CLIENT_TOKEN",
             null,
+        ),
+        EdgeEndpoint(
+            "msedgeservices",
+            "wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1?Ocp-Apim-Subscription-Key=$EDGE_TRUSTED_CLIENT_TOKEN",
+            "synthesize",
         ),
     )
 
@@ -100,17 +101,6 @@ internal const val EDGE_VOICE_MADINA = "uz-UZ-MadinaNeural"
 
 /** edge-tts output format: 48 kbit/s constant bitrate, so the byte count gives the length. */
 private const val MP3_BYTES_PER_SECOND = 48_000 / 8
-private const val WINDOWS_EPOCH_OFFSET_S = 11_644_473_600L
-private const val TOKEN_WINDOW_S = 300L
-private const val HUNDRED_NS_PER_SECOND = 10_000_000L
-
-/** The Sec-MS-GEC token: SHA-256 of the 5-minute Windows file time and the client token. */
-internal fun edgeSecMsGec(unixSeconds: Long): String {
-    var ticks = unixSeconds + WINDOWS_EPOCH_OFFSET_S
-    ticks -= ticks % TOKEN_WINDOW_S
-    val digest = MessageDigest.getInstance("SHA-256").digest("${ticks * HUNDRED_NS_PER_SECOND}$EDGE_TRUSTED_CLIENT_TOKEN".toByteArray())
-    return digest.joinToString("") { "%02X".format(it) }
-}
 
 internal fun edgeVoiceName(shortName: String): String {
     val (language, region, name) = shortName.split("-", limit = 3)
@@ -281,7 +271,8 @@ internal class EdgeDubbingVoice(
                     .Builder()
                     .url(
                         "${endpoint.url}&ConnectionId=${UUID.randomUUID().toString().replace("-", "")}" +
-                            "&Sec-MS-GEC=${edgeSecMsGec(now)}&Sec-MS-GEC-Version=1-$EDGE_CHROMIUM_VERSION",
+                            "&Sec-MS-GEC=${edgeSecMsGecV2(now, EDGE_TRUSTED_CLIENT_TOKEN)}" +
+                            "&Sec-MS-GEC-Version=$EDGE_SEC_MS_GEC_VERSION_PREFIX$EDGE_CHROMIUM_VERSION",
                     ).header("Pragma", "no-cache")
                     .header("Cache-Control", "no-cache")
                     .header("Origin", "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold")
