@@ -85,7 +85,7 @@ internal object LessonVoicePrefetch {
 }
 
 /** The distinct, non-blank sentences in lesson order. */
-internal fun prefetchLines(texts: List<String>): List<String> = texts.map(String::trim).filter(String::isNotEmpty).distinct()
+internal fun prefetchLines(texts: List<String>): List<String> = texts.mapNotNull(::speakableText).distinct()
 
 internal fun prefetchSummary(
     state: VoicePrefetchState,

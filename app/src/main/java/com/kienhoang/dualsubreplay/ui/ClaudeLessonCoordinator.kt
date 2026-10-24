@@ -1,6 +1,7 @@
 package com.kienhoang.dualsubreplay.ui
 
 import com.kienhoang.dualsubreplay.data.LearnedGlossaryStore
+import com.kienhoang.dualsubreplay.data.RawCaptionCue
 import com.kienhoang.dualsubreplay.data.SubtitleSegment
 import com.kienhoang.dualsubreplay.data.UziGlossaryStore
 import com.kienhoang.dualsubreplay.data.checkTranslation
@@ -179,12 +180,12 @@ internal class ClaudeLessonCoordinator(
                 importSrt(formatSrt(translatedSegments(segments, spreadOverRows(groups, result.translations))), videoId, engine.label)
             // Speak the whole lesson into the voice cache now, so playback never waits for a sentence.
             if (DubbingSettings.enabled.value) {
-                LessonVoicePrefetch.start(
-                    result.translations
-                        .toSortedMap()
-                        .values
-                        .toList(),
-                )
+                // Playback speaks whole sentences (ImportedSentenceRows), so those are what gets prepared.
+                val cues =
+                    result.translations.toSortedMap().mapNotNull { (index, text) ->
+                        segments.getOrNull(index)?.let { RawCaptionCue(it.startMs, it.endMs, text) }
+                    }
+                LessonVoicePrefetch.start(translatedSentenceSpans(cues).map { it.text })
             }
             val summary = summary(engine, count, _state.value.newTerms, doubts.size)
             _state.update { it.copy(running = false, message = summary) }

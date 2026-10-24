@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -66,6 +67,7 @@ internal fun ShokalonHomeScreen(
     activeVideoId: String?,
     onOpen: (String) -> Unit,
     onDismiss: () -> Unit,
+    onSettings: () -> Unit = {},
 ) {
     val context = LocalContext.current
     LaunchedEffect(Unit) { UziCatalogStore.load(context) }
@@ -85,7 +87,7 @@ internal fun ShokalonHomeScreen(
         ) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState())) {
                 if (open == null) {
-                    HomeHeader(sections.orEmpty(), translated, activeVideoId, onDismiss)
+                    HomeHeader(sections.orEmpty(), translated, activeVideoId, onDismiss, onSettings)
                     SectionGrid(sections, translated) { openName = it }
                     if (lessons.isNotEmpty()) {
                         Box(Modifier.padding(12.dp)) { LessonLibraryCard(lessons, activeVideoId, onOpen) }
@@ -107,6 +109,7 @@ private fun HomeHeader(
     translated: Set<String>,
     activeVideoId: String?,
     onBackToVideo: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     val total = sections.sumOf { it.videoCount }
     val done = sections.sumOf { section -> section.topics.sumOf { topic -> topic.videos.count { it.videoId in translated } } }
@@ -126,13 +129,16 @@ private fun HomeHeader(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.size(60.dp).clip(CircleShape).background(Color.White),
             )
-            Column(Modifier.padding(start = 14.dp)) {
+            Column(Modifier.weight(1f).padding(start = 14.dp)) {
                 Text("SHOKALON", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text(
                     "Ultratovush darslarini o‘rganish platformasi",
                     color = Color.White.copy(alpha = 0.85f),
                     style = MaterialTheme.typography.bodyMedium,
                 )
+            }
+            IconButton(onClick = onSettings, modifier = Modifier.testTag("shokalon_home_settings")) {
+                Icon(Icons.Default.Settings, contentDescription = "Sozlamalar va menyu", tint = Color.White)
             }
         }
         Spacer(Modifier.height(14.dp))

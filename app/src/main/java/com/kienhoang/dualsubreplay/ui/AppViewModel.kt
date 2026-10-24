@@ -325,7 +325,14 @@ class AppViewModel internal constructor(
         if (shokalonFocusMode) viewModelScope.launch { com.kienhoang.dualsubreplay.data.UziCatalogStore.load(application) }
         // Speaking a translated lesson in advance uses the same voice as playback.
         LessonVoicePrefetch.voice = dubbingVoice
-        LessonVoicePrefetch.currentLessonTexts = { importedLines(_state.value.activeVideoId).orEmpty() }
+        // Playback speaks whole translated sentences, so the voice is prepared sentence by sentence too.
+        LessonVoicePrefetch.currentLessonTexts = {
+            importedTranslation
+                ?.takeIf { it.first == _state.value.activeVideoId }
+                ?.second
+                ?.let { cues -> translatedSentenceSpans(cues).map { it.text } }
+                .orEmpty()
+        }
         VideoFrameSource.onCaptureNow = ::captureCurrentFrame
     }
 
@@ -554,6 +561,8 @@ class AppViewModel internal constructor(
                 browserUrl =
                     preferences
                         .getString("last_browser_url", YOUTUBE_HOME_URL)
+                        // SHOKALON starts on its sections screen: no lesson plays until the doctor picks one.
+                        ?.takeUnless { shokalonFocusMode }
                         ?.let(::trustedEmbeddedUrlOrHome)
                         ?: YOUTUBE_HOME_URL,
                 originalVisibility = storedCaptionVisibility(preferences.getString(ORIGINAL_VISIBILITY, null)),

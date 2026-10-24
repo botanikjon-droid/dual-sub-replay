@@ -27,7 +27,7 @@ internal fun dubLines(rows: List<SubtitleSegment>): List<DubLine> {
         val row = rows[index]
         val sentence = row.sentence
         if (sentence == null) {
-            row.translatedText?.trim()?.takeIf(String::isNotEmpty)?.let { text ->
+            row.translatedText?.let(::speakableText)?.let { text ->
                 lines += DubLine("${row.startMs}|${row.originalText}", row.startMs, row.endMs, text)
             }
             index++
@@ -41,7 +41,7 @@ internal fun dubLines(rows: List<SubtitleSegment>): List<DubLine> {
         val complete =
             group.map { it.sentence?.index } == (0..sentence.cuts.size).toList() &&
                 group.all { it.translatedText != null }
-        val text = group.joinToString(" ") { it.translatedText.orEmpty().trim() }.replace(WHITESPACE, " ").trim()
+        val text = speakableText(group.joinToString(" ") { it.translatedText.orEmpty().trim() }.replace(WHITESPACE, " ")).orEmpty()
         if (complete && text.isNotEmpty()) {
             lines += DubLine("${row.startMs}|${sentence.text}", row.startMs, group.last().endMs, text)
         }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.Home
@@ -33,6 +34,8 @@ import kotlinx.coroutines.launch
 internal fun AppNavigation(
     // "Ultratovush bo‘limlari": SHOKALON's first screen; null hides the item in the general builds.
     onHome: (() -> Unit)? = null,
+    // Bumped by SHOKALON's sections screen to open this menu (its "Sozlamalar" button).
+    menuRequests: Int = 0,
     onPractice: () -> Unit,
     onSettings: () -> Unit,
     onProgress: () -> Unit = {},
@@ -50,6 +53,7 @@ internal fun AppNavigation(
         onVisibilityChange(drawer.currentValue == DrawerValue.Open || drawer.targetValue == DrawerValue.Open)
     }
     DisposableEffect(Unit) { onDispose { onVisibilityChange(false) } }
+    LaunchedEffect(menuRequests) { if (menuRequests > 0) drawer.open() }
     BackHandler(drawer.isOpen) { scope.launch { drawer.close() } }
     ModalNavigationDrawer(
         drawerState = drawer,
@@ -124,20 +128,32 @@ internal fun AppNavigation(
             }
         },
     ) {
-        content {
-            Box(
-                modifier = Modifier.size(width = 72.dp, height = 48.dp)
-                    .testTag("navigation_menu_button")
-                    .clickable(role = Role.Button) { scope.launch { drawer.open() } },
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                Icon(
-                    Icons.Default.Menu,
-                    contentDescription = "Open navigation menu",
-                    modifier = Modifier.padding(start = 12.dp).size(24.dp),
-                )
-            }
-        }
+        content { MenuButton(onHome) { scope.launch { drawer.open() } } }
+    }
+}
+
+/**
+ * The top-left button: in SHOKALON it goes back to the sections screen (the menu is opened from there),
+ * elsewhere it opens the menu.
+ */
+@Composable
+private fun MenuButton(
+    onHome: (() -> Unit)?,
+    openMenu: () -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .size(width = 72.dp, height = 48.dp)
+                .testTag("navigation_menu_button")
+                .clickable(role = Role.Button) { onHome?.invoke() ?: openMenu() },
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Icon(
+            if (onHome != null) Icons.Default.Apps else Icons.Default.Menu,
+            contentDescription = if (onHome != null) "Ultratovush bo\u2018limlari" else "Open navigation menu",
+            modifier = Modifier.padding(start = 12.dp).size(24.dp),
+        )
     }
 }
 

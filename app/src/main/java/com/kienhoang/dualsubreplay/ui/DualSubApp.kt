@@ -202,11 +202,11 @@ fun DualSubApp(
 private fun shokalonHomeScreen(
     state: DualSubUiState,
     viewModel: AppViewModel,
-): (@Composable (onDismiss: () -> Unit) -> Unit)? =
+): ShokalonHome? =
     if (!shokalonFocusMode) {
         null
     } else {
-        { onDismiss ->
+        { onDismiss, onSettings ->
             ShokalonHomeScreen(
                 activeVideoId = state.activeVideoId,
                 onOpen = { videoId ->
@@ -214,16 +214,33 @@ private fun shokalonHomeScreen(
                     onDismiss()
                 },
                 onDismiss = onDismiss,
+                onSettings = onSettings,
             )
         }
     }
 
-/** Shows [homeScreen] when the app starts and returns how to open it again (null without one). */
+/** SHOKALON's sections screen: closes itself with the first callback, opens the main menu with the second. */
+private typealias ShokalonHome = @Composable (onDismiss: () -> Unit, onSettings: () -> Unit) -> Unit
+
+/**
+ * Shows [homeScreen] when the app starts, pausing the video while it is open, and returns how to open it
+ * again (null without one). Its settings button closes it and calls [onSettings].
+ */
 @Composable
-private fun homeScreenHost(homeScreen: (@Composable (onDismiss: () -> Unit) -> Unit)?): (() -> Unit)? {
+private fun homeScreenHost(
+    homeScreen: ShokalonHome?,
+    onShown: () -> Unit,
+    onSettings: () -> Unit,
+): (() -> Unit)? {
     if (homeScreen == null) return null
     var showHome by rememberSaveable { mutableStateOf(true) }
-    if (showHome) homeScreen { showHome = false }
+    LaunchedEffect(showHome) { if (showHome) onShown() }
+    if (showHome) {
+        homeScreen({ showHome = false }) {
+            showHome = false
+            onSettings()
+        }
+    }
     return { showHome = true }
 }
 
@@ -330,7 +347,7 @@ private fun DualSubExperience(
     onProgress: () -> Unit,
     lessonTools: @Composable (onDismiss: () -> Unit) -> Unit,
     // SHOKALON's first screen (sections and lectures); null in the general builds.
-    homeScreen: (@Composable (onDismiss: () -> Unit) -> Unit)? = null,
+    homeScreen: ShokalonHome? = null,
     onAutoPronounceChange: (Boolean) -> Unit,
     playerMode: PlayerExperienceMode,
     effectivePlayerMode: PlayerExperienceMode = playerMode,
@@ -425,9 +442,10 @@ private fun DualSubExperience(
 
     var showLessonTools by remember { mutableStateOf(false) }
     if (showLessonTools) lessonTools { showLessonTools = false }
-    val openHome = homeScreenHost(homeScreen)
+    var menuRequests by remember { mutableIntStateOf(0) }
+    val openHome = homeScreenHost(homeScreen, onShown = webController::pause) { menuRequests += 1 }
 
-    AppNavigation(onHome = openHome, onPractice = onVocabulary, onProgress = onProgress, onLesson = {
+    AppNavigation(onHome = openHome, menuRequests = menuRequests, onPractice = onVocabulary, onProgress = onProgress, onLesson = {
         showLessonTools = true
     }, onSettings = {
         showSettings = true
