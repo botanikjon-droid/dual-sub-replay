@@ -91,7 +91,14 @@ jobs:
             -PpreviewVersionCode="$preview_version_code" \
             -PpreviewVersionNameSuffix="-pr${{ github.event.pull_request.number || 'manual' }}-build${GITHUB_RUN_NUMBER}" \
             -PpreviewApplicationIdSuffix=".preview" \
-            --stacktrace
+            --stacktrace 2>&1 | tee build-output.log
+
+      # The job log is not always reachable, so compiler, test and lint failures are repeated as annotations.
+      - name: Report build errors as annotations
+        if: failure()
+        run: |
+          grep -E '^e: |^> Task .*FAILED|FAILED$|What went wrong|Error: |\.kt:[0-9]+:[0-9]+' build-output.log \
+            | grep -v '^w: ' | head -n 40 | while IFS= read -r line; do echo "::error::${line:0:900}"; done || true
 
       - name: Verify preview package id
         run: |
