@@ -7,18 +7,21 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FindReplace
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -27,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
@@ -321,3 +325,72 @@ private suspend fun clipboardText(
         ?.coerceToText(context)
         ?.toString()
         .orEmpty()
+
+/**
+ * "Takrorlanuvchi xatoni almashtirish": a mistake that recurs (a wrong term, a misheard word) is replaced in
+ * the open lesson's translation or in every stored translation at once, instead of sentence by sentence.
+ */
+@Composable
+internal fun ReplaceAllCard(replace: suspend (find: String, replacement: String, wholeWord: Boolean, allLessons: Boolean) -> String) {
+    val scope = rememberCoroutineScope()
+    var find by remember { mutableStateOf("") }
+    var replacement by remember { mutableStateOf("") }
+    var wholeWord by remember { mutableStateOf(true) }
+    var allLessons by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+    LessonCard(title = "Takrorlanuvchi xatoni almashtirish", icon = Icons.Default.FindReplace) {
+        Hint(
+            "Bir xil xato ko‘p joyda bo‘lsa (noto‘g‘ri atama yoki noto‘g‘ri eshitilgan so‘z), uni bu yerda bir yo‘la " +
+                "almashtiring. Kelajakdagi Claude tarjimalari uchun atamani “O‘sib boruvchi lug‘at”ga ham qo‘shing.",
+        )
+        OutlinedTextField(
+            value = find,
+            onValueChange = { find = it },
+            singleLine = true,
+            label = { Text("Xato so‘z yoki ibora") },
+            modifier = Modifier.fillMaxWidth().testTag("replace_find"),
+        )
+        OutlinedTextField(
+            value = replacement,
+            onValueChange = { replacement = it },
+            singleLine = true,
+            label = { Text("To‘g‘risi") },
+            modifier = Modifier.fillMaxWidth().testTag("replace_with"),
+        )
+        LabeledSwitch("Faqat butun so‘z (so‘z ichidan qidirmasin)", wholeWord) { wholeWord = it }
+        LabeledSwitch("Barcha saqlangan darslarda", allLessons) { allLessons = it }
+        Button(
+            enabled = find.isNotBlank(),
+            onClick = {
+                scope.launch {
+                    message =
+                        try {
+                            replace(find, replacement.trim(), wholeWord, allLessons)
+                        } catch (cancel: CancellationException) {
+                            throw cancel
+                        } catch (error: IllegalArgumentException) {
+                            error.message
+                        } catch (error: IllegalStateException) {
+                            error.message
+                        } catch (error: java.io.IOException) {
+                            error.message
+                        }
+                }
+            },
+            modifier = Modifier.testTag("replace_all"),
+        ) { Text("Hammasini almashtirish") }
+        message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold) }
+    }
+}
+
+@Composable
+private fun LabeledSwitch(
+    label: String,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}

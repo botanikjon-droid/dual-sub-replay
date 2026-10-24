@@ -36,4 +36,18 @@ class SentenceReviewTest {
         val result = applySentenceCorrection(cues, 2_000, 6_000, "UTT to‘lqini sinadi va qaytadi.")
         assertEquals(listOf("Oldingi gap.", "UTT to‘lqini sinadi va qaytadi.", "Keyingi gap."), result.map { it.text })
     }
+
+    @Test
+    fun aRecurringMistakeIsReplacedEverywhere() {
+        val cues =
+            listOf(
+                RawCaptionCue(0, 2_000, "Sinish bu yerda yuz beradi."),
+                RawCaptionCue(2_000, 4_000, "Ko\u2018p marta sinish bo\u2018ladi, sinishlar esa yo\u2018q."),
+            )
+        val word = replaceInCues(cues, "sinish", "qaytish", wholeWord = true)
+        assertEquals(2, word.count)
+        assertEquals("Qaytish bu yerda yuz beradi.", word.cues[0].text)
+        assertEquals("Ko\u2018p marta qaytish bo\u2018ladi, sinishlar esa yo\u2018q.", word.cues[1].text)
+        assertEquals(3, replaceInCues(cues, "sinish", "qaytish", wholeWord = false).count)
+    }
 }

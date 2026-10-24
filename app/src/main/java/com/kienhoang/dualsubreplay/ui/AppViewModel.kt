@@ -45,6 +45,7 @@ import com.kienhoang.dualsubreplay.data.mergeImportedCues
 import com.kienhoang.dualsubreplay.data.parseSubtitleFile
 import com.kienhoang.dualsubreplay.data.readBoundedText
 import com.kienhoang.dualsubreplay.data.toSegments
+import com.kienhoang.dualsubreplay.data.replaceInCues
 import com.kienhoang.dualsubreplay.data.ReviewSentence
 import com.kienhoang.dualsubreplay.data.reviewFileVideoId
 import com.kienhoang.dualsubreplay.data.reviewFileText
@@ -913,6 +914,47 @@ class AppViewModel internal constructor(
         reviewMarkStore.value = reviewMarkStore.value + (videoId to left)
         preferences.edit().putString(REVIEW_MARKS_PREFIX + videoId, left.joinToString(",") { "${it.first}-${it.second}" }).apply()
         return "${corrections.size} ta gap tuzatildi va saqlandi."
+    }
+
+    /**
+     * Replaces a recurring mistake ([find] with [replacement]) in the open lesson's stored translation, or in
+     * every stored translation when [allLessons]. Returns how many places and lessons changed.
+     */
+    internal suspend fun replaceInTranslations(
+        find: String,
+        replacement: String,
+        wholeWord: Boolean,
+        allLessons: Boolean,
+    ): String {
+        val activeId = _state.value.activeVideoId
+        val ids =
+            if (allLessons) {
+                withContext(Dispatchers.IO) {
+                    importedTranslationDirectory.listFiles { file -> file.extension == "srt" }.orEmpty().map { it.nameWithoutExtension }
+                }
+            } else {
+                listOfNotNull(activeId?.takeIf { storedTranslationCues() != null })
+            }
+        require(ids.isNotEmpty()) { NO_STORED_TRANSLATION_MESSAGE }
+        var places = 0
+        var lessons = 0
+        for (videoId in ids) {
+            val cues =
+                (if (videoId == activeId) storedTranslationCues() else withContext(Dispatchers.IO) { readImportedTranslation(videoId) })
+                    ?: continue
+            val result = replaceInCues(cues, find, replacement, wholeWord)
+            if (result.count == 0) continue
+            places += result.count
+            lessons += 1
+            if (videoId == activeId) {
+                saveEditedTranslation(result.cues)
+            } else {
+                withContext(Dispatchers.IO) {
+                    importedTranslationFile(videoId).writeText(formatSrt(result.cues.toSegments()), Charsets.UTF_8)
+                }
+            }
+        }
+        return if (places == 0) "\u201C${find.trim()}\u201D topilmadi." else "$places joyda almashtirildi ($lessons ta dars)."
     }
 
     /** The open lesson's stored translation, cue by cue, for the editor; null when it has none. */

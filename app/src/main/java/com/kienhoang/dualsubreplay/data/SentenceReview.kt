@@ -104,3 +104,37 @@ internal fun applySentenceCorrection(
     val kept = cues.filterNot { (it.startMs + it.endMs) / 2 in startMs until endMs }
     return (kept + RawCaptionCue(startMs, endMs, clean)).sortedBy { it.startMs }
 }
+
+/** What a search-and-replace changed: the new cues and how many places. */
+internal data class CueReplacement(
+    val cues: List<RawCaptionCue>,
+    val count: Int,
+)
+
+/**
+ * Replaces every [find] in the cues' text with [replacement], ignoring case. With [wholeWord] only whole
+ * words are matched ("jigar" not inside "jigarning"). A match that starts with a capital letter (a sentence
+ * start) gets a capitalised replacement, so "Sinish ..." stays capitalised when "sinish" becomes "qaytish".
+ */
+internal fun replaceInCues(
+    cues: List<RawCaptionCue>,
+    find: String,
+    replacement: String,
+    wholeWord: Boolean,
+): CueReplacement {
+    val needle = find.trim()
+    require(needle.isNotEmpty()) { "Nimani almashtirishni yozing." }
+    val pattern = Regex.escape(needle).let { if (wholeWord) "(?<![\\p{L}\\p{N}‘’'])$it(?![\\p{L}\\p{N}‘’'])" else it }
+    val regex = Regex(pattern, setOf(RegexOption.IGNORE_CASE))
+    var count = 0
+    val changed =
+        cues.map { cue ->
+            val text =
+                regex.replace(cue.text) { match ->
+                    count += 1
+                    if (match.value.first().isUpperCase()) replacement.replaceFirstChar(Char::uppercaseChar) else replacement
+                }
+            if (text == cue.text) cue else cue.copy(text = text)
+        }
+    return CueReplacement(changed, count)
+}
