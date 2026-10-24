@@ -83,14 +83,16 @@ internal fun RowScope.LessonSearchButton(
         modifier = Modifier.align(Alignment.CenterVertically).testTag("lesson_search"),
     ) { Icon(Icons.Default.Search, contentDescription = "Mavzu bo‘yicha qo‘shimcha videolar") }
     if (open) {
-        LessonSearchDialog(
+        YouTubeSearchDialog(
+            title = "Qo\u2018shimcha videolar",
+            subtitle = "Mavzu bo\u2018yicha YouTube'dan qidirish",
             initialQuery = lessonSearchQuery(sections, records, activeVideoId),
-            activeVideoId = activeVideoId,
+            excludeVideoId = activeVideoId,
             sections = sections,
-            onOpen = { videoId ->
-                focusRequestedVideos += videoId
+            onPick = { result ->
+                focusRequestedVideos += result.videoId
                 open = false
-                onOpen(videoId)
+                onOpen(result.videoId)
             },
             onDismiss = { open = false },
         )
@@ -124,11 +126,13 @@ private sealed interface SearchState {
 }
 
 @Composable
-private fun LessonSearchDialog(
+internal fun YouTubeSearchDialog(
+    title: String,
+    subtitle: String,
     initialQuery: String,
-    activeVideoId: String,
+    excludeVideoId: String?,
     sections: List<CatalogSection>?,
-    onOpen: (String) -> Unit,
+    onPick: (YouTubeSearchResult) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf(initialQuery) }
@@ -142,7 +146,7 @@ private fun LessonSearchDialog(
         scope.launch {
             state =
                 try {
-                    SearchState.Found(YouTubeSearch.search(text).filter { it.videoId != activeVideoId })
+                    SearchState.Found(YouTubeSearch.search(text).filter { it.videoId != excludeVideoId })
                 } catch (cancel: CancellationException) {
                     throw cancel
                 } catch (error: IOException) {
@@ -155,10 +159,10 @@ private fun LessonSearchDialog(
         Surface(Modifier.fillMaxSize().testTag("lesson_search_dialog"), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().safeDrawingPadding()) {
                 Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onDismiss) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Darsga qaytish") }
+                    IconButton(onClick = onDismiss) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Orqaga") }
                     Column {
-                        Text("Qo‘shimcha videolar", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Hint("Mavzu bo‘yicha YouTube'dan qidirish")
+                        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Hint(subtitle)
                     }
                 }
                 OutlinedTextField(
@@ -171,7 +175,7 @@ private fun LessonSearchDialog(
                     keyboardActions = KeyboardActions(onSearch = { search() }),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).testTag("lesson_search_query"),
                 )
-                SearchResults(state, sections, onOpen)
+                SearchResults(state, sections, onPick)
             }
         }
     }
@@ -181,7 +185,7 @@ private fun LessonSearchDialog(
 private fun SearchResults(
     state: SearchState,
     sections: List<CatalogSection>?,
-    onOpen: (String) -> Unit,
+    onPick: (YouTubeSearchResult) -> Unit,
 ) {
     when (state) {
         SearchState.Idle -> Box(Modifier.padding(16.dp)) { Hint("Qidiruv so‘zini yozing.") }
@@ -202,7 +206,7 @@ private fun SearchResults(
                         SearchResultCard(
                             result,
                             catalogHasVideo(sections, result.videoId) == true,
-                        ) { onOpen(result.videoId) }
+                        ) { onPick(result) }
                     }
                 }
             }

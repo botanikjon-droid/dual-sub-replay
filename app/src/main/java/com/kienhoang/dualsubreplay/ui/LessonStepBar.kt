@@ -1,6 +1,8 @@
 package com.kienhoang.dualsubreplay.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
@@ -17,16 +19,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kienhoang.dualsubreplay.data.UziCatalogStore
 
 /**
  * SHOKALON's lesson steps in the top bar: the previous and next lecture of the open lecture's section and its
- * place there ("Abdominal · 3/12"). Shown only in focus mode for a catalog lecture.
+ * place there ("Abdominal · 3/12"); tapping the place opens the section's lesson list. Shown only in focus
+ * mode for a catalog lecture.
  */
 @Composable
 internal fun RowScope.LessonStepBar(
     activeVideoId: String?,
+    onSectionList: (String) -> Unit = {},
     onOpen: (String) -> Unit,
 ) {
     if (!shokalonFocusMode) return
@@ -40,12 +45,18 @@ internal fun RowScope.LessonStepBar(
         modifier = Modifier.align(Alignment.CenterVertically).testTag("lesson_previous"),
     ) { Icon(Icons.Default.SkipPrevious, contentDescription = "Oldingi dars") }
     Text(
-        "${steps.section} · ${steps.position}/${steps.total}",
+        "\u2630 ${steps.section} · ${steps.position}/${steps.total}",
         style = MaterialTheme.typography.labelMedium,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         textAlign = TextAlign.Center,
-        modifier = Modifier.weight(1f).align(Alignment.CenterVertically).testTag("lesson_position"),
+        modifier =
+            Modifier
+                .weight(1f)
+                .align(Alignment.CenterVertically)
+                .clickable(onClickLabel = "Bo\u2018lim darslari ro\u2018yxati") { onSectionList(steps.section) }
+                .padding(vertical = 12.dp)
+                .testTag("lesson_position"),
     )
     IconButton(
         enabled = steps.next != null,

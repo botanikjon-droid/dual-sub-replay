@@ -20,9 +20,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -30,11 +35,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,8 +62,11 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kienhoang.dualsubreplay.R
 import com.kienhoang.dualsubreplay.data.CatalogSection
+import com.kienhoang.dualsubreplay.data.CatalogVideo
 import com.kienhoang.dualsubreplay.data.LessonLibraryStore
 import com.kienhoang.dualsubreplay.data.UziCatalogStore
+import com.kienhoang.dualsubreplay.data.removeCatalogVideo
+import kotlinx.coroutines.launch
 
 /**
  * SHOKALON's first screen: a card with a picture for every ultrasound section; a card opens the section's
@@ -68,16 +78,21 @@ internal fun ShokalonHomeScreen(
     onOpen: (String) -> Unit,
     onDismiss: () -> Unit,
     onSettings: () -> Unit = {},
+    startSection: String? = null,
 ) {
     val context = LocalContext.current
     LaunchedEffect(Unit) { UziCatalogStore.load(context) }
     val sections by UziCatalogStore.sections.collectAsStateWithLifecycle()
     val lessons by LessonLibraryStore.records.collectAsStateWithLifecycle()
     val translated = remember(lessons) { lessons.mapTo(HashSet()) { it.videoId } }
-    var openName by rememberSaveable { mutableStateOf<String?>(null) }
+    var openName by rememberSaveable { mutableStateOf(startSection) }
     val open = sections?.firstOrNull { it.name == openName }
+    var catalogEdit by remember { mutableStateOf<CatalogEdit?>(null) }
+    var removing by remember { mutableStateOf<CatalogVideo?>(null) }
+    var notice by remember { mutableStateOf<String?>(null) }
     Dialog(
-        onDismissRequest = { if (open != null) openName = null else onDismiss() },
+        // Opened on a section from the lesson (its place in the top bar), back returns to the lesson.
+        onDismissRequest = { if (open != null && startSection == null) openName = null else onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(
@@ -87,17 +102,90 @@ internal fun ShokalonHomeScreen(
         ) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState())) {
                 if (open == null) {
-                    HomeHeader(sections.orEmpty(), translated, activeVideoId, onDismiss, onSettings)
+                    HomeHeader(sections.orEmpty(), translated, activeVideoId, onDismiss, onSettings) {
+                        catalogEdit = CatalogEdit.Add(null)
+                    }
+                    notice?.let { NoticeLine(it) }
                     SectionGrid(sections, translated) { openName = it }
                     if (lessons.isNotEmpty()) {
                         Box(Modifier.padding(12.dp)) { LessonLibraryCard(lessons, activeVideoId, onOpen) }
                     }
                 } else {
-                    SectionDetail(open, translated, activeVideoId, onBack = { openName = null }, onOpen = onOpen)
+                    notice?.let { NoticeLine(it) }
+                    SectionDetail(open, translated, activeVideoId, onBack = { openName = null }) { action ->
+                        when (action) {
+                            is LessonAction.Open -> onOpen(action.video.videoId)
+                            is LessonAction.Replace -> catalogEdit = CatalogEdit.Replace(action.video)
+                            is LessonAction.Remove -> removing = action.video
+                            LessonAction.Add -> catalogEdit = CatalogEdit.Add(open.name)
+                        }
+                    }
+                }
+            }
+            catalogEdit?.let { edit ->
+                CatalogVideoSearch(edit, sections, onDismiss = { catalogEdit = null }) { message ->
+                    catalogEdit = null
+                    notice = message
+                }
+            }
+            removing?.let { video ->
+                RemoveLessonDialog(video, onDismiss = { removing = null }) {
+                    removing = null
+                    notice = "Mundarijadan olib tashlandi: ${video.title}"
                 }
             }
         }
     }
+}
+
+/** What the doctor does with a lecture of a section. */
+private sealed interface LessonAction {
+    data class Open(
+        val video: CatalogVideo,
+    ) : LessonAction
+
+    data class Replace(
+        val video: CatalogVideo,
+    ) : LessonAction
+
+    data class Remove(
+        val video: CatalogVideo,
+    ) : LessonAction
+
+    data object Add : LessonAction
+}
+
+@Composable
+private fun NoticeLine(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = Color(0xFF15803D),
+        modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp).testTag("home_notice"),
+    )
+}
+
+@Composable
+private fun RemoveLessonDialog(
+    video: CatalogVideo,
+    onDismiss: () -> Unit,
+    onRemoved: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Mundarijadan olib tashlansinmi?") },
+        text = { Text(video.title) },
+        confirmButton = {
+            TextButton(onClick = {
+                scope.launch {
+                    UziCatalogStore.change { removeCatalogVideo(it, video.videoId) }
+                    onRemoved()
+                }
+            }) { Text("Olib tashlash", color = MaterialTheme.colorScheme.error) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Bekor qilish") } },
+    )
 }
 
 private val HERO_BRUSH = Brush.linearGradient(listOf(Color(0xFF0B3C5D), Color(0xFF0E7490), Color(0xFF14B8A6)))
@@ -110,6 +198,7 @@ private fun HomeHeader(
     activeVideoId: String?,
     onBackToVideo: () -> Unit,
     onSettings: () -> Unit,
+    onAddVideo: () -> Unit,
 ) {
     val total = sections.sumOf { it.videoCount }
     val done = sections.sumOf { section -> section.topics.sumOf { topic -> topic.videos.count { it.videoId in translated } } }
@@ -160,10 +249,16 @@ private fun HomeHeader(
                         .clip(CircleShape),
             )
         }
-        if (activeVideoId != null) {
-            OutlinedButton(onClick = onBackToVideo, modifier = Modifier.padding(top = 12.dp).testTag("shokalon_home_back")) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
-                Text("Videoga qaytish", color = Color.White, modifier = Modifier.padding(start = 6.dp))
+        Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (activeVideoId != null) {
+                OutlinedButton(onClick = onBackToVideo, modifier = Modifier.testTag("shokalon_home_back")) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
+                    Text("Videoga qaytish", color = Color.White, modifier = Modifier.padding(start = 6.dp))
+                }
+            }
+            OutlinedButton(onClick = onAddVideo, modifier = Modifier.testTag("shokalon_home_add_video")) {
+                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
+                Text("Video qo\u2018shish", color = Color.White, modifier = Modifier.padding(start = 6.dp))
             }
         }
     }
@@ -280,7 +375,7 @@ private fun SectionDetail(
     translated: Set<String>,
     activeVideoId: String?,
     onBack: () -> Unit,
-    onOpen: (String) -> Unit,
+    onAction: (LessonAction) -> Unit,
 ) {
     val art = sectionArt(section.name)
     Column(
@@ -318,8 +413,15 @@ private fun SectionDetail(
         )
         topic.videos.forEach { video ->
             number += 1
-            LessonRow(number, video.title, video.videoId in translated, video.videoId == activeVideoId, art) { onOpen(video.videoId) }
+            LessonRow(number, video, video.videoId in translated, video.videoId == activeVideoId, art, onAction)
         }
+    }
+    OutlinedButton(
+        onClick = { onAction(LessonAction.Add) },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp).testTag("home_section_add_video"),
+    ) {
+        Icon(Icons.Default.Add, contentDescription = null)
+        Text("Shu bo\u2018limga YouTube'dan video qo\u2018shish", modifier = Modifier.padding(start = 6.dp))
     }
     Spacer(Modifier.height(16.dp))
 }
@@ -327,14 +429,16 @@ private fun SectionDetail(
 @Composable
 private fun LessonRow(
     number: Int,
-    title: String,
+    video: CatalogVideo,
     translated: Boolean,
     active: Boolean,
     art: SectionArt,
-    onClick: () -> Unit,
+    onAction: (LessonAction) -> Unit,
 ) {
+    val title = video.title
+    var menu by remember { mutableStateOf(false) }
     Surface(
-        onClick = onClick,
+        onClick = { onAction(LessonAction.Open(video)) },
         shape = RoundedCornerShape(16.dp),
         tonalElevation = if (active) 6.dp else 1.dp,
         shadowElevation = 1.dp,
@@ -353,6 +457,21 @@ private fun LessonRow(
                 }
             }
             if (translated) Icon(Icons.Default.CheckCircle, contentDescription = "Tarjima qilingan", tint = Color(0xFF16A34A))
+            Box {
+                IconButton(onClick = { menu = true }, modifier = Modifier.testTag("home_lesson_menu")) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "Dars amallari")
+                }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(text = { Text("YouTube'dan boshqa videoga almashtirish") }, onClick = {
+                        menu = false
+                        onAction(LessonAction.Replace(video))
+                    })
+                    DropdownMenuItem(text = { Text("Mundarijadan olib tashlash") }, onClick = {
+                        menu = false
+                        onAction(LessonAction.Remove(video))
+                    })
+                }
+            }
         }
     }
 }

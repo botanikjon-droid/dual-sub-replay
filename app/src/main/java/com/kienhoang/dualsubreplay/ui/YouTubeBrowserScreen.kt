@@ -430,6 +430,7 @@ internal fun SingleYouTubePage(
                     if (shokalonFocusMode && url?.let(::isYouTubeWebUrl) == true) {
                         view.evaluateJavascript(focusModeScript(enabled = true), null)
                         view.evaluateJavascript(focusStepScript(focusLessonSteps.value), null)
+                        view.evaluateJavascript(fullscreenPlayerScript(shokalonFullscreen.value), null)
                     }
                     reportNavigation(view, url)
                 }
@@ -465,6 +466,7 @@ internal fun SingleYouTubePage(
                         if (shokalonFocusMode) {
                             view.evaluateJavascript(focusModeScript(enabled = true), null)
                             view.evaluateJavascript(focusStepScript(focusLessonSteps.value), null)
+                            view.evaluateJavascript(fullscreenPlayerScript(shokalonFullscreen.value), null)
                         }
                     }
                 }
@@ -528,6 +530,14 @@ internal fun SingleYouTubePage(
     LaunchedEffect(webView, suppressPageCaptions) {
         if (webView.url.orEmpty().let(::isYouTubeWebUrl)) {
             webView.evaluateJavascript(webCaptionVisibilityScript(suppressPageCaptions), null)
+        }
+    }
+
+    // SHOKALON's own full screen: the player fills the page while it is on.
+    LaunchedEffect(webView) {
+        if (!shokalonFocusMode) return@LaunchedEffect
+        shokalonFullscreen.collect { on ->
+            if (webView.url.orEmpty().let(::isYouTubeWebUrl)) webView.evaluateJavascript(fullscreenPlayerScript(on), null)
         }
     }
 

@@ -198,6 +198,15 @@ fun DualSubApp(
     }
 }
 
+/** Shows [content] unless [hidden] (the app's bar during full screen). */
+@Composable
+private fun HiddenWhen(
+    hidden: Boolean,
+    content: @Composable () -> Unit,
+) {
+    if (!hidden) content()
+}
+
 /** SHOKALON's sections screen in the Uzbek build; null in the general builds. */
 private fun shokalonHomeScreen(
     state: DualSubUiState,
@@ -206,9 +215,10 @@ private fun shokalonHomeScreen(
     if (!shokalonFocusMode) {
         null
     } else {
-        { onDismiss, onSettings ->
+        { startSection, onDismiss, onSettings ->
             ShokalonHomeScreen(
                 activeVideoId = state.activeVideoId,
+                startSection = startSection,
                 onOpen = { videoId ->
                     viewModel.openTranslatedLesson(videoId)
                     onDismiss()
@@ -220,7 +230,7 @@ private fun shokalonHomeScreen(
     }
 
 /** SHOKALON's sections screen: closes itself with the first callback, opens the main menu with the second. */
-private typealias ShokalonHome = @Composable (onDismiss: () -> Unit, onSettings: () -> Unit) -> Unit
+private typealias ShokalonHome = @Composable (startSection: String?, onDismiss: () -> Unit, onSettings: () -> Unit) -> Unit
 
 /**
  * Shows [homeScreen] when the app starts, pausing the video while it is open, and returns how to open it
@@ -231,17 +241,21 @@ private fun homeScreenHost(
     homeScreen: ShokalonHome?,
     onShown: () -> Unit,
     onSettings: () -> Unit,
-): (() -> Unit)? {
+): ((section: String?) -> Unit)? {
     if (homeScreen == null) return null
     var showHome by rememberSaveable { mutableStateOf(true) }
+    var startSection by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(showHome) { if (showHome) onShown() }
     if (showHome) {
-        homeScreen({ showHome = false }) {
+        homeScreen(startSection, { showHome = false }) {
             showHome = false
             onSettings()
         }
     }
-    return { showHome = true }
+    return { section ->
+        startSection = section
+        showHome = true
+    }
 }
 
 @Composable
@@ -277,6 +291,13 @@ private fun LessonToolsHost(
             )
         },
         lessonList = {
+            TranslationCheckCard(
+                activeVideoId = state.activeVideoId,
+                storedCues = viewModel::storedTranslationCues,
+                save = viewModel::saveEditedTranslation,
+                srtExport = viewModel::storedTranslationExport,
+                bilingualExport = viewModel::bilingualLessonExport,
+            )
             LessonCatalogCard(
                 translatedVideoIds = lessons.mapTo(HashSet()) { it.videoId },
                 knownTitles = lessons.filter { it.title.isNotBlank() }.associate { it.videoId to it.title },
@@ -443,19 +464,37 @@ private fun DualSubExperience(
     var showLessonTools by remember { mutableStateOf(false) }
     if (showLessonTools) lessonTools { showLessonTools = false }
     var menuRequests by remember { mutableIntStateOf(0) }
-    val openHome = homeScreenHost(homeScreen, onShown = webController::pause) { menuRequests += 1 }
+    val openHomeAt =
+        homeScreenHost(homeScreen, onShown = {
+            webController.pause()
+            shokalonFullscreen.value = false
+        }) { menuRequests += 1 }
+    val fullscreen by shokalonFullscreen.collectAsStateWithLifecycle()
 
-    AppNavigation(onHome = openHome, menuRequests = menuRequests, onPractice = onVocabulary, onProgress = onProgress, onLesson = {
+    AppNavigation(onHome = openHomeAt?.let { open -> { open(null) } }, menuRequests = menuRequests, onPractice = onVocabulary, onProgress = onProgress, onLesson = {
         showLessonTools = true
     }, onSettings = {
         showSettings = true
     }, onVisibilityChange = onNavigationVisibilityChange) { menuButton ->
         Scaffold(contentWindowInsets = contentInsets, topBar = {
-            Surface {
-                Row(Modifier.fillMaxWidth().statusBarsPadding(), horizontalArrangement = Arrangement.Start) {
-                    menuButton()
-                    LessonStepBar(state.activeVideoId) { videoId -> webController.navigateTo(lessonWatchUrl(videoId)) }
-                    LessonSearchButton(state.activeVideoId) { videoId -> webController.navigateTo(lessonWatchUrl(videoId)) }
+            HiddenWhen(fullscreen) {
+                Surface {
+                    Row(Modifier.fillMaxWidth().statusBarsPadding(), horizontalArrangement = Arrangement.Start) {
+                        menuButton()
+                        LessonStepBar(state.activeVideoId, onSectionList = { openHomeAt?.invoke(it) }) { videoId ->
+                            webController.navigateTo(lessonWatchUrl(videoId))
+                        }
+                        LessonSearchButton(state.activeVideoId) { videoId -> webController.navigateTo(lessonWatchUrl(videoId)) }
+                        SubtitleModeButton(
+                            state.activeVideoId,
+                            visible = state.subtitlePanelVisible,
+                            mode = effectivePlayerMode,
+                            onMode = onPlayerModeChange,
+                            onShow = onShowSubtitles,
+                            onHide = onHideSubtitles,
+                        )
+                        FullscreenButton(state.activeVideoId)
+                    }
                 }
             }
         }) { innerPadding ->
@@ -560,6 +599,7 @@ private fun DualSubExperience(
                 ) {
                     MovableSubtitleFab(onClick = { if (tracksVisible) onShowSubtitles() else showSettings = true })
                 }
+                FullscreenSession(fullscreen) { shokalonFullscreen.value = false }
             }
         }
     }

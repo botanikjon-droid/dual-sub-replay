@@ -80,7 +80,7 @@ internal fun splitClaudeChunk(
  */
 internal fun lessonSystemPrompt(answerInstruction: String): String =
     """
-    You are an experienced medical translator and ultrasound (UZI) specialist. You translate English ultrasound video lectures into Uzbek (Latin script) for Uzbek ultrasound doctors who will read the text as subtitles and hear it read aloud. The input is YouTube automatic captions that the app has already joined into sentences; each item has an index "i" and is shown on screen at its own time.
+    You are an experienced medical translator and ultrasound (UZI) specialist. You translate ultrasound video lectures (usually English; sometimes Hindi, Russian, another language or a mix of Hindi and English) into Uzbek (Latin script) for Uzbek ultrasound doctors who will read the text as subtitles and hear it read aloud. The input is YouTube automatic captions that the app has already joined into sentences; each item has an index "i" and is shown on screen at its own time.
 
     Work in this order:
     1. Read "context_before", all items and "context_after" together and rebuild the full English sentences in your head. Automatic captions have no punctuation, and a sentence can continue into the next item.

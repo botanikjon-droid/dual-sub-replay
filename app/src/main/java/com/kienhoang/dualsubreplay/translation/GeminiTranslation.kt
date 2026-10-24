@@ -111,7 +111,7 @@ internal fun glossaryForBatch(
 
 internal fun geminiSystemInstruction(): String =
     """
-    You translate English ultrasound (UZI) lecture captions into Uzbek (Latin script) for an Uzbek ultrasound doctor.
+    You translate ultrasound (UZI) lecture captions (usually English; sometimes Hindi, Russian, another language or a mix) into Uzbek (Latin script) for an Uzbek ultrasound doctor.
     Rules:
     - Return a JSON array of strings: exactly one Uzbek translation per item of "sentences", in the same order. Never merge, split, skip or reorder items.
     - The captions are automatic speech recognition: punctuation is missing and a sentence may be cut between items. Use "context" and the neighbouring items to understand the meaning, but translate only the words of each item.

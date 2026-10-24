@@ -45,6 +45,7 @@ import com.kienhoang.dualsubreplay.data.mergeImportedCues
 import com.kienhoang.dualsubreplay.data.parseSubtitleFile
 import com.kienhoang.dualsubreplay.data.readBoundedText
 import com.kienhoang.dualsubreplay.data.toSegments
+import com.kienhoang.dualsubreplay.data.UziCatalogStore
 import com.kienhoang.dualsubreplay.data.translationRequest
 import com.kienhoang.dualsubreplay.data.retireLegacyDownloadJobs
 import com.kienhoang.dualsubreplay.data.savedWordFrom
@@ -212,6 +213,7 @@ internal fun activeWordIndex(
 
 internal const val YOUTUBE_HOME_URL = "https://m.youtube.com/"
 private const val NO_VIDEO_MESSAGE = "Avval dars videosini oching."
+private const val NO_STORED_TRANSLATION_MESSAGE = "Bu darsning saqlangan tarjimasi yo\u2018q: avval tarjima qiling yoki ZIP\u2019ni yuklang."
 private const val MS_PER_SECOND = 1_000L
 private const val JPEG_QUALITY = 88
 private const val MAX_IMPORTED_TRANSLATION_BYTES = 8L * 1024 * 1024
@@ -322,7 +324,7 @@ class AppViewModel internal constructor(
         // The list of translated lessons and their notes.
         viewModelScope.launch { LessonLibraryStore.load(application) }
         // Focus mode needs the catalog to tell lessons from other YouTube videos.
-        if (shokalonFocusMode) viewModelScope.launch { com.kienhoang.dualsubreplay.data.UziCatalogStore.load(application) }
+        if (shokalonFocusMode) viewModelScope.launch { UziCatalogStore.load(application) }
         // Speaking a translated lesson in advance uses the same voice as playback.
         LessonVoicePrefetch.voice = dubbingVoice
         // Playback speaks whole translated sentences, so the voice is prepared sentence by sentence too.
@@ -821,6 +823,54 @@ class AppViewModel internal constructor(
             }
         if (segments.isEmpty()) throw IllegalStateException("Bu videoning subtitrida matn yo\u2018q.")
         return track.title to segments
+    }
+
+    private fun lessonRecord(videoId: String) = LessonLibraryStore.records.value.firstOrNull { it.videoId == videoId }
+
+    /** The open lesson's stored translation, cue by cue, for the editor; null when it has none. */
+    internal fun storedTranslationCues(): List<RawCaptionCue>? =
+        importedTranslation?.takeIf { it.first == _state.value.activeVideoId }?.second
+
+    /** Stores the doctor's corrections of the open lesson's translation and shows them at once. */
+    internal suspend fun saveEditedTranslation(cues: List<RawCaptionCue>): Int {
+        val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        val engine = lessonRecord(videoId)?.engine ?: "Fayl"
+        val kept = cues.filter { it.text.isNotBlank() }
+        require(kept.isNotEmpty()) { "Tarjima bo\u2018sh bo\u2018lib qoldi." }
+        return importTranslation(formatSrt(kept.toSegments()), videoId, source = engine)
+    }
+
+    /** The open lesson's translation as an .srt file, to copy or check in another app. */
+    internal suspend fun storedTranslationExport(): SubtitleExport {
+        val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        val cues = storedTranslationCues() ?: throw IllegalStateException(NO_STORED_TRANSLATION_MESSAGE)
+        val title = lessonTitles[videoId] ?: lessonRecord(videoId)?.title
+        val text = withContext(Dispatchers.Default) { formatSrt(cues.toSegments()) }
+        return SubtitleExport(videoId, title?.let { "$it (UZ)" }, cues.size, text)
+    }
+
+    /**
+     * The open lesson sentence by sentence, English above Uzbek with the time, for checking the translation
+     * in another app (or by another AI) without the SRT numbers in the way.
+     */
+    internal suspend fun bilingualLessonExport(): SubtitleExport {
+        val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        val cues = storedTranslationCues() ?: throw IllegalStateException(NO_STORED_TRANSLATION_MESSAGE)
+        val (title, segments) = lessonSegments(videoId)
+        val rows =
+            withContext(Dispatchers.Default) {
+                applyImportedTranslation(importedSentenceRows(segments, translatedSentenceSpans(cues)), cues)
+            }
+        val text =
+            buildString {
+                rows.forEachIndexed { index, row ->
+                    val seconds = row.startMs / 1_000
+                    append("${index + 1}. [${seconds / 60}:${"%02d".format(seconds % 60)}]\n")
+                    append("EN: ${row.originalText}\n")
+                    append("UZ: ${row.translatedText.orEmpty()}\n\n")
+                }
+            }
+        return SubtitleExport(videoId, title?.let { "$it (EN-UZ)" }, rows.size, text)
     }
 
     /**

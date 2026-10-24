@@ -149,6 +149,40 @@ internal fun addCatalogVideo(
     return without.map { if (it === target) it.copy(topics = topics) else it }
 }
 
+/**
+ * Puts [replacement] in the place of lecture [oldVideoId] (same section, topic and position), for a lecture
+ * that cannot be used (another language, deleted, poor quality). A replacement already elsewhere is moved.
+ */
+internal fun replaceCatalogVideo(
+    sections: List<CatalogSection>,
+    oldVideoId: String,
+    replacement: CatalogVideo,
+): List<CatalogSection> {
+    require(CATALOG_VIDEO_ID.matches(replacement.videoId)) { "YouTube havolasi noto‘g‘ri." }
+    if (oldVideoId == replacement.videoId) return sections
+    val clean = CatalogVideo(replacement.videoId, catalogCell(replacement.title).ifEmpty { replacement.videoId })
+    val elsewhere = sections.any { section -> section.topics.any { topic -> topic.videos.any { it.videoId == oldVideoId } } }
+    require(elsewhere) { "Almashtiriladigan dars mundarijada topilmadi." }
+    val withoutNew =
+        sections.map { section ->
+            section.copy(
+                topics =
+                    section.topics.map { topic ->
+                        topic.copy(videos = topic.videos.filterNot { it.videoId == clean.videoId })
+                    },
+            )
+        }
+    return withoutNew
+        .map { section ->
+            section.copy(
+                topics =
+                    section.topics
+                        .map { topic -> topic.copy(videos = topic.videos.map { if (it.videoId == oldVideoId) clean else it }) }
+                        .filter { it.videos.isNotEmpty() },
+            )
+        }.filter { it.topics.isNotEmpty() }
+}
+
 /** Removes a lecture; a topic or section left empty goes too. */
 internal fun removeCatalogVideo(
     sections: List<CatalogSection>,
