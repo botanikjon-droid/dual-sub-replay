@@ -53,7 +53,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kienhoang.dualsubreplay.data.CatalogSection
 import com.kienhoang.dualsubreplay.data.LessonLibraryStore
+import com.kienhoang.dualsubreplay.data.LessonRecord
 import com.kienhoang.dualsubreplay.data.UziCatalogStore
 import com.kienhoang.dualsubreplay.data.YouTubeSearch
 import com.kienhoang.dualsubreplay.data.YouTubeSearchResult
@@ -73,14 +76,17 @@ internal fun RowScope.LessonSearchButton(
 ) {
     if (!shokalonFocusMode || activeVideoId == null) return
     var open by rememberSaveable { mutableStateOf(false) }
+    val sections by UziCatalogStore.sections.collectAsStateWithLifecycle()
+    val records by LessonLibraryStore.records.collectAsStateWithLifecycle()
     IconButton(
         onClick = { open = true },
         modifier = Modifier.align(Alignment.CenterVertically).testTag("lesson_search"),
     ) { Icon(Icons.Default.Search, contentDescription = "Mavzu bo‘yicha qo‘shimcha videolar") }
     if (open) {
         LessonSearchDialog(
-            initialQuery = lessonSearchQuery(activeVideoId),
+            initialQuery = lessonSearchQuery(sections, records, activeVideoId),
             activeVideoId = activeVideoId,
+            sections = sections,
             onOpen = { videoId ->
                 focusRequestedVideos += videoId
                 open = false
@@ -92,15 +98,16 @@ internal fun RowScope.LessonSearchButton(
 }
 
 /** The open lesson's title (the catalog's, else the one seen when it was translated), to search with. */
-private fun lessonSearchQuery(videoId: String): String =
-    UziCatalogStore.sections.value
+internal fun lessonSearchQuery(
+    sections: List<CatalogSection>?,
+    records: List<LessonRecord>,
+    videoId: String,
+): String =
+    sections
         ?.firstNotNullOfOrNull { section ->
             section.topics.firstNotNullOfOrNull { topic -> topic.videos.firstOrNull { it.videoId == videoId } }
         }?.title
-        ?: LessonLibraryStore.records.value
-            .firstOrNull { it.videoId == videoId }
-            ?.title
-            .orEmpty()
+        ?: records.firstOrNull { it.videoId == videoId }?.title.orEmpty()
 
 private sealed interface SearchState {
     data object Idle : SearchState
@@ -120,6 +127,7 @@ private sealed interface SearchState {
 private fun LessonSearchDialog(
     initialQuery: String,
     activeVideoId: String,
+    sections: List<CatalogSection>?,
     onOpen: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -163,7 +171,7 @@ private fun LessonSearchDialog(
                     keyboardActions = KeyboardActions(onSearch = { search() }),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).testTag("lesson_search_query"),
                 )
-                SearchResults(state, onOpen)
+                SearchResults(state, sections, onOpen)
             }
         }
     }
@@ -172,6 +180,7 @@ private fun LessonSearchDialog(
 @Composable
 private fun SearchResults(
     state: SearchState,
+    sections: List<CatalogSection>?,
     onOpen: (String) -> Unit,
 ) {
     when (state) {
@@ -189,7 +198,12 @@ private fun SearchResults(
                         PaddingValues(12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    items(state.results, key = { it.videoId }) { result -> SearchResultCard(result) { onOpen(result.videoId) } }
+                    items(state.results, key = { it.videoId }) { result ->
+                        SearchResultCard(
+                            result,
+                            catalogHasVideo(sections, result.videoId) == true,
+                        ) { onOpen(result.videoId) }
+                    }
                 }
             }
     }
@@ -198,9 +212,9 @@ private fun SearchResults(
 @Composable
 private fun SearchResultCard(
     result: YouTubeSearchResult,
+    inCatalog: Boolean,
     onClick: () -> Unit,
 ) {
-    val inCatalog = catalogHasVideo(UziCatalogStore.sections.value, result.videoId) == true
     Surface(onClick = onClick, shape = RoundedCornerShape(16.dp), tonalElevation = 1.dp, shadowElevation = 2.dp) {
         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
