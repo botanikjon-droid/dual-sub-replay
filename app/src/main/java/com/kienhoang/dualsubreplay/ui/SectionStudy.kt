@@ -94,11 +94,21 @@ internal fun SectionStudyCard(
                 ) { Text("Bo‘lim testi") }
             }
             SectionPdfButtons(section.name, withNotes.map { it.videoId })
-            if (actions != null) SectionNotesWriting(section.name, missing, actions)
+            if (actions != null) SectionNotesWriting(section.name, missing, withNotes, actions)
         }
     }
     when (view) {
-        StudyView.NOTES -> SectionNotesDialog(section.name, withNotes, onOpen) { view = null }
+        StudyView.NOTES ->
+            SectionNotesDialog(
+                section.name,
+                withNotes,
+                onOpen,
+                actions?.let { act ->
+                    { video: CatalogVideo -> act.write(section.name, listOf(video), LessonEngine.CLAUDE) }
+                },
+            ) {
+                view = null
+            }
         StudyView.TEST -> SectionTestDialog(section.name, withNotes) { view = null }
         null -> Unit
     }
@@ -124,6 +134,7 @@ private fun SectionPdfButtons(
 private fun SectionNotesWriting(
     section: String,
     missing: List<CatalogVideo>,
+    noted: List<CatalogVideo>,
     actions: SectionStudyActions,
 ) {
     val progress by actions.progress.collectAsStateWithLifecycle()
@@ -162,6 +173,14 @@ private fun SectionNotesWriting(
             }
             if (geminiKey.isBlank() && claudeKey.isBlank()) Hint("Gemini yoki Claude API kaliti sozlamalarda kiritilgan bo‘lishi kerak.")
         }
+    }
+    if (noted.isNotEmpty() && !(mine && progress.running)) {
+        OutlinedButton(
+            enabled = claudeKey.isNotBlank(),
+            onClick = { actions.write(section, noted, LessonEngine.CLAUDE) },
+            modifier = Modifier.testTag("section_notes_refresh"),
+        ) { Text("Mavjud ${noted.size} ta konspekt va testni Claude bilan yangilash") }
+        Hint("Tarjima tuzatilgandan keyin: konspekt va test tuzatilgan matndan qayta yoziladi (rasmlar saqlanadi).")
     }
     if (mine && !progress.running) progress.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
 }
@@ -203,6 +222,7 @@ private fun SectionNotesDialog(
     section: String,
     videos: List<CatalogVideo>,
     onOpen: (CatalogVideo) -> Unit,
+    onRefresh: ((CatalogVideo) -> Unit)?,
     onDismiss: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf<String?>(videos.singleOrNull()?.videoId) }
@@ -221,7 +241,7 @@ private fun SectionNotesDialog(
                         maxLines = if (expanded == video.videoId) Int.MAX_VALUE else 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    if (expanded == video.videoId) LessonNotesOf(video, onOpen)
+                    if (expanded == video.videoId) LessonNotesOf(video, onOpen, onRefresh)
                 }
             }
         }
@@ -232,11 +252,16 @@ private fun SectionNotesDialog(
 private fun LessonNotesOf(
     video: CatalogVideo,
     onOpen: (CatalogVideo) -> Unit,
+    onRefresh: ((CatalogVideo) -> Unit)?,
 ) {
-    val notes by produceState<LessonNotes?>(null, video.videoId) {
+    val saved by LessonLibraryStore.notesSaved.collectAsStateWithLifecycle()
+    val notes by produceState<LessonNotes?>(null, video.videoId, saved) {
         value = LessonLibraryStore.notes(video.videoId)
     }
-    TextButton(onClick = { onOpen(video) }) { Text("▶ Videoni ochish") }
+    Row {
+        TextButton(onClick = { onOpen(video) }) { Text("▶ Videoni ochish") }
+        if (onRefresh != null) TextButton(onClick = { onRefresh(video) }) { Text("Claude bilan yangilash") }
+    }
     notes?.let { NotesBody(video.videoId, it, onCaptureFrames = null) } ?: LinearProgressIndicator(Modifier.fillMaxWidth())
 }
 

@@ -25,6 +25,10 @@ internal object LessonLibraryStore {
 
     /** Videos with stored notes; changes when notes are written, so section screens update. */
     val notedIds: StateFlow<Set<String>> = _notedIds
+    private val _notesSaved = MutableStateFlow(0)
+
+    /** Counts notes saved this session, so a shown konspekt reloads after it is rewritten. */
+    val notesSaved: StateFlow<Int> = _notesSaved
     private val lock = Mutex()
     private var directory: File? = null
 
@@ -105,6 +109,7 @@ internal object LessonLibraryStore {
                 check(file.parentFile?.let { it.isDirectory || it.mkdirs() } == true)
                 writeAtomically(file, notes.toJson().toString())
                 _notedIds.value = _notedIds.value + videoId
+                _notesSaved.value += 1
             } catch (error: IOException) {
                 Log.w(TAG, "Lesson notes not saved", error)
             } catch (error: IllegalStateException) {

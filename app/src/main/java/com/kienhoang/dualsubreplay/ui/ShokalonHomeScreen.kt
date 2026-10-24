@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
@@ -227,6 +228,9 @@ private fun HomeHeader(
                     color = Color.White.copy(alpha = 0.85f),
                     style = MaterialTheme.typography.bodyMedium,
                 )
+            }
+            IconButton(onClick = { shokalonChatOpen.value = true }, modifier = Modifier.testTag("shokalon_home_chat")) {
+                Icon(Icons.Default.Forum, contentDescription = "SHOKALON chat", tint = Color.White)
             }
             IconButton(onClick = onSettings, modifier = Modifier.testTag("shokalon_home_settings")) {
                 Icon(Icons.Default.Settings, contentDescription = "Sozlamalar va menyu", tint = Color.White)

@@ -177,7 +177,14 @@ fun DualSubApp(
             )
         }
         state.selectedLearningWord?.let { SelectedWordDialog(it, state, savedWords, viewModel, webController, pronouncer) }
-        SentenceCheckHost(state.activeVideoId, viewModel.activeLessonTitle(), viewModel::saveSentenceCorrection, viewModel::toggleReviewMark)
+        SentenceCheckHost(
+            state.activeVideoId,
+            viewModel.activeLessonTitle(),
+            viewModel::saveSentenceCorrection,
+            viewModel::toggleReviewMark,
+            viewModel::claudeFixOne,
+        )
+        ShokalonChatHost { viewModel.chatAgent }
         WordReplaceHost(viewModel::replaceInTranslations, viewModel::undoReplace, com.kienhoang.dualsubreplay.dubbing.DubbingSettings::setSpeechRule)
         if (showVocabulary) SavedWordsScreen(
             repository = viewModel.vocabulary,
@@ -302,7 +309,7 @@ private fun LessonToolsHost(
                 srtExport = viewModel::storedTranslationExport,
                 bilingualExport = viewModel::bilingualLessonExport,
             )
-            SentenceReviewCard(state.activeVideoId, viewModel::reviewFileExport, viewModel::importReviewFile)
+            SentenceReviewCard(state.activeVideoId, viewModel::reviewFileExport, viewModel::importReviewFile, viewModel.claudeFixActions)
             ReplaceAllCard(viewModel::replaceInTranslations, viewModel::undoReplace)
             SpeechLexiconCard()
             LessonCatalogCard(
@@ -500,6 +507,7 @@ private fun DualSubExperience(
                             onHide = onHideSubtitles,
                         )
                         FullscreenButton(state.activeVideoId, onFullscreen = webController::enterFullscreen)
+                        ChatButton()
                     }
                 }
             }

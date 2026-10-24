@@ -6,10 +6,13 @@ import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kienhoang.dualsubreplay.data.AnalyzedToken
+import com.kienhoang.dualsubreplay.data.AppProposal
+import com.kienhoang.dualsubreplay.data.AppProposalStore
 import com.kienhoang.dualsubreplay.data.CaptionLanguage
 import com.kienhoang.dualsubreplay.data.CaptionProvider
 import com.kienhoang.dualsubreplay.data.CaptionTrackResult
 import com.kienhoang.dualsubreplay.data.CaptionUnavailableException
+import com.kienhoang.dualsubreplay.data.CatalogSection
 import com.kienhoang.dualsubreplay.data.CatalogVideo
 import com.kienhoang.dualsubreplay.data.ImmersionAccumulator
 import com.kienhoang.dualsubreplay.data.ImmersionRepository
@@ -56,6 +59,7 @@ import com.kienhoang.dualsubreplay.data.reviewFileText
 import com.kienhoang.dualsubreplay.data.parseReviewFile
 import com.kienhoang.dualsubreplay.data.applySentenceCorrection
 import com.kienhoang.dualsubreplay.data.UziCatalogStore
+import com.kienhoang.dualsubreplay.data.UziGlossaryStore
 import com.kienhoang.dualsubreplay.data.translationRequest
 import com.kienhoang.dualsubreplay.data.retireLegacyDownloadJobs
 import com.kienhoang.dualsubreplay.data.savedWordFrom
@@ -66,10 +70,15 @@ import com.kienhoang.dualsubreplay.data.parseShokalonIds
 import com.kienhoang.dualsubreplay.data.readTranslationZip
 import com.kienhoang.dualsubreplay.data.translationZipSummary
 import com.kienhoang.dualsubreplay.dubbing.DubbingController
+import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
 import com.kienhoang.dualsubreplay.dubbing.LessonVoicePrefetch
 import com.kienhoang.dualsubreplay.dubbing.createDubbingVoice
+import com.kienhoang.dualsubreplay.translation.ClaudeBackend
 import com.kienhoang.dualsubreplay.translation.OnDeviceTranslator
+import com.kienhoang.dualsubreplay.translation.SentenceFix
 import com.kienhoang.dualsubreplay.translation.TranslationLanguages
+import com.kienhoang.dualsubreplay.translation.glossaryForBatch
+import com.kienhoang.dualsubreplay.translation.requestSentenceFixes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -335,6 +344,7 @@ class AppViewModel internal constructor(
         viewModelScope.launch { com.kienhoang.dualsubreplay.data.LearnedGlossaryStore.load(application) }
         // The list of translated lessons and their notes.
         viewModelScope.launch { LessonLibraryStore.load(application) }
+        viewModelScope.launch { AppProposalStore.load(application) }
         // Focus mode needs the catalog to tell lessons from other YouTube videos.
         if (shokalonFocusMode) viewModelScope.launch { UziCatalogStore.load(application) }
         // Speaking a translated lesson in advance uses the same voice as playback.
@@ -418,6 +428,74 @@ class AppViewModel internal constructor(
     ) = sectionNotes.start(section, videos, engine)
 
     fun cancelSectionNotes() = sectionNotes.cancel()
+
+    /** "SHOKALON chat": Claude with the doctor's key, reading and proposing through [chatAccess]. */
+    internal val chatAgent by lazy { ShokalonChatAgent(viewModelScope, chatAccess) }
+
+    private val chatAccess =
+        object : ChatAppAccess {
+            override fun context(): String {
+                val videoId = _state.value.activeVideoId ?: return "No lesson is open (the doctor is on the sections screen)."
+                val section = lessonSteps(UziCatalogStore.sections.value, videoId)?.section
+                val translated = storedTranslationCues()?.size
+                return listOfNotNull(
+                    "Open lesson: ${activeLessonTitle() ?: videoId} (YouTube $videoId)",
+                    section?.let { "Section: $it" },
+                    if (translated != null) "Stored Uzbek translation: $translated cues" else "No stored Uzbek translation yet",
+                    "Notes written: ${if (videoId in LessonLibraryStore.notedIds.value) "yes" else "no"}",
+                    "Sentences marked for checking: ${reviewMarkStore.value[videoId].orEmpty().size}",
+                ).joinToString("\n")
+            }
+
+            override suspend fun lessonSentences(): Triple<String, String?, List<ReviewSentence>> {
+                val videoId = _state.value.activeVideoId ?: throw IllegalStateException("No lesson is open.")
+                val (title, sentences) = lessonReviewSentences(onlyMarked = false)
+                return Triple(videoId, title, sentences)
+            }
+
+            override suspend fun lessonNotes(): LessonNotes? = _state.value.activeVideoId?.let { LessonLibraryStore.notes(it) }
+
+            override fun catalog(): String = chatCatalog(UziCatalogStore.sections.value.orEmpty())
+
+            override suspend fun previewReplace(request: ReplaceRequest): String = replaceInTranslations(request, apply = false)
+
+            override suspend fun applyFixes(
+                videoId: String,
+                fixes: List<SentenceFix>,
+            ): String = applySentenceFixes(videoId, fixes)
+
+            override suspend fun applyReplace(request: ReplaceRequest): String = replaceInTranslations(request, apply = true)
+
+            override fun rewriteNotes(): String {
+                check(_state.value.activeVideoId != null) { NO_VIDEO_MESSAGE }
+                writeLessonNotes(LessonEngine.CLAUDE)
+                return "Konspekt va test Claude bilan qayta yozilmoqda (“Konspekt va test” kartasida ko‘rinadi)."
+            }
+
+            override suspend fun recordProposal(proposal: AppProposal) = AppProposalStore.add(proposal)
+
+            override fun backend(): ClaudeBackend = ClaudeBackend(DubbingSettings.claudeApiKey.value, DubbingSettings.claudeModel.value)
+        }
+
+    /** The catalog for Claude: sections, topics and lectures, with T (translated) and K (notes) marks. */
+    private fun chatCatalog(sections: List<CatalogSection>): String {
+        val translated = LessonLibraryStore.records.value.mapTo(HashSet()) { it.videoId }
+        val noted = LessonLibraryStore.notedIds.value
+        return buildString {
+            sections.forEach { section ->
+                append("# ").append(section.name).append('\n')
+                section.topics.forEach { topic ->
+                    append("## ").append(topic.name).append('\n')
+                    topic.videos.forEach { video ->
+                        append("- ").append(video.title)
+                        if (video.videoId in translated) append(" [T]")
+                        if (video.videoId in noted) append(" [K]")
+                        append('\n')
+                    }
+                }
+            }
+        }.ifEmpty { "The catalog is not loaded." }
+    }
 
     private var frameJob: Job? = null
 
@@ -916,24 +994,66 @@ class AppViewModel internal constructor(
     /** The marked sentences of the open lesson as one file to check elsewhere (all sentences when none is marked). */
     internal suspend fun reviewFileExport(): SubtitleExport {
         val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        val (title, sentences) = lessonReviewSentences(onlyMarked = true)
+        return SubtitleExport(videoId, "${title ?: videoId} (tekshirish)", sentences.size, reviewFileText(title, videoId, sentences))
+    }
+
+    /**
+     * The open lesson's sentences with their stored Uzbek: the marked ones when [onlyMarked] and some are
+     * marked, else all of them.
+     */
+    internal suspend fun lessonReviewSentences(onlyMarked: Boolean): Pair<String?, List<ReviewSentence>> {
+        val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
         val cues = storedTranslationCues() ?: throw IllegalStateException(NO_STORED_TRANSLATION_MESSAGE)
         val (title, segments) = lessonSegments(videoId)
         val rows =
             withContext(Dispatchers.Default) {
                 applyImportedTranslation(importedSentenceRows(segments, translatedSentenceSpans(cues)), cues)
             }
-        val marks = reviewMarkStore.value[videoId].orEmpty()
+        val marks = if (onlyMarked) reviewMarkStore.value[videoId].orEmpty() else emptySet()
         val chosen = rows.filter { row -> marks.isEmpty() || (row.startMs to row.endMs) in marks }
         val sentences = chosen.map { ReviewSentence(it.startMs, it.endMs, it.originalText, it.translatedText.orEmpty()) }
-        return SubtitleExport(videoId, "${title ?: videoId} (tekshirish)", sentences.size, reviewFileText(title, videoId, sentences))
+        return (title ?: activeLessonTitle()) to sentences
     }
 
-    /** Applies a checked review file (or text) to the open lesson; returns what was done. */
-    internal suspend fun importReviewFile(text: String): String {
-        val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
-        reviewFileVideoId(text)?.let { require(it == videoId) { "Bu fayl boshqa darsga tegishli." } }
-        val corrections = parseReviewFile(text)
-        require(corrections.isNotEmpty()) { "Faylda tuzatilgan gap topilmadi (\u201C[1] 00:00:01,000 --> \u2026\u201D va \u201CUZ:\u201D qatorlari kerak)." }
+    /** Claude checks [sentences] of the open lesson against the glossary; nothing is changed yet. */
+    internal suspend fun fixSentencesWithClaude(
+        sentences: List<ReviewSentence>,
+        request: String? = null,
+    ): List<SentenceFix> {
+        val backend = ClaudeBackend(DubbingSettings.claudeApiKey.value, DubbingSettings.claudeModel.value)
+        val glossary = glossaryForBatch(UziGlossaryStore.glossary.value, sentences.map { it.english })
+        return requestSentenceFixes(backend, activeLessonTitle(), sentences, glossary, request)
+    }
+
+    /** Claude's check of one sentence (the long-pressed one). */
+    internal suspend fun claudeFixOne(sentence: ReviewSentence): SentenceFix = fixSentencesWithClaude(listOf(sentence)).first()
+
+    /** "Claude bilan tuzatish" of the marked sentences (all when none is marked). */
+    internal val claudeFixActions =
+        ClaudeFixActions(
+            check = {
+                val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+                videoId to fixSentencesWithClaude(lessonReviewSentences(onlyMarked = true).second)
+            },
+            apply = ::applySentenceFixes,
+            rewriteNotes = { writeLessonNotes(LessonEngine.CLAUDE) },
+        )
+
+    /** Applies the chosen fixes to the open lesson [videoId] and takes them off the check list. */
+    internal suspend fun applySentenceFixes(
+        videoId: String,
+        fixes: List<SentenceFix>,
+    ): String {
+        check(_state.value.activeVideoId == videoId) { "Bu tuzatishlar boshqa darsga tegishli: o‘sha darsni oching." }
+        require(fixes.isNotEmpty()) { "Qo‘llash uchun tuzatish tanlanmagan." }
+        return applyCorrections(videoId, fixes.map { it.sentence.copy(uzbek = it.uzbek) })
+    }
+
+    private suspend fun applyCorrections(
+        videoId: String,
+        corrections: List<ReviewSentence>,
+    ): String {
         var cues = storedTranslationCues() ?: throw IllegalStateException(NO_STORED_TRANSLATION_MESSAGE)
         corrections.forEach { cues = applySentenceCorrection(cues, it.startMs, it.endMs, it.uzbek) }
         saveEditedTranslation(cues)
@@ -942,6 +1062,15 @@ class AppViewModel internal constructor(
         reviewMarkStore.value = reviewMarkStore.value + (videoId to left)
         preferences.edit().putString(REVIEW_MARKS_PREFIX + videoId, left.joinToString(",") { "${it.first}-${it.second}" }).apply()
         return "${corrections.size} ta gap tuzatildi va saqlandi."
+    }
+
+    /** Applies a checked review file (or text) to the open lesson; returns what was done. */
+    internal suspend fun importReviewFile(text: String): String {
+        val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        reviewFileVideoId(text)?.let { require(it == videoId) { "Bu fayl boshqa darsga tegishli." } }
+        val corrections = parseReviewFile(text)
+        require(corrections.isNotEmpty()) { "Faylda tuzatilgan gap topilmadi (\u201C[1] 00:00:01,000 --> \u2026\u201D va \u201CUZ:\u201D qatorlari kerak)." }
+        return applyCorrections(videoId, corrections)
     }
 
     /** The translations as they were before the last "Hammasini almashtirish", for "Bekor qilish". */
