@@ -127,11 +127,15 @@ jobs:
           GOOGLE_TRANSLATE_API_KEY: ${{ secrets.GOOGLE_TRANSLATE_API_KEY }}
         run: |
           set -euo pipefail
-          bash ./gradlew testDebugUnitTest assembleDebug -Pdistribution=uz \
+          # An optimized release build (minified, not debuggable), signed with the same fork key as
+          # before (-PtestReleaseSigning uses the debug signing config, which is that key), so it
+          # updates the installed app in place.
+          bash ./gradlew testDebugUnitTest assembleRelease -Pdistribution=uz \
+            -PtestReleaseSigning=true \
             -PpreviewVersionNameSuffix="-uz-build${GITHUB_RUN_NUMBER}" \
             -PpreviewApplicationIdSuffix=".uz" \
             --stacktrace
-          cp app/build/outputs/apk/debug/app-debug.apk DualSub-Replay-uz.apk
+          cp app/build/outputs/apk/release/app-release.apk DualSub-Replay-uz.apk
 
       - name: Upload Uzbek APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

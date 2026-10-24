@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.kienhoang.dualsubreplay.data.LessonLibraryStore
+import com.kienhoang.dualsubreplay.data.NOTES_BOOK_TITLE
 import com.kienhoang.dualsubreplay.data.PrintBlock
 import com.kienhoang.dualsubreplay.data.PrintableLesson
 import com.kienhoang.dualsubreplay.data.notesPrintBlocks
