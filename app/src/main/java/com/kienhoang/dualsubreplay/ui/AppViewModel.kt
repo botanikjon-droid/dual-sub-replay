@@ -45,6 +45,11 @@ import com.kienhoang.dualsubreplay.data.mergeImportedCues
 import com.kienhoang.dualsubreplay.data.parseSubtitleFile
 import com.kienhoang.dualsubreplay.data.readBoundedText
 import com.kienhoang.dualsubreplay.data.toSegments
+import com.kienhoang.dualsubreplay.data.ReviewSentence
+import com.kienhoang.dualsubreplay.data.reviewFileVideoId
+import com.kienhoang.dualsubreplay.data.reviewFileText
+import com.kienhoang.dualsubreplay.data.parseReviewFile
+import com.kienhoang.dualsubreplay.data.applySentenceCorrection
 import com.kienhoang.dualsubreplay.data.UziCatalogStore
 import com.kienhoang.dualsubreplay.data.translationRequest
 import com.kienhoang.dualsubreplay.data.retireLegacyDownloadJobs
@@ -213,6 +218,7 @@ internal fun activeWordIndex(
 
 internal const val YOUTUBE_HOME_URL = "https://m.youtube.com/"
 private const val NO_VIDEO_MESSAGE = "Avval dars videosini oching."
+private const val REVIEW_MARKS_PREFIX = "review_marks_"
 private const val NO_STORED_TRANSLATION_MESSAGE = "Bu darsning saqlangan tarjimasi yo\u2018q: avval tarjima qiling yoki ZIP\u2019ni yuklang."
 private const val MS_PER_SECOND = 1_000L
 private const val JPEG_QUALITY = 88
@@ -825,7 +831,89 @@ class AppViewModel internal constructor(
         return track.title to segments
     }
 
+    /** The open lesson's title, for files the doctor sends out. */
+    internal fun activeLessonTitle(): String? = _state.value.activeVideoId?.let { lessonTitles[it] ?: lessonRecord(it)?.title }
+
     private fun lessonRecord(videoId: String) = LessonLibraryStore.records.value.firstOrNull { it.videoId == videoId }
+
+    /** Sentences the doctor marked for checking, per lesson: their start and end times. */
+    private val reviewMarkStore = sentenceReviewMarks
+
+    /** Marks (or unmarks) a sentence of the open lesson for checking; true when it is marked now. */
+    internal fun toggleReviewMark(
+        startMs: Long,
+        endMs: Long,
+    ): Boolean {
+        val videoId = _state.value.activeVideoId ?: return false
+        val mark = startMs to endMs
+        val current = reviewMarkStore.value[videoId].orEmpty()
+        val next = if (mark in current) current - mark else current + mark
+        reviewMarkStore.value = reviewMarkStore.value + (videoId to next)
+        preferences.edit().putString(REVIEW_MARKS_PREFIX + videoId, next.joinToString(",") { "${it.first}-${it.second}" }).apply()
+        return mark in next
+    }
+
+    private fun loadReviewMarks(videoId: String) {
+        if (videoId in reviewMarkStore.value) return
+        val saved =
+            preferences
+                .getString(REVIEW_MARKS_PREFIX + videoId, null)
+                .orEmpty()
+                .split(',')
+                .mapNotNull(::parseReviewMark)
+                .toSet()
+        reviewMarkStore.value = reviewMarkStore.value + (videoId to saved)
+    }
+
+    private fun parseReviewMark(part: String): Pair<Long, Long>? {
+        val bounds = part.split('-')
+        if (bounds.size != 2) return null
+        val start = bounds[0].toLongOrNull() ?: return null
+        val end = bounds[1].toLongOrNull() ?: return null
+        return start to end
+    }
+
+    /** Replaces the stored translation of one sentence (from [startMs] to [endMs]) with the doctor's text. */
+    internal suspend fun saveSentenceCorrection(
+        startMs: Long,
+        endMs: Long,
+        text: String,
+    ): String {
+        val cues = storedTranslationCues() ?: throw IllegalStateException(NO_STORED_TRANSLATION_MESSAGE)
+        saveEditedTranslation(applySentenceCorrection(cues, startMs, endMs, text))
+        return "Gap tuzatildi va saqlandi."
+    }
+
+    /** The marked sentences of the open lesson as one file to check elsewhere (all sentences when none is marked). */
+    internal suspend fun reviewFileExport(): SubtitleExport {
+        val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        val cues = storedTranslationCues() ?: throw IllegalStateException(NO_STORED_TRANSLATION_MESSAGE)
+        val (title, segments) = lessonSegments(videoId)
+        val rows =
+            withContext(Dispatchers.Default) {
+                applyImportedTranslation(importedSentenceRows(segments, translatedSentenceSpans(cues)), cues)
+            }
+        val marks = reviewMarkStore.value[videoId].orEmpty()
+        val chosen = rows.filter { row -> marks.isEmpty() || (row.startMs to row.endMs) in marks }
+        val sentences = chosen.map { ReviewSentence(it.startMs, it.endMs, it.originalText, it.translatedText.orEmpty()) }
+        return SubtitleExport(videoId, "${title ?: videoId} (tekshirish)", sentences.size, reviewFileText(title, videoId, sentences))
+    }
+
+    /** Applies a checked review file (or text) to the open lesson; returns what was done. */
+    internal suspend fun importReviewFile(text: String): String {
+        val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        reviewFileVideoId(text)?.let { require(it == videoId) { "Bu fayl boshqa darsga tegishli." } }
+        val corrections = parseReviewFile(text)
+        require(corrections.isNotEmpty()) { "Faylda tuzatilgan gap topilmadi (\u201C[1] 00:00:01,000 --> \u2026\u201D va \u201CUZ:\u201D qatorlari kerak)." }
+        var cues = storedTranslationCues() ?: throw IllegalStateException(NO_STORED_TRANSLATION_MESSAGE)
+        corrections.forEach { cues = applySentenceCorrection(cues, it.startMs, it.endMs, it.uzbek) }
+        saveEditedTranslation(cues)
+        val done = corrections.mapTo(HashSet()) { it.startMs to it.endMs }
+        val left = reviewMarkStore.value[videoId].orEmpty() - done
+        reviewMarkStore.value = reviewMarkStore.value + (videoId to left)
+        preferences.edit().putString(REVIEW_MARKS_PREFIX + videoId, left.joinToString(",") { "${it.first}-${it.second}" }).apply()
+        return "${corrections.size} ta gap tuzatildi va saqlandi."
+    }
 
     /** The open lesson's stored translation, cue by cue, for the editor; null when it has none. */
     internal fun storedTranslationCues(): List<RawCaptionCue>? =
@@ -1604,6 +1692,7 @@ class AppViewModel internal constructor(
     fun hideSubtitlePanel() = _state.update { it.copy(subtitlePanelVisible = false) }
 
     private fun openVideo(videoId: String) {
+        loadReviewMarks(videoId)
         if (_state.value.activeVideoId == videoId) return
         loadVideo(videoId, showPanel = true)
         // Every other loadVideo call reloads the open video, whose recording is already open.

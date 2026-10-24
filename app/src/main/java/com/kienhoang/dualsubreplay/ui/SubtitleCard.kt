@@ -2,7 +2,7 @@ package com.kienhoang.dualsubreplay.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -65,6 +65,9 @@ internal fun CompactSubtitleCard(
     replayEnabled: Boolean = true,
     showOriginal: Boolean = true,
     showTranslation: Boolean = true,
+    // SHOKALON: a long press opens "Gapni tekshirish"; a marked sentence gets an amber frame.
+    onLongPress: (() -> Unit)? = null,
+    marked: Boolean = false,
 ) {
     if (!showOriginal && !showTranslation) return
     OutlinedCard(
@@ -72,11 +75,16 @@ internal fun CompactSubtitleCard(
             Modifier
                 .fillMaxWidth()
                 .semantics { stateDescription = if (active) "Active subtitle" else "Subtitle" }
-                .clickable(enabled = replayEnabled, onClick = onReplay),
+                .combinedClickable(enabled = replayEnabled, onLongClick = onLongPress, onClick = onReplay),
         border =
             BorderStroke(
-                width = if (active) 2.dp else 1.dp,
-                color = if (active) MaterialTheme.colorScheme.primary else Color(0xFF183034),
+                width = if (active || marked) 2.dp else 1.dp,
+                color =
+                    when {
+                        marked -> Color(0xFFF59E0B)
+                        active -> MaterialTheme.colorScheme.primary
+                        else -> Color(0xFF183034)
+                    },
             ),
         colors =
             CardDefaults.outlinedCardColors(

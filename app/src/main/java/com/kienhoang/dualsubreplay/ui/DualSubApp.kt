@@ -89,6 +89,7 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 @Composable
+@Suppress("LongMethod")
 fun DualSubApp(
     viewModel: AppViewModel,
     playerMode: PlayerExperienceMode = PlayerExperienceMode.TRANSCRIPT_PANEL,
@@ -176,6 +177,7 @@ fun DualSubApp(
             )
         }
         state.selectedLearningWord?.let { SelectedWordDialog(it, state, savedWords, viewModel, webController, pronouncer) }
+        SentenceCheckHost(state.activeVideoId, viewModel.activeLessonTitle(), viewModel::saveSentenceCorrection, viewModel::toggleReviewMark)
         if (showVocabulary) SavedWordsScreen(
             repository = viewModel.vocabulary,
             onOnline = { word ->
@@ -298,6 +300,7 @@ private fun LessonToolsHost(
                 srtExport = viewModel::storedTranslationExport,
                 bilingualExport = viewModel::bilingualLessonExport,
             )
+            SentenceReviewCard(state.activeVideoId, viewModel::reviewFileExport, viewModel::importReviewFile)
             LessonCatalogCard(
                 translatedVideoIds = lessons.mapTo(HashSet()) { it.videoId },
                 knownTitles = lessons.filter { it.title.isNotBlank() }.associate { it.videoId to it.title },
@@ -1049,6 +1052,7 @@ internal fun SubtitleTimeline(
 
     val showOriginal = state.showOriginal()
     val showTranslation = state.showTranslation()
+    val reviewMarks by sentenceReviewMarks.collectAsStateWithLifecycle()
     val activeWordIndex = if (state.wordHighlightEnabled) state.activeWordIndex else -1
     val originalColor = effectiveOriginalColor(state)
     val translatedColor = effectiveTranslatedColor(state)
@@ -1084,6 +1088,8 @@ internal fun SubtitleTimeline(
                     isDownloadingTranslationModel = state.isDownloadingTranslationModel,
                     translationUnavailable = state.translationError != null,
                     onWordClick = onWordClick,
+                    onLongPress = sentenceLongPress(segment),
+                    marked = sentenceMarked(reviewMarks, state.activeVideoId, segment),
                 )
             }
         }
