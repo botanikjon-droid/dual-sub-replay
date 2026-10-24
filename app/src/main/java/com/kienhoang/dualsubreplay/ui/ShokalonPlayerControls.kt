@@ -5,10 +5,13 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.ClosedCaptionDisabled
@@ -23,18 +26,23 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kienhoang.dualsubreplay.data.UziCatalogStore
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /*
@@ -47,11 +55,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 /** True while the lesson is shown full screen. Read by the YouTube page to fill the screen with the player. */
 internal val shokalonFullscreen = MutableStateFlow(false)
 
-/** Shows the subtitles as a panel, as a compact line on the video, or hides them. */
+/**
+ * True while the doctor has hidden the subtitles: neither the panel, nor the line on the video, nor the small
+ * button that brings the panel back is shown (the voice still speaks). Kept for the app session.
+ */
+internal val shokalonSubtitlesHidden = MutableStateFlow(false)
+
+/** Shows the subtitles as a panel, as a compact line on the video, or hides them completely. */
 @Composable
 internal fun RowScope.SubtitleModeButton(
     activeVideoId: String?,
-    visible: Boolean,
     mode: PlayerExperienceMode,
     onMode: (PlayerExperienceMode) -> Unit,
     onShow: () -> Unit,
@@ -59,35 +72,42 @@ internal fun RowScope.SubtitleModeButton(
 ) {
     if (!shokalonFocusMode || activeVideoId == null) return
     var open by remember { mutableStateOf(false) }
+    val hidden by shokalonSubtitlesHidden.collectAsStateWithLifecycle()
     Box(Modifier.align(Alignment.CenterVertically)) {
         IconButton(onClick = { open = true }, modifier = Modifier.testTag("subtitle_mode")) {
             Icon(
-                if (visible) Icons.Default.ClosedCaption else Icons.Default.ClosedCaptionDisabled,
-                contentDescription = "Subtitr ko‘rinishi",
+                if (hidden) Icons.Default.ClosedCaptionDisabled else Icons.Default.ClosedCaption,
+                contentDescription = "Subtitr ko\u2018rinishi",
             )
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
-                text = { Text(mark(visible && mode == PlayerExperienceMode.TRANSCRIPT_PANEL) + "Subtitr paneli (video ostida)") },
+                text = { Text(mark(!hidden && mode == PlayerExperienceMode.TRANSCRIPT_PANEL) + "Subtitr paneli (video ostida)") },
                 onClick = {
                     open = false
+                    shokalonSubtitlesHidden.value = false
                     onMode(PlayerExperienceMode.TRANSCRIPT_PANEL)
                     onShow()
                 },
             )
             DropdownMenuItem(
-                text = { Text(mark(visible && mode == PlayerExperienceMode.SCROLL_FRIENDLY_OVERLAY) + "Video ustida, ixcham (fonda)") },
+                text = { Text(mark(!hidden && mode == PlayerExperienceMode.SCROLL_FRIENDLY_OVERLAY) + "Video ustida, ixcham (fonda)") },
                 onClick = {
                     open = false
+                    shokalonSubtitlesHidden.value = false
                     onMode(PlayerExperienceMode.SCROLL_FRIENDLY_OVERLAY)
-                    onShow()
                 },
             )
             DropdownMenuItem(
-                text = { Text(if (visible) "Subtitrni yashirish" else "Subtitrni ko‘rsatish") },
+                text = { Text(if (hidden) "Subtitrni ko\u2018rsatish" else "Subtitrni butunlay yashirish") },
                 onClick = {
                     open = false
-                    if (visible) onHide() else onShow()
+                    shokalonSubtitlesHidden.value = !hidden
+                    if (hidden) {
+                        if (mode == PlayerExperienceMode.TRANSCRIPT_PANEL) onShow()
+                    } else {
+                        onHide()
+                    }
                 },
             )
         }
@@ -96,15 +116,58 @@ internal fun RowScope.SubtitleModeButton(
 
 private fun mark(selected: Boolean): String = if (selected) "\u2713 " else ""
 
-/** The full-screen button of the top bar. */
+/** The full-screen button of the top bar: YouTube's own full screen, with the subtitles on the video. */
 @Composable
-internal fun RowScope.FullscreenButton(activeVideoId: String?) {
+internal fun RowScope.FullscreenButton(
+    activeVideoId: String?,
+    onFullscreen: () -> Unit,
+) {
     if (!shokalonFocusMode || activeVideoId == null) return
     IconButton(
-        onClick = { shokalonFullscreen.value = true },
+        onClick = onFullscreen,
         modifier = Modifier.align(Alignment.CenterVertically).testTag("lesson_fullscreen"),
-    ) { Icon(Icons.Default.Fullscreen, contentDescription = "To‘liq ekran") }
+    ) { Icon(Icons.Default.Fullscreen, contentDescription = "To\u2018liq ekran") }
 }
+
+/** Shows [content] (the small button that brings the subtitle panel back) unless the subtitles are hidden. */
+@Composable
+internal fun UnlessSubtitlesHidden(content: @Composable () -> Unit) {
+    val hidden by shokalonSubtitlesHidden.collectAsStateWithLifecycle()
+    if (!hidden) content()
+}
+
+/**
+ * A strip along the right edge: a swipe from it to the left opens the lesson list of the open lecture's
+ * section (or the sections when the lecture is not in the catalog).
+ */
+@Composable
+internal fun BoxScope.LessonEdgeSwipe(
+    activeVideoId: String?,
+    onOpen: (section: String?) -> Unit,
+) {
+    if (!shokalonFocusMode || activeVideoId == null) return
+    val sections by UziCatalogStore.sections.collectAsStateWithLifecycle()
+    val section = remember(sections, activeVideoId) { lessonSteps(sections, activeVideoId)?.section }
+    val threshold = with(LocalDensity.current) { EDGE_SWIPE_DISTANCE.toPx() }
+    var dragged by remember { mutableFloatStateOf(0f) }
+    Box(
+        Modifier
+            .align(Alignment.CenterEnd)
+            .fillMaxHeight(EDGE_SWIPE_HEIGHT)
+            .width(EDGE_SWIPE_WIDTH)
+            .testTag("lesson_edge_swipe")
+            .pointerInput(section) {
+                detectHorizontalDragGestures(
+                    onDragStart = { dragged = 0f },
+                    onDragEnd = { if (dragged < -threshold) onOpen(section) },
+                ) { _, amount -> dragged += amount }
+            },
+    )
+}
+
+private val EDGE_SWIPE_WIDTH = 22.dp
+private val EDGE_SWIPE_DISTANCE = 56.dp
+private const val EDGE_SWIPE_HEIGHT = 0.7f
 
 private tailrec fun Context.findActivity(): Activity? =
     when (this) {

@@ -487,13 +487,12 @@ private fun DualSubExperience(
                         LessonSearchButton(state.activeVideoId) { videoId -> webController.navigateTo(lessonWatchUrl(videoId)) }
                         SubtitleModeButton(
                             state.activeVideoId,
-                            visible = state.subtitlePanelVisible,
-                            mode = effectivePlayerMode,
+                            mode = playerMode,
                             onMode = onPlayerModeChange,
                             onShow = onShowSubtitles,
                             onHide = onHideSubtitles,
                         )
-                        FullscreenButton(state.activeVideoId)
+                        FullscreenButton(state.activeVideoId, onFullscreen = webController::enterFullscreen)
                     }
                 }
             }
@@ -597,8 +596,9 @@ private fun DualSubExperience(
                     state.activeVideoId != null &&
                     effectivePlayerMode == PlayerExperienceMode.TRANSCRIPT_PANEL
                 ) {
-                    MovableSubtitleFab(onClick = { if (tracksVisible) onShowSubtitles() else showSettings = true })
+                    UnlessSubtitlesHidden { MovableSubtitleFab(onClick = { if (tracksVisible) onShowSubtitles() else showSettings = true }) }
                 }
+                LessonEdgeSwipe(state.activeVideoId) { section -> openHomeAt?.invoke(section) }
                 FullscreenSession(fullscreen) { shokalonFullscreen.value = false }
             }
         }

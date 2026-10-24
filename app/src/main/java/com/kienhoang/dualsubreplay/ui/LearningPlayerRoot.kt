@@ -219,6 +219,8 @@ fun LearningPlayerRoot(viewModel: AppViewModel) {
     val youtubeControlsVisible by youtubePlayerControlsVisible.collectAsStateWithLifecycle()
     val youtubeDialogVisible by youtubeNativeDialogVisible.collectAsStateWithLifecycle()
     val youtubeFullscreen by youtubeFullscreenActive.collectAsStateWithLifecycle()
+    // SHOKALON's "Subtitrni butunlay yashirish": no panel and no line on the video.
+    val subtitlesHidden by shokalonSubtitlesHidden.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val preferences = remember(context) {
@@ -410,6 +412,11 @@ fun LearningPlayerRoot(viewModel: AppViewModel) {
         if (!youtubeFullscreen) fullscreenOverlayHiddenByUser = false
     }
 
+    // Hidden subtitles stay hidden when a lesson opens (which normally reopens the panel).
+    LaunchedEffect(subtitlesHidden, state.subtitlePanelVisible, state.activeVideoId) {
+        if (subtitlesHidden && state.subtitlePanelVisible) viewModel.hideSubtitlePanel()
+    }
+
     // Opening another video normally re-opens the transcript panel. While overlay presentation is
     // active, collapse it again so comments and recommendations remain directly scrollable.
     LaunchedEffect(effectiveMode, state.activeVideoId, state.subtitlePanelVisible) {
@@ -442,7 +449,8 @@ fun LearningPlayerRoot(viewModel: AppViewModel) {
 
     val fullscreenLearningOverlay: @Composable BoxScope.() -> Unit = {
         HideFullscreenSystemBars()
-        if (!youtubeDialogVisible && overlayContent != null && effectiveMode == PlayerExperienceMode.SCROLL_FRIENDLY_OVERLAY) {
+        val overlayShown = !youtubeDialogVisible && overlayContent != null && effectiveMode == PlayerExperienceMode.SCROLL_FRIENDLY_OVERLAY
+        if (overlayShown && !subtitlesHidden && overlayContent != null) {
             if (fullscreenOverlayHiddenByUser || overlayContent.isEmpty()) {
                 MovableSubtitleFab(
                     onClick = { fullscreenOverlayHiddenByUser = false },
@@ -498,7 +506,7 @@ fun LearningPlayerRoot(viewModel: AppViewModel) {
             )
 
             if (
-                !youtubeDialogVisible && !navigationOpen && state.onboardingCompleted &&
+                !subtitlesHidden && !youtubeDialogVisible && !navigationOpen && state.onboardingCompleted &&
                 state.guideCompleted && state.dailyGoalPromptCompleted &&
                 state.activeVideoId != null &&
                 effectiveMode == PlayerExperienceMode.SCROLL_FRIENDLY_OVERLAY
