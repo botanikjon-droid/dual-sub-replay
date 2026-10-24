@@ -301,7 +301,7 @@ private fun LessonToolsHost(
                 bilingualExport = viewModel::bilingualLessonExport,
             )
             SentenceReviewCard(state.activeVideoId, viewModel::reviewFileExport, viewModel::importReviewFile)
-            ReplaceAllCard(viewModel::replaceInTranslations)
+            ReplaceAllCard(viewModel::replaceInTranslations, viewModel::undoReplace)
             LessonCatalogCard(
                 translatedVideoIds = lessons.mapTo(HashSet()) { it.videoId },
                 knownTitles = lessons.filter { it.title.isNotBlank() }.associate { it.videoId to it.title },

@@ -220,6 +220,7 @@ internal fun activeWordIndex(
 internal const val YOUTUBE_HOME_URL = "https://m.youtube.com/"
 private const val NO_VIDEO_MESSAGE = "Avval dars videosini oching."
 private const val REVIEW_MARKS_PREFIX = "review_marks_"
+private const val MAX_REPLACE_EXAMPLES = 5
 private const val NO_STORED_TRANSLATION_MESSAGE = "Bu darsning saqlangan tarjimasi yo\u2018q: avval tarjima qiling yoki ZIP\u2019ni yuklang."
 private const val MS_PER_SECOND = 1_000L
 private const val JPEG_QUALITY = 88
@@ -916,15 +917,20 @@ class AppViewModel internal constructor(
         return "${corrections.size} ta gap tuzatildi va saqlandi."
     }
 
+    /** The translations as they were before the last "Hammasini almashtirish", for "Bekor qilish". */
+    private var replaceBackup: Map<String, List<RawCaptionCue>> = emptyMap()
+
     /**
-     * Replaces a recurring mistake ([find] with [replacement]) in the open lesson's stored translation, or in
-     * every stored translation when [allLessons]. Returns how many places and lessons changed.
+     * Finds a recurring mistake ([find], a word or a phrase) in the open lesson's stored translation, or in every
+     * stored translation when [allLessons]. Without [apply] only reports how many places and shows a few; with it
+     * replaces them with [replacement] and keeps the old text for [undoReplace].
      */
     internal suspend fun replaceInTranslations(
         find: String,
         replacement: String,
         wholeWord: Boolean,
         allLessons: Boolean,
+        apply: Boolean,
     ): String {
         val activeId = _state.value.activeVideoId
         val ids =
@@ -937,7 +943,8 @@ class AppViewModel internal constructor(
             }
         require(ids.isNotEmpty()) { NO_STORED_TRANSLATION_MESSAGE }
         var places = 0
-        var lessons = 0
+        val examples = mutableListOf<String>()
+        val backup = mutableMapOf<String, List<RawCaptionCue>>()
         for (videoId in ids) {
             val cues =
                 (if (videoId == activeId) storedTranslationCues() else withContext(Dispatchers.IO) { readImportedTranslation(videoId) })
@@ -945,16 +952,39 @@ class AppViewModel internal constructor(
             val result = replaceInCues(cues, find, replacement, wholeWord)
             if (result.count == 0) continue
             places += result.count
-            lessons += 1
-            if (videoId == activeId) {
-                saveEditedTranslation(result.cues)
-            } else {
-                withContext(Dispatchers.IO) {
-                    importedTranslationFile(videoId).writeText(formatSrt(result.cues.toSegments()), Charsets.UTF_8)
-                }
+            if (examples.size < MAX_REPLACE_EXAMPLES) examples += result.examples.take(MAX_REPLACE_EXAMPLES - examples.size)
+            if (apply) {
+                backup[videoId] = cues
+                storeTranslation(videoId, result.cues, videoId == activeId)
             }
         }
-        return if (places == 0) "\u201C${find.trim()}\u201D topilmadi." else "$places joyda almashtirildi ($lessons ta dars)."
+        if (places == 0) return "\u201C${find.trim()}\u201D topilmadi."
+        if (!apply) return "$places joyda topildi:\n" + examples.joinToString("\n")
+        replaceBackup = backup
+        return "$places joyda almashtirildi (${backup.size} ta dars). Kerak bo\u2018lsa \u201CBekor qilish\u201D ni bosing."
+    }
+
+    /** Puts back the translations changed by the last "Hammasini almashtirish". */
+    internal suspend fun undoReplace(): String {
+        val backup = replaceBackup.ifEmpty { throw IllegalStateException("Bekor qilinadigan almashtirish yo\u2018q.") }
+        val activeId = _state.value.activeVideoId
+        backup.forEach { (videoId, cues) -> storeTranslation(videoId, cues, videoId == activeId) }
+        replaceBackup = emptyMap()
+        return "Oxirgi almashtirish bekor qilindi (${backup.size} ta dars)."
+    }
+
+    private suspend fun storeTranslation(
+        videoId: String,
+        cues: List<RawCaptionCue>,
+        active: Boolean,
+    ) {
+        if (active) {
+            saveEditedTranslation(cues)
+        } else {
+            withContext(Dispatchers.IO) {
+                importedTranslationFile(videoId).writeText(formatSrt(cues.filter { it.text.isNotBlank() }.toSegments()), Charsets.UTF_8)
+            }
+        }
     }
 
     /** The open lesson's stored translation, cue by cue, for the editor; null when it has none. */

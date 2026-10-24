@@ -331,57 +331,70 @@ private suspend fun clipboardText(
  * the open lesson's translation or in every stored translation at once, instead of sentence by sentence.
  */
 @Composable
-internal fun ReplaceAllCard(replace: suspend (find: String, replacement: String, wholeWord: Boolean, allLessons: Boolean) -> String) {
+internal fun ReplaceAllCard(
+    replace: suspend (find: String, replacement: String, wholeWord: Boolean, allLessons: Boolean, apply: Boolean) -> String,
+    undo: suspend () -> String,
+) {
     val scope = rememberCoroutineScope()
     var find by remember { mutableStateOf("") }
     var replacement by remember { mutableStateOf("") }
     var wholeWord by remember { mutableStateOf(true) }
     var allLessons by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+
+    fun run(block: suspend () -> String) {
+        scope.launch {
+            message =
+                try {
+                    block()
+                } catch (cancel: CancellationException) {
+                    throw cancel
+                } catch (error: IllegalArgumentException) {
+                    error.message
+                } catch (error: IllegalStateException) {
+                    error.message
+                } catch (error: java.io.IOException) {
+                    error.message
+                }
+        }
+    }
     LessonCard(title = "Takrorlanuvchi xatoni almashtirish", icon = Icons.Default.FindReplace) {
-        Hint(
-            "Bir xil xato ko‘p joyda bo‘lsa (noto‘g‘ri atama yoki noto‘g‘ri eshitilgan so‘z), uni bu yerda bir yo‘la " +
-                "almashtiring. Kelajakdagi Claude tarjimalari uchun atamani “O‘sib boruvchi lug‘at”ga ham qo‘shing.",
-        )
+        Hint(REPLACE_HINT)
         OutlinedTextField(
             value = find,
             onValueChange = { find = it },
             singleLine = true,
-            label = { Text("Xato so‘z yoki ibora") },
+            label = { Text("Xato so\u2018z yoki so\u2018z birikmasi") },
             modifier = Modifier.fillMaxWidth().testTag("replace_find"),
         )
         OutlinedTextField(
             value = replacement,
             onValueChange = { replacement = it },
             singleLine = true,
-            label = { Text("To‘g‘risi") },
+            label = { Text("To\u2018g\u2018risi") },
             modifier = Modifier.fillMaxWidth().testTag("replace_with"),
         )
-        LabeledSwitch("Faqat butun so‘z (so‘z ichidan qidirmasin)", wholeWord) { wholeWord = it }
+        LabeledSwitch("Faqat butun so\u2018z (so\u2018z ichidan qidirmasin)", wholeWord) { wholeWord = it }
         LabeledSwitch("Barcha saqlangan darslarda", allLessons) { allLessons = it }
-        Button(
-            enabled = find.isNotBlank(),
-            onClick = {
-                scope.launch {
-                    message =
-                        try {
-                            replace(find, replacement.trim(), wholeWord, allLessons)
-                        } catch (cancel: CancellationException) {
-                            throw cancel
-                        } catch (error: IllegalArgumentException) {
-                            error.message
-                        } catch (error: IllegalStateException) {
-                            error.message
-                        } catch (error: java.io.IOException) {
-                            error.message
-                        }
-                }
-            },
-            modifier = Modifier.testTag("replace_all"),
-        ) { Text("Hammasini almashtirish") }
-        message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold) }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(enabled = find.isNotBlank(), onClick = {
+                run { replace(find, replacement.trim(), wholeWord, allLessons, false) }
+            }, modifier = Modifier.testTag("replace_preview")) { Text("Oldindan ko\u2018rish") }
+            Button(enabled = find.isNotBlank(), onClick = {
+                run { replace(find, replacement.trim(), wholeWord, allLessons, true) }
+            }, modifier = Modifier.testTag("replace_all")) { Text("Hammasini almashtirish") }
+            TextButton(onClick = { run { undo() } }) { Text("Bekor qilish") }
+        }
+        message?.let { SelectionContainer { Text(it, style = MaterialTheme.typography.bodyMedium) } }
     }
 }
+
+private const val REPLACE_HINT =
+    "Bir xil xato ko\u2018p joyda bo\u2018lsa, uni bir yo\u2018la almashtiring. Bitta so\u2018z ko\u2018p ma\u2019noli bo\u2018lsa, " +
+        "so\u2018z birikmasini yozing (masalan, \u201Cakustik soya\u201D): " +
+        "birikma ikki qatorga bo\u2018linib qolgan bo\u2018lsa ham topiladi. " +
+        "Avval \u201COldindan ko\u2018rish\u201D bilan qayerlar o\u2018zgarishini tekshiring. Kelajakdagi Claude tarjimalari " +
+        "uchun atamani \u201CO\u2018sib boruvchi lug\u2018at\u201Dga ham qo\u2018shing."
 
 @Composable
 private fun LabeledSwitch(

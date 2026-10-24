@@ -105,16 +105,35 @@ internal fun applySentenceCorrection(
     return (kept + RawCaptionCue(startMs, endMs, clean)).sortedBy { it.startMs }
 }
 
-/** What a search-and-replace changed: the new cues and how many places. */
+/** What a search-and-replace changed: the new cues, how many places, and a few of them for a preview. */
 internal data class CueReplacement(
     val cues: List<RawCaptionCue>,
     val count: Int,
+    val examples: List<String> = emptyList(),
 )
 
+private const val EXAMPLE_CONTEXT = 30
+private const val MAX_EXAMPLES = 5
+
+/** The pattern of [find]: its words in order, any spaces (or a cue boundary) between them. */
+private fun phrasePattern(
+    find: String,
+    wholeWord: Boolean,
+): Regex {
+    val words = find.trim().split(Regex("\\s+")).filter(String::isNotEmpty)
+    require(words.isNotEmpty()) { "Nimani almashtirishni yozing." }
+    val body = words.joinToString("\\s+") { Regex.escape(it) }
+    val letter = "[\\p{L}\\p{N}\u2018\u2019']"
+    val pattern = if (wholeWord) "(?<!$letter)$body(?!$letter)" else body
+    return Regex(pattern, RegexOption.IGNORE_CASE)
+}
+
 /**
- * Replaces every [find] in the cues' text with [replacement], ignoring case. With [wholeWord] only whole
- * words are matched ("jigar" not inside "jigarning"). A match that starts with a capital letter (a sentence
- * start) gets a capitalised replacement, so "Sinish ..." stays capitalised when "sinish" becomes "qaytish".
+ * Replaces every [find] (a word or a phrase) with [replacement], ignoring case. A phrase is found even when
+ * its words are split over two cues ("akustik" ending one cue, "soya" starting the next): the replacement
+ * goes into the cue where the phrase starts and the rest of the phrase leaves the next cue. With [wholeWord]
+ * only whole words match ("jigar", not inside "jigarning"). A match that starts with a capital letter (a
+ * sentence start) gets a capitalised replacement.
  */
 internal fun replaceInCues(
     cues: List<RawCaptionCue>,
@@ -122,19 +141,41 @@ internal fun replaceInCues(
     replacement: String,
     wholeWord: Boolean,
 ): CueReplacement {
-    val needle = find.trim()
-    require(needle.isNotEmpty()) { "Nimani almashtirishni yozing." }
-    val pattern = Regex.escape(needle).let { if (wholeWord) "(?<![\\p{L}\\p{N}‘’'])$it(?![\\p{L}\\p{N}‘’'])" else it }
-    val regex = Regex(pattern, setOf(RegexOption.IGNORE_CASE))
-    var count = 0
-    val changed =
-        cues.map { cue ->
-            val text =
-                regex.replace(cue.text) { match ->
-                    count += 1
-                    if (match.value.first().isUpperCase()) replacement.replaceFirstChar(Char::uppercaseChar) else replacement
-                }
-            if (text == cue.text) cue else cue.copy(text = text)
+    val regex = phrasePattern(find, wholeWord)
+    val starts = IntArray(cues.size)
+    val joined =
+        buildString {
+            cues.forEachIndexed { index, cue ->
+                if (index > 0) append(' ')
+                starts[index] = length
+                append(cue.text)
+            }
         }
-    return CueReplacement(changed, count)
+
+    fun cueAt(offset: Int): Int = starts.indices.last { starts[it] <= offset }
+    val matches = regex.findAll(joined).toList()
+    val texts = cues.map { it.text }.toMutableList()
+    val examples = mutableListOf<String>()
+    for (match in matches.asReversed()) {
+        val first = cueAt(match.range.first)
+        val last = cueAt(match.range.last)
+        val text = if (match.value.first().isUpperCase()) replacement.replaceFirstChar(Char::uppercaseChar) else replacement
+        val tail = texts[last].substring(match.range.last + 1 - starts[last])
+        if (first == last) {
+            texts[first] = texts[first].substring(0, match.range.first - starts[first]) + text + tail
+        } else {
+            texts[first] = texts[first].substring(0, match.range.first - starts[first]) + text
+            for (middle in first + 1 until last) texts[middle] = ""
+            texts[last] = tail.trimStart()
+        }
+    }
+    matches.take(MAX_EXAMPLES).forEach { match ->
+        val from = (match.range.first - EXAMPLE_CONTEXT).coerceAtLeast(0)
+        val to = (match.range.last + 1 + EXAMPLE_CONTEXT).coerceAtMost(joined.length)
+        examples +=
+            "\u2026" + joined.substring(from, match.range.first) + "[" + match.value + "]" + joined.substring(match.range.last + 1, to) +
+            "\u2026"
+    }
+    val changed = cues.mapIndexed { index, cue -> if (texts[index] == cue.text) cue else cue.copy(text = texts[index].trim()) }
+    return CueReplacement(changed, matches.size, examples)
 }

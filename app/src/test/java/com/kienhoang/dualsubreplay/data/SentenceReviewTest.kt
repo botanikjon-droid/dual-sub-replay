@@ -50,4 +50,21 @@ class SentenceReviewTest {
         assertEquals("Ko\u2018p marta qaytish bo\u2018ladi, sinishlar esa yo\u2018q.", word.cues[1].text)
         assertEquals(3, replaceInCues(cues, "sinish", "qaytish", wholeWord = false).count)
     }
+
+    @Test
+    fun aPhraseSplitOverTwoCuesIsReplaced() {
+        val cues =
+            listOf(
+                RawCaptionCue(0, 2_000, "Bu yerda akustik"),
+                RawCaptionCue(2_000, 4_000, "soya hosil bo\u2018ladi. Akustik  soya muhim."),
+                RawCaptionCue(4_000, 6_000, "Soya emas."),
+            )
+        val result = replaceInCues(cues, "akustik soya", "akustik soyalanish", wholeWord = true)
+        assertEquals(2, result.count)
+        assertEquals(
+            listOf("Bu yerda akustik soyalanish", "hosil bo\u2018ladi. Akustik soyalanish muhim.", "Soya emas."),
+            result.cues.map { it.text },
+        )
+        assertEquals(2, result.examples.size)
+    }
 }
