@@ -165,7 +165,8 @@ internal class EdgeDubbingVoice(
             voiceOf(),
             // The subtitle stays as it is; only the voice's copy gets the pronunciation rules.
             DubbingSettings.speechOptions.value.let { options ->
-                prepareUzbekSpeech(text, options, if (options.expandAcronyms) currentGlossaryAcronyms() else emptyMap())
+                val said = applySpeechLexicon(text, DubbingSettings.speechLexicon.value)
+                prepareUzbekSpeech(said, options, if (options.expandAcronyms) currentGlossaryAcronyms() else emptyMap())
             },
         )
 

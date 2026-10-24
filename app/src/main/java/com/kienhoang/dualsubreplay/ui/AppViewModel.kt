@@ -45,6 +45,9 @@ import com.kienhoang.dualsubreplay.data.mergeImportedCues
 import com.kienhoang.dualsubreplay.data.parseSubtitleFile
 import com.kienhoang.dualsubreplay.data.readBoundedText
 import com.kienhoang.dualsubreplay.data.toSegments
+import com.kienhoang.dualsubreplay.data.ReplaceScope
+import com.kienhoang.dualsubreplay.data.ReplaceRequest
+import com.kienhoang.dualsubreplay.data.CueReplacement
 import com.kienhoang.dualsubreplay.data.replaceInCues
 import com.kienhoang.dualsubreplay.data.ReviewSentence
 import com.kienhoang.dualsubreplay.data.reviewFileVideoId
@@ -921,26 +924,16 @@ class AppViewModel internal constructor(
     private var replaceBackup: Map<String, List<RawCaptionCue>> = emptyMap()
 
     /**
-     * Finds a recurring mistake ([find], a word or a phrase) in the open lesson's stored translation, or in every
-     * stored translation when [allLessons]. Without [apply] only reports how many places and shows a few; with it
-     * replaces them with [replacement] and keeps the old text for [undoReplace].
+     * Finds [request].find (a word or a phrase) in the stored translations of its scope: one sentence, the open
+     * lesson, the open lesson's catalog section, or every stored lesson. Without [apply] only reports how many
+     * places and shows a few; with it replaces them and keeps the old text for [undoReplace].
      */
     internal suspend fun replaceInTranslations(
-        find: String,
-        replacement: String,
-        wholeWord: Boolean,
-        allLessons: Boolean,
+        request: ReplaceRequest,
         apply: Boolean,
     ): String {
         val activeId = _state.value.activeVideoId
-        val ids =
-            if (allLessons) {
-                withContext(Dispatchers.IO) {
-                    importedTranslationDirectory.listFiles { file -> file.extension == "srt" }.orEmpty().map { it.nameWithoutExtension }
-                }
-            } else {
-                listOfNotNull(activeId?.takeIf { storedTranslationCues() != null })
-            }
+        val ids = replaceScopeIds(request.scope, activeId)
         require(ids.isNotEmpty()) { NO_STORED_TRANSLATION_MESSAGE }
         var places = 0
         val examples = mutableListOf<String>()
@@ -949,7 +942,7 @@ class AppViewModel internal constructor(
             val cues =
                 (if (videoId == activeId) storedTranslationCues() else withContext(Dispatchers.IO) { readImportedTranslation(videoId) })
                     ?: continue
-            val result = replaceInCues(cues, find, replacement, wholeWord)
+            val result = replaceWithin(cues, request)
             if (result.count == 0) continue
             places += result.count
             if (examples.size < MAX_REPLACE_EXAMPLES) examples += result.examples.take(MAX_REPLACE_EXAMPLES - examples.size)
@@ -958,10 +951,46 @@ class AppViewModel internal constructor(
                 storeTranslation(videoId, result.cues, videoId == activeId)
             }
         }
-        if (places == 0) return "\u201C${find.trim()}\u201D topilmadi."
+        if (places == 0) return "\u201C${request.find.trim()}\u201D topilmadi."
         if (!apply) return "$places joyda topildi:\n" + examples.joinToString("\n")
         replaceBackup = backup
         return "$places joyda almashtirildi (${backup.size} ta dars). Kerak bo\u2018lsa \u201CBekor qilish\u201D ni bosing."
+    }
+
+    /** The lessons a replacement looks at: the open one, its section's stored ones, or all stored ones. */
+    private suspend fun replaceScopeIds(
+        scope: ReplaceScope,
+        activeId: String?,
+    ): List<String> {
+        val stored =
+            withContext(Dispatchers.IO) {
+                importedTranslationDirectory.listFiles { file -> file.extension == "srt" }.orEmpty().map { it.nameWithoutExtension }
+            }
+        return when (scope) {
+            ReplaceScope.SENTENCE, ReplaceScope.LESSON -> listOfNotNull(activeId?.takeIf { storedTranslationCues() != null })
+            ReplaceScope.ALL -> stored
+            ReplaceScope.SECTION -> {
+                val section =
+                    UziCatalogStore.sections.value?.firstOrNull { section ->
+                        section.topics.any { topic -> topic.videos.any { it.videoId == activeId } }
+                    } ?: throw IllegalStateException("Bu dars mundarijadagi bo\u2018limga kirmaydi.")
+                val inSection = section.topics.flatMap { topic -> topic.videos.map { it.videoId } }.toSet()
+                stored.filter { it in inSection }
+            }
+        }
+    }
+
+    /** The replacement inside one lesson; for one sentence only the cues of that sentence are touched. */
+    private fun replaceWithin(
+        cues: List<RawCaptionCue>,
+        request: ReplaceRequest,
+    ): CueReplacement {
+        if (request.scope != ReplaceScope.SENTENCE) return replaceInCues(cues, request.find, request.replacement, request.wholeWord)
+        val inside = cues.indices.filter { (cues[it].startMs + cues[it].endMs) / 2 in request.sentenceStartMs until request.sentenceEndMs }
+        val result = replaceInCues(inside.map(cues::get), request.find, request.replacement, request.wholeWord)
+        val changed = cues.toMutableList()
+        inside.forEachIndexed { position, index -> changed[index] = result.cues[position] }
+        return result.copy(cues = changed)
     }
 
     /** Puts back the translations changed by the last "Hammasini almashtirish". */
@@ -1572,6 +1601,11 @@ class AppViewModel internal constructor(
     }
 
     fun selectLearningWord(tap: WordTap?) {
+        // SHOKALON: a word of the Uzbek translation opens "So\u2018zni almashtirish" instead of word learning.
+        if (shokalonFocusMode && tap?.translated == true && tap.segment != null) {
+            wordToReplace.value = tap
+            return
+        }
         val current = _state.value
         val source = com.kienhoang.dualsubreplay.data.learningSourceLanguage(current.resolvedSourceLanguage, current.sourcePreference)
         _state.update {

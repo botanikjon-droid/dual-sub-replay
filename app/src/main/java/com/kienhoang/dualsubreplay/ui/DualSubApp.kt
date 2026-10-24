@@ -178,6 +178,7 @@ fun DualSubApp(
         }
         state.selectedLearningWord?.let { SelectedWordDialog(it, state, savedWords, viewModel, webController, pronouncer) }
         SentenceCheckHost(state.activeVideoId, viewModel.activeLessonTitle(), viewModel::saveSentenceCorrection, viewModel::toggleReviewMark)
+        WordReplaceHost(viewModel::replaceInTranslations, viewModel::undoReplace, com.kienhoang.dualsubreplay.dubbing.DubbingSettings::setSpeechRule)
         if (showVocabulary) SavedWordsScreen(
             repository = viewModel.vocabulary,
             onOnline = { word ->
@@ -302,6 +303,7 @@ private fun LessonToolsHost(
             )
             SentenceReviewCard(state.activeVideoId, viewModel::reviewFileExport, viewModel::importReviewFile)
             ReplaceAllCard(viewModel::replaceInTranslations, viewModel::undoReplace)
+            SpeechLexiconCard()
             LessonCatalogCard(
                 translatedVideoIds = lessons.mapTo(HashSet()) { it.videoId },
                 knownTitles = lessons.filter { it.title.isNotBlank() }.associate { it.videoId to it.title },

@@ -179,3 +179,23 @@ internal fun replaceInCues(
     val changed = cues.mapIndexed { index, cue -> if (texts[index] == cue.text) cue else cue.copy(text = texts[index].trim()) }
     return CueReplacement(changed, matches.size, examples)
 }
+
+/** Where a replacement applies. */
+internal enum class ReplaceScope(
+    val label: String,
+) {
+    SENTENCE("Faqat shu gapda"),
+    LESSON("Shu darsda"),
+    SECTION("Shu bo‘limdagi barcha darslarda"),
+    ALL("Butun dasturda (barcha darslarda)"),
+}
+
+/** One replacement: what, with what, how and where ([sentenceStartMs]..[sentenceEndMs] for [ReplaceScope.SENTENCE]). */
+internal data class ReplaceRequest(
+    val find: String,
+    val replacement: String,
+    val wholeWord: Boolean,
+    val scope: ReplaceScope,
+    val sentenceStartMs: Long = 0,
+    val sentenceEndMs: Long = 0,
+)

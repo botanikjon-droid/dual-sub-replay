@@ -39,6 +39,7 @@ internal object DubbingSettings {
     private const val KEY_GEMINI_WHOLE_LESSON = "gemini_whole_lesson"
     private const val KEY_AZURE_SPEECH_KEY = "azure_speech_key"
     private const val KEY_AZURE_SPEECH_REGION = "azure_speech_region"
+    private const val KEY_SPEECH_LEXICON = "speech_lexicon"
     private const val DEFAULT_VIDEO_VOLUME = 20
     private const val DEFAULT_MAX_TEMPO_PERCENT = 150
 
@@ -153,6 +154,7 @@ internal object DubbingSettings {
                 ?.takeIf { it in TRANSLATION_PROVIDERS } ?: TRANSLATION_PROVIDER_GOOGLE
         _geminiApiKey.value = saved.getString(KEY_GEMINI_API_KEY, null).orEmpty()
         loadClaude(saved)
+        _speechLexicon.value = speechLexiconFromJson(saved.getString(KEY_SPEECH_LEXICON, null))
         _available.value = true
     }
 
@@ -207,6 +209,26 @@ internal object DubbingSettings {
         if (CLAUDE_MODELS.none { it.id == id }) return
         _claudeModel.value = id
         preferences?.edit()?.putString(KEY_CLAUDE_MODEL, id)?.apply()
+    }
+
+    private val _speechLexicon = MutableStateFlow<Map<String, String>>(emptyMap())
+
+    /** The doctor's pronunciation rules (written -> spoken), applied only to what the voice says. */
+    val speechLexicon: StateFlow<Map<String, String>> = _speechLexicon
+
+    fun setSpeechRule(
+        written: String,
+        spoken: String,
+    ) {
+        val key = written.trim().replace(Regex("\\s+"), " ")
+        if (key.isEmpty() || spoken.isBlank()) return
+        _speechLexicon.value = _speechLexicon.value.filterKeys { !it.equals(key, ignoreCase = true) } + (key to spoken.trim())
+        preferences?.edit()?.putString(KEY_SPEECH_LEXICON, speechLexiconToJson(_speechLexicon.value))?.apply()
+    }
+
+    fun removeSpeechRule(written: String) {
+        _speechLexicon.value = _speechLexicon.value - written
+        preferences?.edit()?.putString(KEY_SPEECH_LEXICON, speechLexiconToJson(_speechLexicon.value))?.apply()
     }
 
     fun setClaudeAuto(value: Boolean) {

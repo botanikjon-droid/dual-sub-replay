@@ -16,11 +16,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FindReplace
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,11 +43,15 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kienhoang.dualsubreplay.data.ReplaceRequest
+import com.kienhoang.dualsubreplay.data.ReplaceScope
 import com.kienhoang.dualsubreplay.data.ReviewSentence
 import com.kienhoang.dualsubreplay.data.SubtitleSegment
+import com.kienhoang.dualsubreplay.data.WordTap
 import com.kienhoang.dualsubreplay.data.readBoundedText
 import com.kienhoang.dualsubreplay.data.reviewFileText
 import com.kienhoang.dualsubreplay.data.reviewTime
+import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -332,14 +340,14 @@ private suspend fun clipboardText(
  */
 @Composable
 internal fun ReplaceAllCard(
-    replace: suspend (find: String, replacement: String, wholeWord: Boolean, allLessons: Boolean, apply: Boolean) -> String,
+    replace: suspend (ReplaceRequest, apply: Boolean) -> String,
     undo: suspend () -> String,
 ) {
     val scope = rememberCoroutineScope()
     var find by remember { mutableStateOf("") }
     var replacement by remember { mutableStateOf("") }
     var wholeWord by remember { mutableStateOf(true) }
-    var allLessons by remember { mutableStateOf(false) }
+    var where by remember { mutableStateOf(ReplaceScope.LESSON) }
     var message by remember { mutableStateOf<String?>(null) }
 
     fun run(block: suspend () -> String) {
@@ -375,13 +383,17 @@ internal fun ReplaceAllCard(
             modifier = Modifier.fillMaxWidth().testTag("replace_with"),
         )
         LabeledSwitch("Faqat butun so\u2018z (so\u2018z ichidan qidirmasin)", wholeWord) { wholeWord = it }
-        LabeledSwitch("Barcha saqlangan darslarda", allLessons) { allLessons = it }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(ReplaceScope.LESSON, ReplaceScope.SECTION, ReplaceScope.ALL).forEach { option ->
+                FilterChip(selected = where == option, onClick = { where = option }, label = { Text(option.label) })
+            }
+        }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(enabled = find.isNotBlank(), onClick = {
-                run { replace(find, replacement.trim(), wholeWord, allLessons, false) }
+                run { replace(ReplaceRequest(find, replacement.trim(), wholeWord, where), false) }
             }, modifier = Modifier.testTag("replace_preview")) { Text("Oldindan ko\u2018rish") }
             Button(enabled = find.isNotBlank(), onClick = {
-                run { replace(find, replacement.trim(), wholeWord, allLessons, true) }
+                run { replace(ReplaceRequest(find, replacement.trim(), wholeWord, where), true) }
             }, modifier = Modifier.testTag("replace_all")) { Text("Hammasini almashtirish") }
             TextButton(onClick = { run { undo() } }) { Text("Bekor qilish") }
         }
@@ -405,5 +417,140 @@ private fun LabeledSwitch(
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+/** The word of the Uzbek translation the doctor tapped, for "So‘zni almashtirish"; null when closed. */
+internal val wordToReplace = MutableStateFlow<WordTap?>(null)
+
+/**
+ * "So‘zni almashtirish": a tapped word of the translation (or a phrase built from the sentence's words) is
+ * replaced in the chosen scope, or only said differently by the voice.
+ */
+@Composable
+internal fun WordReplaceHost(
+    replace: suspend (ReplaceRequest, apply: Boolean) -> String,
+    undo: suspend () -> String,
+    onSpeechRule: (written: String, spoken: String) -> Unit,
+) {
+    val tap by wordToReplace.collectAsStateWithLifecycle()
+    val shown = tap ?: return
+    val sentence = shown.segment ?: return
+    val scope = rememberCoroutineScope()
+    var find by remember(shown) { mutableStateOf(shown.token.text.trim('.', ',', ';', ':', '!', '?', '“', '”', '"')) }
+    var replacement by remember(shown) { mutableStateOf("") }
+    var where by remember(shown) { mutableStateOf(ReplaceScope.LESSON) }
+    var message by remember(shown) { mutableStateOf<String?>(null) }
+    val words =
+        remember(sentence) {
+            sentence.translatedText
+                .orEmpty()
+                .split(Regex("\\s+"))
+                .map { it.trim('.', ',', ';', ':', '!', '?') }
+                .filter(String::isNotBlank)
+        }
+
+    fun request() = ReplaceRequest(find, replacement.trim(), true, where, sentence.startMs, sentence.endMs)
+
+    fun run(block: suspend () -> String) {
+        scope.launch {
+            message =
+                try {
+                    block()
+                } catch (cancel: CancellationException) {
+                    throw cancel
+                } catch (error: IllegalArgumentException) {
+                    error.message
+                } catch (error: IllegalStateException) {
+                    error.message
+                } catch (error: java.io.IOException) {
+                    error.message
+                }
+        }
+    }
+    AlertDialog(
+        onDismissRequest = { wordToReplace.value = null },
+        title = { Text("So‘zni almashtirish") },
+        text = {
+            Column(
+                Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(sentence.translatedText.orEmpty(), style = MaterialTheme.typography.bodySmall)
+                Hint("Birikma kerak bo‘lsa, qo‘shni so‘zlarni bosing:")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    words.forEach { word ->
+                        AssistChip(onClick = { find = (find.trim() + " " + word).trim() }, label = { Text(word) })
+                    }
+                }
+                OutlinedTextField(
+                    value = find,
+                    onValueChange = { find = it },
+                    singleLine = true,
+                    label = { Text("Almashtiriladigan so‘z / birikma") },
+                    modifier = Modifier.fillMaxWidth().testTag("word_replace_find"),
+                )
+                OutlinedTextField(
+                    value = replacement,
+                    onValueChange = { replacement = it },
+                    singleLine = true,
+                    label = { Text("Yangisi") },
+                    modifier = Modifier.fillMaxWidth().testTag("word_replace_with"),
+                )
+                Text("Qayerda almashtirilsin?", style = MaterialTheme.typography.labelLarge)
+                ReplaceScope.entries.forEach { option ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = where == option, onClick = { where = option })
+                        Text(option.label, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(
+                        enabled = find.isNotBlank(),
+                        onClick = { run { replace(request(), false) } },
+                    ) { Text("Oldindan ko\u2018rish") }
+                    Button(enabled = find.isNotBlank() && replacement.isNotBlank(), onClick = { run { replace(request(), true) } }) {
+                        Text("Almashtirish")
+                    }
+                    TextButton(onClick = { run { undo() } }) { Text("Bekor qilish") }
+                }
+                OutlinedButton(
+                    enabled = find.isNotBlank() && replacement.isNotBlank(),
+                    onClick = {
+                        onSpeechRule(find, replacement)
+                        message = "Endi ovoz “${find.trim()}” ni “${replacement.trim()}” deb o‘qiydi; matn o‘zgarmaydi."
+                    },
+                ) { Text("Faqat ovozda shunday o‘qilsin") }
+                message?.let {
+                    SelectionContainer {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { wordToReplace.value = null }) { Text("Yopish") } },
+    )
+}
+
+/** "Talaffuz lug‘ati": the voice's pronunciation rules, each removable. */
+@Composable
+internal fun SpeechLexiconCard() {
+    val rules by DubbingSettings.speechLexicon.collectAsStateWithLifecycle()
+    LessonCard(title = "Talaffuz lug‘ati", icon = Icons.Default.RecordVoiceOver) {
+        Hint(
+            "Ovoz qanday o‘qishi kerak bo‘lgan so‘zlar (masalan, UTT → ultratovush tekshiruvi). Matn o‘zgarmaydi. " +
+                "Qoida subtitrdagi o‘zbekcha so‘zni bosib qo‘shiladi.",
+        )
+        if (rules.isEmpty()) Hint("Hali qoida yo‘q.")
+        rules.toSortedMap(String.CASE_INSENSITIVE_ORDER).forEach { (written, spoken) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("$written → $spoken", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                TextButton(onClick = { DubbingSettings.removeSpeechRule(written) }) { Text("O‘chirish") }
+            }
+        }
     }
 }
