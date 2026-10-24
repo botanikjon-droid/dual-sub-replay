@@ -79,8 +79,8 @@ internal fun sectionSearchHint(sectionName: String?): String =
 internal fun CatalogVideoSearch(
     edit: CatalogEdit,
     sections: List<CatalogSection>?,
-    onDone: (String) -> Unit,
     onDismiss: () -> Unit,
+    onDone: (String) -> Unit,
 ) {
     var chosen by remember { mutableStateOf<YouTubeSearchResult?>(null) }
     val (title, subtitle, query) =
