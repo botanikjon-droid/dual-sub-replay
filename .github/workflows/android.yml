@@ -91,7 +91,14 @@ jobs:
             -PpreviewVersionCode="$preview_version_code" \
             -PpreviewVersionNameSuffix="-pr${{ github.event.pull_request.number || 'manual' }}-build${GITHUB_RUN_NUMBER}" \
             -PpreviewApplicationIdSuffix=".preview" \
-            --stacktrace
+            --stacktrace 2>&1 | tee build-output.log
+
+      # The job log is not always reachable, so compiler, test and lint failures are repeated as annotations.
+      - name: Report build errors as annotations
+        if: failure()
+        run: |
+          grep -E '^e: |^> Task .*FAILED|FAILED$|What went wrong|Error: |\.kt:[0-9]+:[0-9]+' build-output.log \
+            | grep -v '^w: ' | head -n 40 | while IFS= read -r line; do echo "::error::${line:0:900}"; done || true
 
       - name: Verify preview package id
         run: |
@@ -120,11 +127,15 @@ jobs:
           GOOGLE_TRANSLATE_API_KEY: ${{ secrets.GOOGLE_TRANSLATE_API_KEY }}
         run: |
           set -euo pipefail
-          bash ./gradlew testDebugUnitTest assembleDebug -Pdistribution=uz \
+          # An optimized release build (minified, not debuggable), signed with the same fork key as
+          # before (-PtestReleaseSigning uses the debug signing config, which is that key), so it
+          # updates the installed app in place.
+          bash ./gradlew testDebugUnitTest assembleRelease -Pdistribution=uz \
+            -PtestReleaseSigning=true \
             -PpreviewVersionNameSuffix="-uz-build${GITHUB_RUN_NUMBER}" \
             -PpreviewApplicationIdSuffix=".uz" \
             --stacktrace
-          cp app/build/outputs/apk/debug/app-debug.apk DualSub-Replay-uz.apk
+          cp app/build/outputs/apk/release/app-release.apk DualSub-Replay-uz.apk
 
       - name: Upload Uzbek APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -156,7 +167,7 @@ jobs:
           # Recreated each time so the tag follows the newest build; the download link stays the same.
           gh release delete uz-latest --cleanup-tag --yes 2>/dev/null || true
           gh release create uz-latest DualSub-Replay-uz.apk \
-            --prerelease --title "DualSub UZ (latest)" --notes "$notes" --target "$GITHUB_SHA"
+            --prerelease --title "SHOKALON (latest)" --notes "$notes" --target "$GITHUB_SHA"
 
       - name: Build optimized release APK with test signing
         run: |

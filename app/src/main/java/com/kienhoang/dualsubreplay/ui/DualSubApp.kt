@@ -58,6 +58,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
@@ -88,6 +89,7 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 @Composable
+@Suppress("LongMethod")
 fun DualSubApp(
     viewModel: AppViewModel,
     playerMode: PlayerExperienceMode = PlayerExperienceMode.TRANSCRIPT_PANEL,
@@ -130,6 +132,7 @@ fun DualSubApp(
                     showProgress = true
                 },
                 lessonTools = { onDismiss -> LessonToolsHost(state, viewModel, onDismiss) },
+                homeScreen = shokalonHomeScreen(state, viewModel),
                 onAutoPronounceChange = viewModel::setAutoPronounce,
                 playerMode = playerMode,
                 effectivePlayerMode = effectivePlayerMode,
@@ -174,6 +177,15 @@ fun DualSubApp(
             )
         }
         state.selectedLearningWord?.let { SelectedWordDialog(it, state, savedWords, viewModel, webController, pronouncer) }
+        SentenceCheckHost(
+            state.activeVideoId,
+            viewModel.activeLessonTitle(),
+            viewModel::saveSentenceCorrection,
+            viewModel::toggleReviewMark,
+            viewModel::claudeFixOne,
+        )
+        ShokalonChatHost { viewModel.chatAgent }
+        WordReplaceHost(viewModel::replaceInTranslations, viewModel::undoReplace, com.kienhoang.dualsubreplay.dubbing.DubbingSettings::setSpeechRule)
         if (showVocabulary) SavedWordsScreen(
             repository = viewModel.vocabulary,
             onOnline = { word ->
@@ -196,12 +208,77 @@ fun DualSubApp(
     }
 }
 
+/** Shows [content] unless [hidden] (the app's bar during full screen). */
+@Composable
+private fun HiddenWhen(
+    hidden: Boolean,
+    content: @Composable () -> Unit,
+) {
+    if (!hidden) content()
+}
+
+/** SHOKALON's sections screen in the Uzbek build; null in the general builds. */
+private fun shokalonHomeScreen(
+    state: DualSubUiState,
+    viewModel: AppViewModel,
+): ShokalonHome? =
+    if (!shokalonFocusMode) {
+        null
+    } else {
+        { startSection, onDismiss, onSettings ->
+            ShokalonHomeScreen(
+                activeVideoId = state.activeVideoId,
+                startSection = startSection,
+                onOpen = { videoId ->
+                    viewModel.openTranslatedLesson(videoId)
+                    onDismiss()
+                },
+                onDismiss = onDismiss,
+                onSettings = onSettings,
+                study = SectionStudyActions(viewModel.sectionNotesProgress, viewModel::writeSectionNotes, viewModel::cancelSectionNotes),
+            )
+        }
+    }
+
+/** SHOKALON's sections screen: closes itself with the first callback, opens the main menu with the second. */
+private typealias ShokalonHome = @Composable (startSection: String?, onDismiss: () -> Unit, onSettings: () -> Unit) -> Unit
+
+/**
+ * Shows [homeScreen] when the app starts, pausing the video while it is open, and returns how to open it
+ * again (null without one). Its settings button closes it and calls [onSettings].
+ */
+@Composable
+private fun homeScreenHost(
+    homeScreen: ShokalonHome?,
+    onShown: () -> Unit,
+    onSettings: () -> Unit,
+): ((section: String?) -> Unit)? {
+    if (homeScreen == null) return null
+    var showHome by rememberSaveable { mutableStateOf(true) }
+    var startSection by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(showHome) { if (showHome) onShown() }
+    if (showHome) {
+        homeScreen(startSection, { showHome = false }) {
+            showHome = false
+            onSettings()
+        }
+    }
+    return { section ->
+        startSection = section
+        showHome = true
+    }
+}
+
 @Composable
 private fun LessonToolsHost(
     state: DualSubUiState,
     viewModel: AppViewModel,
     onDismiss: () -> Unit,
 ) {
+    val claudeRun by viewModel.claudeRun.collectAsStateWithLifecycle()
+    val notes by viewModel.lessonNotesState.collectAsStateWithLifecycle()
+    val lessons by com.kienhoang.dualsubreplay.data.LessonLibraryStore.records.collectAsStateWithLifecycle()
+    LaunchedEffect(state.activeVideoId) { viewModel.showLessonNotes() }
     LessonToolsScreen(
         activeVideoId = state.activeVideoId,
         importedTranslationCues = state.importedTranslationCues,
@@ -211,6 +288,56 @@ private fun LessonToolsHost(
         importTranslation = { viewModel.importTranslation(it) },
         onClearImport = viewModel::clearImportedTranslation,
         onDismiss = onDismiss,
+        claudeRun = claudeRun,
+        onClaudeTranslate = viewModel::translateLessonWithClaude,
+        onGeminiTranslate = viewModel::translateLessonWithGemini,
+        onClaudeCancel = viewModel::cancelClaudeTranslation,
+        recordingCard = {
+            RecordedCaptionsCard(
+                summary = state.recordedCaptions,
+                liveFallback = state.liveFallback,
+                onUse = viewModel::useRecordedCaptions,
+                onContinue = viewModel::continueRecordingCaptions,
+                onDelete = viewModel::deleteRecordedCaptions,
+            )
+        },
+        lessonList = {
+            TranslationCheckCard(
+                activeVideoId = state.activeVideoId,
+                storedCues = viewModel::storedTranslationCues,
+                save = viewModel::saveEditedTranslation,
+                srtExport = viewModel::storedTranslationExport,
+                bilingualExport = viewModel::bilingualLessonExport,
+            )
+            SentenceReviewCard(state.activeVideoId, viewModel::reviewFileExport, viewModel::importReviewFile, viewModel.claudeFixActions)
+            ReplaceAllCard(viewModel::replaceInTranslations, viewModel::undoReplace)
+            SpeechLexiconCard()
+            LessonCatalogCard(
+                translatedVideoIds = lessons.mapTo(HashSet()) { it.videoId },
+                knownTitles = lessons.filter { it.title.isNotBlank() }.associate { it.videoId to it.title },
+                activeVideoId = state.activeVideoId,
+            ) { videoId ->
+                viewModel.openTranslatedLesson(videoId)
+                onDismiss()
+            }
+            SubtitleHarvestCard(onImportTranslations = viewModel::importTranslationZip)
+            LessonLibraryCard(lessons, state.activeVideoId) { videoId ->
+                viewModel.openTranslatedLesson(videoId)
+                onDismiss()
+            }
+        },
+        notesCard = {
+            LessonNotesCard(
+                state.activeVideoId,
+                notes,
+                onWrite = viewModel::writeLessonNotes,
+                onCancel = viewModel::cancelLessonNotes,
+                onCaptureFrames = {
+                    onDismiss()
+                    viewModel.captureNoteFrames()
+                },
+            )
+        },
     )
 }
 
@@ -254,6 +381,8 @@ private fun DualSubExperience(
     onVocabulary: () -> Unit,
     onProgress: () -> Unit,
     lessonTools: @Composable (onDismiss: () -> Unit) -> Unit,
+    // SHOKALON's first screen (sections and lectures); null in the general builds.
+    homeScreen: ShokalonHome? = null,
     onAutoPronounceChange: (Boolean) -> Unit,
     playerMode: PlayerExperienceMode,
     effectivePlayerMode: PlayerExperienceMode = playerMode,
@@ -348,14 +477,38 @@ private fun DualSubExperience(
 
     var showLessonTools by remember { mutableStateOf(false) }
     if (showLessonTools) lessonTools { showLessonTools = false }
+    var menuRequests by remember { mutableIntStateOf(0) }
+    val openHomeAt =
+        homeScreenHost(homeScreen, onShown = {
+            webController.pause()
+            shokalonFullscreen.value = false
+        }) { menuRequests += 1 }
+    val fullscreen by shokalonFullscreen.collectAsStateWithLifecycle()
 
-    AppNavigation(onPractice = onVocabulary, onProgress = onProgress, onLesson = { showLessonTools = true }, onSettings = {
+    AppNavigation(onHome = openHomeAt?.let { open -> { open(null) } }, menuRequests = menuRequests, onPractice = onVocabulary, onProgress = onProgress, onLesson = {
+        showLessonTools = true
+    }, onSettings = {
         showSettings = true
     }, onVisibilityChange = onNavigationVisibilityChange) { menuButton ->
         Scaffold(contentWindowInsets = contentInsets, topBar = {
-            Surface {
-                Row(Modifier.fillMaxWidth().statusBarsPadding(), horizontalArrangement = Arrangement.Start) {
-                    menuButton()
+            HiddenWhen(fullscreen) {
+                Surface {
+                    Row(Modifier.fillMaxWidth().statusBarsPadding(), horizontalArrangement = Arrangement.Start) {
+                        menuButton()
+                        LessonStepBar(state.activeVideoId, onSectionList = { openHomeAt?.invoke(it) }) { videoId ->
+                            webController.navigateTo(lessonWatchUrl(videoId))
+                        }
+                        LessonSearchButton(state.activeVideoId) { videoId -> webController.navigateTo(lessonWatchUrl(videoId)) }
+                        SubtitleModeButton(
+                            state.activeVideoId,
+                            mode = playerMode,
+                            onMode = onPlayerModeChange,
+                            onShow = onShowSubtitles,
+                            onHide = onHideSubtitles,
+                        )
+                        FullscreenButton(state.activeVideoId, onFullscreen = webController::enterFullscreen)
+                        ChatButton()
+                    }
                 }
             }
         }) { innerPadding ->
@@ -458,8 +611,10 @@ private fun DualSubExperience(
                     state.activeVideoId != null &&
                     effectivePlayerMode == PlayerExperienceMode.TRANSCRIPT_PANEL
                 ) {
-                    MovableSubtitleFab(onClick = { if (tracksVisible) onShowSubtitles() else showSettings = true })
+                    UnlessSubtitlesHidden { MovableSubtitleFab(onClick = { if (tracksVisible) onShowSubtitles() else showSettings = true }) }
                 }
+                LessonEdgeSwipe(state.activeVideoId) { section -> openHomeAt?.invoke(section) }
+                FullscreenSession(fullscreen) { shokalonFullscreen.value = false }
             }
         }
     }
@@ -909,6 +1064,7 @@ internal fun SubtitleTimeline(
 
     val showOriginal = state.showOriginal()
     val showTranslation = state.showTranslation()
+    val reviewMarks by sentenceReviewMarks.collectAsStateWithLifecycle()
     val activeWordIndex = if (state.wordHighlightEnabled) state.activeWordIndex else -1
     val originalColor = effectiveOriginalColor(state)
     val translatedColor = effectiveTranslatedColor(state)
@@ -944,6 +1100,8 @@ internal fun SubtitleTimeline(
                     isDownloadingTranslationModel = state.isDownloadingTranslationModel,
                     translationUnavailable = state.translationError != null,
                     onWordClick = onWordClick,
+                    onLongPress = sentenceLongPress(segment),
+                    marked = sentenceMarked(reviewMarks, state.activeVideoId, segment),
                 )
             }
         }
@@ -1078,6 +1236,7 @@ internal fun TranslatedSubtitleTimeline(
     onReplay: (SubtitleSegment) -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
+        TranslatorBadge(state.activeVideoId, state.targetLanguage, state.importedTranslationCues)
         state.translationError?.let { TranslationUnavailableBar(it, onRetryTranslation) }
         Box(Modifier.fillMaxWidth().weight(1f)) {
             SubtitleTimeline(state, onWordClick = onWordClick, onReplay = onReplay)

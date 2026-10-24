@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SHOKALON: the doctor's portrait in a cyan ring (uz build only). -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@mipmap/ic_shokalon_background" />
+    <foreground android:drawable="@mipmap/ic_shokalon_foreground" />
+</adaptive-icon>

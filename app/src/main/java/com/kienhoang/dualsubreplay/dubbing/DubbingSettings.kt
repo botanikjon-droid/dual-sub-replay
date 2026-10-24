@@ -2,7 +2,10 @@ package com.kienhoang.dualsubreplay.dubbing
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.kienhoang.dualsubreplay.translation.CLAUDE_MODELS
+import com.kienhoang.dualsubreplay.translation.LEGACY_TRANSLATION_PROVIDER_DEEPL
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDERS
+import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_CLAUDE
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GOOGLE
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,6 +33,13 @@ internal object DubbingSettings {
     private const val KEY_GLOSSARY_IN_TRANSLATION = "glossary_in_translation"
     private const val KEY_TRANSLATION_PROVIDER = "translation_provider"
     private const val KEY_GEMINI_API_KEY = "gemini_api_key"
+    private const val KEY_CLAUDE_API_KEY = "claude_api_key"
+    private const val KEY_CLAUDE_MODEL = "claude_model"
+    private const val KEY_CLAUDE_AUTO = "claude_auto"
+    private const val KEY_GEMINI_WHOLE_LESSON = "gemini_whole_lesson"
+    private const val KEY_AZURE_SPEECH_KEY = "azure_speech_key"
+    private const val KEY_AZURE_SPEECH_REGION = "azure_speech_region"
+    private const val KEY_SPEECH_LEXICON = "speech_lexicon"
     private const val DEFAULT_VIDEO_VOLUME = 20
     private const val DEFAULT_MAX_TEMPO_PERCENT = 150
 
@@ -46,6 +56,13 @@ internal object DubbingSettings {
     private val _translationProvider = MutableStateFlow(TRANSLATION_PROVIDER_GOOGLE)
     private val _geminiApiKey = MutableStateFlow("")
     private val _translatorStatus = MutableStateFlow("")
+    private val _claudeApiKey = MutableStateFlow("")
+    private val _claudeModel = MutableStateFlow(CLAUDE_MODELS.first().id)
+    private val _claudeAuto = MutableStateFlow(false)
+    private val _geminiWholeLesson = MutableStateFlow(true)
+    private val _azureSpeechKey = MutableStateFlow("")
+    private val _azureSpeechRegion = MutableStateFlow("")
+    private val _voiceStatus = MutableStateFlow("")
     private var preferences: SharedPreferences? = null
 
     val available: StateFlow<Boolean> = _available
@@ -70,7 +87,7 @@ internal object DubbingSettings {
     /** Send approved UZI glossary terms to the translator in place of the English terms (on by default). */
     val glossaryInTranslation: StateFlow<Boolean> = _glossaryInTranslation
 
-    /** "google" (keyless Google Translate) or "gemini" (the user's own Gemini API key). */
+    /** "google" (keyless Google Translate), "gemini" or "claude" (the user's own API key). */
     val translationProvider: StateFlow<String> = _translationProvider
 
     /** The user's Gemini API key: kept only in this app's private preferences, never in the code. */
@@ -78,6 +95,30 @@ internal object DubbingSettings {
 
     /** What the translator last did, for the settings card ("Gemini: 25 gap", or why it fell back). */
     val translatorStatus: StateFlow<String> = _translatorStatus
+
+    /** The user's Claude API key for "Claude bilan tarjima": only in this app's private preferences. */
+    val claudeApiKey: StateFlow<String> = _claudeApiKey
+
+    /** The Claude model that translates lessons (one of [CLAUDE_MODELS]). */
+    val claudeModel: StateFlow<String> = _claudeModel
+
+    /** Translate every newly opened lesson with Claude in the background (off by default: it costs money). */
+    val claudeAuto: StateFlow<Boolean> = _claudeAuto
+
+    /**
+     * Gemini translates each opened lesson whole, in one request of the free daily quota (on by default),
+     * instead of sentence batches during playback. Google Translate covers playback until it is ready.
+     */
+    val geminiWholeLesson: StateFlow<Boolean> = _geminiWholeLesson
+
+    /** The doctor's own Azure Speech key: when set, Sardor/Madina come from the official service. */
+    val azureSpeechKey: StateFlow<String> = _azureSpeechKey
+
+    /** The Azure region of that key, such as "westeurope". */
+    val azureSpeechRegion: StateFlow<String> = _azureSpeechRegion
+
+    /** Why the voice last failed (or which service speaks), for the voice card; empty when all is well. */
+    val voiceStatus: StateFlow<String> = _voiceStatus
 
     /** What the dub did in the current video, for the settings card. */
     val stats: StateFlow<DubbingStats> = _stats
@@ -107,8 +148,13 @@ internal object DubbingSettings {
             )
         _glossaryInTranslation.value = saved.getBoolean(KEY_GLOSSARY_IN_TRANSLATION, true)
         _translationProvider.value =
-            saved.getString(KEY_TRANSLATION_PROVIDER, null)?.takeIf { it in TRANSLATION_PROVIDERS } ?: TRANSLATION_PROVIDER_GOOGLE
+            saved
+                .getString(KEY_TRANSLATION_PROVIDER, null)
+                ?.let { if (it == LEGACY_TRANSLATION_PROVIDER_DEEPL) TRANSLATION_PROVIDER_CLAUDE else it }
+                ?.takeIf { it in TRANSLATION_PROVIDERS } ?: TRANSLATION_PROVIDER_GOOGLE
         _geminiApiKey.value = saved.getString(KEY_GEMINI_API_KEY, null).orEmpty()
+        loadClaude(saved)
+        _speechLexicon.value = speechLexiconFromJson(saved.getString(KEY_SPEECH_LEXICON, null))
         _available.value = true
     }
 
@@ -121,6 +167,73 @@ internal object DubbingSettings {
     fun setGeminiApiKey(key: String) {
         _geminiApiKey.value = key.trim()
         preferences?.edit()?.putString(KEY_GEMINI_API_KEY, _geminiApiKey.value)?.apply()
+    }
+
+    private fun loadClaude(saved: SharedPreferences) {
+        _claudeApiKey.value = saved.getString(KEY_CLAUDE_API_KEY, null).orEmpty()
+        _claudeModel.value =
+            saved.getString(KEY_CLAUDE_MODEL, null)?.takeIf { id -> CLAUDE_MODELS.any { it.id == id } } ?: CLAUDE_MODELS.first().id
+        _claudeAuto.value = saved.getBoolean(KEY_CLAUDE_AUTO, false)
+        _geminiWholeLesson.value = saved.getBoolean(KEY_GEMINI_WHOLE_LESSON, true)
+        _azureSpeechKey.value = saved.getString(KEY_AZURE_SPEECH_KEY, null).orEmpty()
+        _azureSpeechRegion.value = saved.getString(KEY_AZURE_SPEECH_REGION, null).orEmpty()
+    }
+
+    fun setAzureSpeechKey(key: String) {
+        _azureSpeechKey.value = key.trim()
+        preferences?.edit()?.putString(KEY_AZURE_SPEECH_KEY, _azureSpeechKey.value)?.apply()
+        _voiceStatus.value = ""
+    }
+
+    fun setAzureSpeechRegion(region: String) {
+        _azureSpeechRegion.value = region.trim()
+        preferences?.edit()?.putString(KEY_AZURE_SPEECH_REGION, _azureSpeechRegion.value)?.apply()
+        _voiceStatus.value = ""
+    }
+
+    fun publishVoiceStatus(status: String) {
+        _voiceStatus.value = status
+    }
+
+    fun setGeminiWholeLesson(value: Boolean) {
+        _geminiWholeLesson.value = value
+        preferences?.edit()?.putBoolean(KEY_GEMINI_WHOLE_LESSON, value)?.apply()
+    }
+
+    fun setClaudeApiKey(key: String) {
+        _claudeApiKey.value = key.trim()
+        preferences?.edit()?.putString(KEY_CLAUDE_API_KEY, _claudeApiKey.value)?.apply()
+    }
+
+    fun setClaudeModel(id: String) {
+        if (CLAUDE_MODELS.none { it.id == id }) return
+        _claudeModel.value = id
+        preferences?.edit()?.putString(KEY_CLAUDE_MODEL, id)?.apply()
+    }
+
+    private val _speechLexicon = MutableStateFlow<Map<String, String>>(emptyMap())
+
+    /** The doctor's pronunciation rules (written -> spoken), applied only to what the voice says. */
+    val speechLexicon: StateFlow<Map<String, String>> = _speechLexicon
+
+    fun setSpeechRule(
+        written: String,
+        spoken: String,
+    ) {
+        val key = written.trim().replace(Regex("\\s+"), " ")
+        if (key.isEmpty() || spoken.isBlank()) return
+        _speechLexicon.value = _speechLexicon.value.filterKeys { !it.equals(key, ignoreCase = true) } + (key to spoken.trim())
+        preferences?.edit()?.putString(KEY_SPEECH_LEXICON, speechLexiconToJson(_speechLexicon.value))?.apply()
+    }
+
+    fun removeSpeechRule(written: String) {
+        _speechLexicon.value = _speechLexicon.value - written
+        preferences?.edit()?.putString(KEY_SPEECH_LEXICON, speechLexiconToJson(_speechLexicon.value))?.apply()
+    }
+
+    fun setClaudeAuto(value: Boolean) {
+        _claudeAuto.value = value
+        preferences?.edit()?.putBoolean(KEY_CLAUDE_AUTO, value)?.apply()
     }
 
     fun publishTranslatorStatus(status: String) {

@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_CLAUDE
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GEMINI
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GOOGLE
 
@@ -66,8 +67,10 @@ internal fun DubbingSettingsCard() {
                     modifier = Modifier.testTag("dubbing_enabled_switch"),
                 )
             }
+            if (!enabled) Hint("Sardor va Madina ovozlari shu tugma yoqilganda ko\u2018rinadi.")
             if (enabled) {
                 VoiceControls()
+                AzureVoiceControls()
                 VoiceTestControls()
                 PacingControls()
             }
@@ -107,6 +110,45 @@ private fun VoiceControls() {
         valueRange = 0f..100f,
         steps = 9,
         modifier = Modifier.testTag("dubbing_video_volume_slider"),
+    )
+}
+
+/**
+ * The official Azure Speech key for the same Sardor/Madina voices, and why the voice last failed.
+ * The free Microsoft endpoint can stop answering third-party apps; with a key the voices keep working.
+ */
+@Composable
+private fun AzureVoiceControls() {
+    val key by DubbingSettings.azureSpeechKey.collectAsStateWithLifecycle()
+    val region by DubbingSettings.azureSpeechRegion.collectAsStateWithLifecycle()
+    val status by DubbingSettings.voiceStatus.collectAsStateWithLifecycle()
+    if (status.isNotBlank()) {
+        Text(status, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 6.dp).testTag("voice_status"))
+    }
+    Text("Azure Speech (rasmiy, ixtiyoriy)", modifier = Modifier.padding(top = 10.dp))
+    OutlinedTextField(
+        value = key,
+        onValueChange = DubbingSettings::setAzureSpeechKey,
+        label = { Text("Azure Speech kaliti") },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).testTag("azure_speech_key"),
+    )
+    OutlinedTextField(
+        value = region,
+        onValueChange = DubbingSettings::setAzureSpeechRegion,
+        label = { Text("Hudud (masalan: westeurope)") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).testTag("azure_speech_region"),
+    )
+    Hint(
+        if (key.isBlank()) {
+            "Kalitsiz Microsoft\u2019ning bepul ovozi ishlatiladi; u ba\u2019zan to\u2018xtab qoladi. Azure portalida \u201CSpeech\u201D " +
+                "resursini oching (Free F0: oyiga 500 000 belgi bepul), kalit va hududni shu yerga kiriting."
+        } else {
+            "Sardor va Madina rasmiy Azure Speech xizmatidan o\u2018qiladi. Kalit faqat shu telefonda saqlanadi."
+        },
+        Modifier.padding(top = 4.dp),
     )
 }
 
@@ -175,7 +217,7 @@ private fun TranslatorControls() {
     val key by DubbingSettings.geminiApiKey.collectAsStateWithLifecycle()
     val status by DubbingSettings.translatorStatus.collectAsStateWithLifecycle()
     Text("Tarjimon", modifier = Modifier.padding(top = 10.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         FilterChip(
             selected = provider == TRANSLATION_PROVIDER_GOOGLE,
             onClick = { DubbingSettings.setTranslationProvider(TRANSLATION_PROVIDER_GOOGLE) },
@@ -188,7 +230,14 @@ private fun TranslatorControls() {
             label = { Text("Gemini") },
             modifier = Modifier.testTag("translator_gemini"),
         )
+        FilterChip(
+            selected = provider == TRANSLATION_PROVIDER_CLAUDE,
+            onClick = { DubbingSettings.setTranslationProvider(TRANSLATION_PROVIDER_CLAUDE) },
+            label = { Text("Claude") },
+            modifier = Modifier.testTag("translator_claude"),
+        )
     }
+    if (provider == TRANSLATION_PROVIDER_CLAUDE) ClaudeKeyField()
     if (provider == TRANSLATION_PROVIDER_GEMINI) {
         OutlinedTextField(
             value = key,
@@ -202,11 +251,41 @@ private fun TranslatorControls() {
             if (key.isBlank()) {
                 "Kalitni aistudio.google.com dan oling. Kalit faqat shu telefonda saqlanadi. Kalitsiz Google Translate ishlaydi."
             } else {
-                "Gemini bir nechta gapni birga, UZI lug\u2018ati bilan tarjima qiladi. Xato bo\u2018lsa, Google Translate ishlaydi."
+                "Gemini har bir darsni butunligicha, UZI lug\u2018ati bilan bitta so\u2018rovda tarjima qiladi " +
+                    "(\u201CDars\u201D ekranida o\u2018zgartiriladi). " +
+                    "Tayyor bo\u2018lguncha va xato bo\u2018lsa Google Translate ishlaydi."
             },
         )
     }
     if (status.isNotBlank()) Hint(status, Modifier.padding(top = 4.dp).testTag("translator_status"))
+}
+
+/**
+ * The Claude key (the same one as on the "Dars" screen): Claude then translates every newly opened Uzbek
+ * lesson whole, once, and stores it; Google Translate covers playback until then and on failure.
+ */
+@Composable
+private fun ClaudeKeyField() {
+    val key by DubbingSettings.claudeApiKey.collectAsStateWithLifecycle()
+    OutlinedTextField(
+        value = key,
+        onValueChange = DubbingSettings::setClaudeApiKey,
+        label = { Text("Claude API kaliti") },
+        placeholder = { Text("sk-ant-\u2026") },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).testTag("claude_provider_api_key"),
+    )
+    Hint(
+        if (key.isBlank()) {
+            "Kalitni console.anthropic.com \u2192 API keys \u2192 Create Key dan oling (pullik, foydalanilgan token uchun " +
+                "to\u2018lanadi). Kalit faqat shu telefonda saqlanadi."
+        } else {
+            "Claude har bir yangi darsni UZI lug\u2018ati bilan butunligicha bir marta tarjima qiladi va saqlaydi: " +
+                "qayta ochilganda pul sarflanmaydi. Model \u201CDars\u201D ekranida tanlanadi. " +
+                "Tayyor bo\u2018lguncha yoki xato bo\u2018lsa Google Translate ishlaydi."
+        },
+    )
 }
 
 /** Glossary-guided translation: approved UZI terms are given to the translator. */
