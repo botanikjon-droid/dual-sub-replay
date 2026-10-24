@@ -437,6 +437,7 @@ private fun DualSubExperience(
                 Row(Modifier.fillMaxWidth().statusBarsPadding(), horizontalArrangement = Arrangement.Start) {
                     menuButton()
                     LessonStepBar(state.activeVideoId) { videoId -> webController.navigateTo(lessonWatchUrl(videoId)) }
+                    LessonSearchButton(state.activeVideoId) { videoId -> webController.navigateTo(lessonWatchUrl(videoId)) }
                 }
             }
         }) { innerPadding ->

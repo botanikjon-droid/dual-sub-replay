@@ -1,4 +1,5 @@
-# Calls the real Edge voice service through the app's own client (EdgeVoiceLiveTest) and reports
+# Calls the real Edge voice service (EdgeVoiceLiveTest) and YouTube search (YouTubeSearchLiveTest) through
+# the app's own clients and reports
 # the result as annotations, so a silent Sardor/Madina can be diagnosed without the phone.
 name: Uzbek voice live check
 
@@ -34,12 +35,12 @@ jobs:
       - name: Live voice test
         env:
           LIVE_VOICE_TEST: "1"
-        run: bash ./gradlew testDebugUnitTest -Pdistribution=uz --tests '*EdgeVoiceLiveTest*' --info
+        run: bash ./gradlew testDebugUnitTest -Pdistribution=uz --tests '*EdgeVoiceLiveTest*' --tests '*YouTubeSearchLiveTest*' --info
       - name: Report the result as annotations
         if: always()
         run: |
           shopt -s nullglob
-          for f in app/build/test-results/testDebugUnitTest/*EdgeVoiceLiveTest*.xml; do
+          for f in app/build/test-results/testDebugUnitTest/*LiveTest*.xml; do
             python3 - "$f" <<'PY'
           import sys, xml.etree.ElementTree as ET
           root = ET.parse(sys.argv[1]).getroot()

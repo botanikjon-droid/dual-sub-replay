@@ -77,7 +77,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
-import java.util.Collections
 import java.time.LocalDate
 import com.kienhoang.dualsubreplay.data.activeWordIndex as timedActiveWordIndex
 
@@ -466,15 +465,12 @@ class AppViewModel internal constructor(
 
     private fun toast(message: String) = Toast.makeText(getApplication(), message, Toast.LENGTH_LONG).show()
 
-    /** Videos the doctor opened himself (a pasted link, a shared video): lessons even if not in the catalog. */
-    private val requestedVideoIds = Collections.synchronizedSet(mutableSetOf<String>())
-
     /** The last lesson page, where focus mode returns from a page that is not a lesson. */
     private var lastLessonUrl: String? = null
 
     /** A catalog lecture, a translated lesson or a video the doctor opened himself; unknown until the catalog loads. */
     internal fun isLessonVideo(videoId: String): Boolean =
-        videoId in requestedVideoIds ||
+        videoId in focusRequestedVideos ||
             LessonLibraryStore.records.value.any { it.videoId == videoId } ||
             catalogHasVideo(com.kienhoang.dualsubreplay.data.UziCatalogStore.sections.value, videoId) != false
 
@@ -768,7 +764,7 @@ class AppViewModel internal constructor(
             return
         }
         val videoId = YouTubeUrlParser.extractVideoId(text) ?: return
-        requestedVideoIds += videoId
+        focusRequestedVideos += videoId
         val watchUrl = mobileWatchUrl(videoId)
         preferences.edit().putString("last_browser_url", watchUrl).apply()
         _state.update {

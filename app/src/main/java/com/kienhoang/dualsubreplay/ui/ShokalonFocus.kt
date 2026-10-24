@@ -197,3 +197,9 @@ internal fun focusStepScript(steps: LessonSteps?): String {
         })();
         """.trimIndent()
 }
+
+/**
+ * Videos the doctor opened himself (a pasted link, a shared video, a result of "Qo‘shimcha videolar"):
+ * lessons for focus mode even when they are not in the catalog.
+ */
+internal val focusRequestedVideos: MutableSet<String> = java.util.Collections.synchronizedSet(mutableSetOf())
