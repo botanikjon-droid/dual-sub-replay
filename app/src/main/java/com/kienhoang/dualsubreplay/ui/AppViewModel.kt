@@ -10,6 +10,7 @@ import com.kienhoang.dualsubreplay.data.CaptionLanguage
 import com.kienhoang.dualsubreplay.data.CaptionProvider
 import com.kienhoang.dualsubreplay.data.CaptionTrackResult
 import com.kienhoang.dualsubreplay.data.CaptionUnavailableException
+import com.kienhoang.dualsubreplay.data.CatalogVideo
 import com.kienhoang.dualsubreplay.data.ImmersionAccumulator
 import com.kienhoang.dualsubreplay.data.ImmersionRepository
 import com.kienhoang.dualsubreplay.data.ImmersionTimeTracker
@@ -376,11 +377,7 @@ class AppViewModel internal constructor(
     private val lessonNotes =
         LessonNotesCoordinator(
             scope = viewModelScope,
-            inputFor = { videoId ->
-                val (title, segments) = lessonSegments(videoId)
-                val uzbek = importedLines(videoId)
-                LessonNotesInput(title, segments.map { it.originalText }, uzbek, segments.map { (it.startMs / MS_PER_SECOND).toInt() })
-            },
+            inputFor = ::notesInput,
             load = LessonLibraryStore::notes,
             save = LessonLibraryStore::saveNotes,
         )
@@ -394,6 +391,33 @@ class AppViewModel internal constructor(
     }
 
     fun cancelLessonNotes() = lessonNotes.cancel()
+
+    /** What the notes of [videoId] are written from: its English subtitles and, when stored, its Uzbek translation. */
+    private suspend fun notesInput(videoId: String): LessonNotesInput {
+        val (title, segments) = lessonSegments(videoId)
+        val uzbek =
+            importedLines(videoId)
+                ?: withContext(Dispatchers.IO) { runCatching { readImportedTranslation(videoId) }.getOrNull() }?.map { it.text }
+        return LessonNotesInput(
+            title ?: lessonRecord(videoId)?.title,
+            segments.map { it.originalText },
+            uzbek,
+            segments.map { (it.startMs / MS_PER_SECOND).toInt() },
+        )
+    }
+
+    /** "Konspektsiz darslarga yozish" of a SHOKALON section. */
+    private val sectionNotes =
+        SectionNotesBatch(viewModelScope, ::notesInput, LessonLibraryStore::notes, LessonLibraryStore::saveNotes)
+    internal val sectionNotesProgress: StateFlow<SectionNotesProgress> get() = sectionNotes.progress
+
+    internal fun writeSectionNotes(
+        section: String,
+        videos: List<CatalogVideo>,
+        engine: LessonEngine,
+    ) = sectionNotes.start(section, videos, engine)
+
+    fun cancelSectionNotes() = sectionNotes.cancel()
 
     private var frameJob: Job? = null
 

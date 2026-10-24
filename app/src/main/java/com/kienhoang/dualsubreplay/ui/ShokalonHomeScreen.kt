@@ -79,6 +79,7 @@ internal fun ShokalonHomeScreen(
     onDismiss: () -> Unit,
     onSettings: () -> Unit = {},
     startSection: String? = null,
+    study: SectionStudyActions? = null,
 ) {
     val context = LocalContext.current
     LaunchedEffect(Unit) { UziCatalogStore.load(context) }
@@ -112,7 +113,8 @@ internal fun ShokalonHomeScreen(
                     }
                 } else {
                     notice?.let { NoticeLine(it) }
-                    SectionDetail(open, translated, activeVideoId, onBack = { openName = null }) { action ->
+                    val studyCard: @Composable () -> Unit = { SectionStudyCard(open, study) { onOpen(it.videoId) } }
+                    SectionDetail(open, translated, activeVideoId, studyCard, onBack = { openName = null }) { action ->
                         when (action) {
                             is LessonAction.Open -> onOpen(action.video.videoId)
                             is LessonAction.Replace -> catalogEdit = CatalogEdit.Replace(action.video)
@@ -374,9 +376,11 @@ private fun SectionDetail(
     section: CatalogSection,
     translated: Set<String>,
     activeVideoId: String?,
+    study: @Composable () -> Unit,
     onBack: () -> Unit,
     onAction: (LessonAction) -> Unit,
 ) {
+    val noted by LessonLibraryStore.notedIds.collectAsStateWithLifecycle()
     val art = sectionArt(section.name)
     Column(
         Modifier
@@ -402,6 +406,7 @@ private fun SectionDetail(
             }
         }
     }
+    study()
     var number = 0
     section.topics.forEach { topic ->
         Text(
@@ -413,7 +418,8 @@ private fun SectionDetail(
         )
         topic.videos.forEach { video ->
             number += 1
-            LessonRow(number, video, video.videoId in translated, video.videoId == activeVideoId, art, onAction)
+            val status = LessonStatus(video.videoId in translated, video.videoId in noted, video.videoId == activeVideoId)
+            LessonRow(number, video, status, art, onAction)
         }
     }
     OutlinedButton(
@@ -426,12 +432,25 @@ private fun SectionDetail(
     Spacer(Modifier.height(16.dp))
 }
 
+/** What the doctor already has for a lecture. */
+private data class LessonStatus(
+    val translated: Boolean,
+    val noted: Boolean,
+    val active: Boolean,
+)
+
+private fun lessonStatusLine(status: LessonStatus): String? =
+    listOfNotNull(
+        "Hozir ochiq".takeIf { status.active },
+        "O‘zbekcha tarjimasi bor".takeIf { status.translated && !status.active },
+        "📘 konspekt va test".takeIf { status.noted },
+    ).joinToString(" · ").ifEmpty { null }
+
 @Composable
 private fun LessonRow(
     number: Int,
     video: CatalogVideo,
-    translated: Boolean,
-    active: Boolean,
+    status: LessonStatus,
     art: SectionArt,
     onAction: (LessonAction) -> Unit,
 ) {
@@ -440,7 +459,7 @@ private fun LessonRow(
     Surface(
         onClick = { onAction(LessonAction.Open(video)) },
         shape = RoundedCornerShape(16.dp),
-        tonalElevation = if (active) 6.dp else 1.dp,
+        tonalElevation = if (status.active) 6.dp else 1.dp,
         shadowElevation = 1.dp,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
     ) {
@@ -451,12 +470,9 @@ private fun LessonRow(
             ) { Text("$number", color = Color.White, fontWeight = FontWeight.Bold) }
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(title, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                when {
-                    active -> Hint("Hozir ochiq")
-                    translated -> Hint("O‘zbekcha tarjimasi bor")
-                }
+                lessonStatusLine(status)?.let { Hint(it) }
             }
-            if (translated) Icon(Icons.Default.CheckCircle, contentDescription = "Tarjima qilingan", tint = Color(0xFF16A34A))
+            if (status.translated) Icon(Icons.Default.CheckCircle, contentDescription = "Tarjima qilingan", tint = Color(0xFF16A34A))
             Box {
                 IconButton(onClick = { menu = true }, modifier = Modifier.testTag("home_lesson_menu")) {
                     Icon(Icons.Default.MoreVert, contentDescription = "Dars amallari")

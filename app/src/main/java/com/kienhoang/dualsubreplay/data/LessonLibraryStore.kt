@@ -21,6 +21,10 @@ import java.io.IOException
 internal object LessonLibraryStore {
     private val _records = MutableStateFlow<List<LessonRecord>>(emptyList())
     val records: StateFlow<List<LessonRecord>> = _records
+    private val _notedIds = MutableStateFlow<Set<String>>(emptySet())
+
+    /** Videos with stored notes; changes when notes are written, so section screens update. */
+    val notedIds: StateFlow<Set<String>> = _notedIds
     private val lock = Mutex()
     private var directory: File? = null
 
@@ -39,7 +43,14 @@ internal object LessonLibraryStore {
                         emptyList()
                     }
                 }
+            _notedIds.value = withContext(Dispatchers.IO) { storedNotesIds(files) }
         }
+
+    private fun storedNotesIds(files: File): Set<String> =
+        File(files, NOTES_DIRECTORY)
+            .listFiles { file -> file.isFile && file.name.endsWith(".json") }
+            ?.mapTo(HashSet()) { it.name.removeSuffix(".json") }
+            .orEmpty()
 
     suspend fun record(record: LessonRecord) =
         lock.withLock {
@@ -93,6 +104,7 @@ internal object LessonLibraryStore {
             try {
                 check(file.parentFile?.let { it.isDirectory || it.mkdirs() } == true)
                 writeAtomically(file, notes.toJson().toString())
+                _notedIds.value = _notedIds.value + videoId
             } catch (error: IOException) {
                 Log.w(TAG, "Lesson notes not saved", error)
             } catch (error: IllegalStateException) {

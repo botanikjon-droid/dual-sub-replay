@@ -228,6 +228,7 @@ private fun shokalonHomeScreen(
                 },
                 onDismiss = onDismiss,
                 onSettings = onSettings,
+                study = SectionStudyActions(viewModel.sectionNotesProgress, viewModel::writeSectionNotes, viewModel::cancelSectionNotes),
             )
         }
     }

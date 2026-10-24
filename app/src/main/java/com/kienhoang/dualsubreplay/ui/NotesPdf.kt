@@ -204,16 +204,40 @@ internal suspend fun buildNotesPdf(
     context: Context,
     videoId: String?,
 ): Pair<File, Int> =
+    buildNotesPdf(
+        context,
+        name = if (videoId == null) "UZI-konspektlar.pdf" else "UZI-konspekt-$videoId.pdf",
+        bookTitle = NOTES_BOOK_TITLE,
+    ) { videoId == null || it == videoId }
+
+/** Builds the PDF of the lessons of a section, in the section's order, in the app's cache. */
+internal suspend fun buildSectionNotesPdf(
+    context: Context,
+    section: String,
+    videoIds: List<String>,
+): Pair<File, Int> {
+    val name = "UZI-" + section.replace(Regex("[^\\p{L}\\p{N}]+"), "-").trim('-').take(MAX_NAME_CHARS) + ".pdf"
+    return buildNotesPdf(context, name, "$section: konspekt va testlar", order = videoIds) { it in videoIds }
+}
+
+private const val MAX_NAME_CHARS = 40
+
+private suspend fun buildNotesPdf(
+    context: Context,
+    name: String,
+    bookTitle: String,
+    order: List<String>? = null,
+    include: (String) -> Boolean,
+): Pair<File, Int> =
     withContext(Dispatchers.IO) {
-        val lessons: List<PrintableLesson> =
-            LessonLibraryStore.allNotes().filter { videoId == null || it.videoId == videoId }
+        val found = LessonLibraryStore.allNotes().filter { include(it.videoId) }
+        val lessons: List<PrintableLesson> = order?.let { ids -> found.sortedBy { ids.indexOf(it.videoId) } } ?: found
         check(lessons.isNotEmpty()) { "Konspekt yo‘q. Avval “Konspekt va test” ni yozdiring." }
         val day = SimpleDateFormat("dd.MM.yyyy", Locale.ROOT).format(Date())
         val subtitle = "${lessons.size} ta dars · $day · ${appBrand().name}"
         val folder = File(context.cacheDir, "notes-pdf").apply { mkdirs() }
-        val name = if (videoId == null) "UZI-konspektlar.pdf" else "UZI-konspekt-$videoId.pdf"
         val file = File(folder, name)
-        writeNotesPdf(notesPrintBlocks(lessons, subtitle), file)
+        writeNotesPdf(notesPrintBlocks(lessons, subtitle, bookTitle), file)
         file to lessons.size
     }
 
@@ -263,9 +287,14 @@ private class PdfFileAdapter(
     }
 }
 
-/** "PDF saqlash" and "Chop etish", for the open lesson or for every lesson's notes together. */
+/** Builds a PDF and then saves it where the doctor chooses, or sends it to the printer. */
+internal class PdfRunner(
+    val message: String?,
+    val run: (print: Boolean, build: suspend () -> Pair<File, Int>) -> Unit,
+)
+
 @Composable
-internal fun NotesPdfButtons(activeVideoId: String?) {
+internal fun rememberPdfRunner(): PdfRunner {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var message by remember { mutableStateOf<String?>(null) }
@@ -287,16 +316,12 @@ internal fun NotesPdfButtons(activeVideoId: String?) {
                     }
             }
         }
-
-    fun run(
-        videoId: String?,
-        print: Boolean,
-    ) {
+    return PdfRunner(message) { print, build ->
         message = "PDF tayyorlanmoqda…"
         scope.launch {
             message =
                 try {
-                    val (file, count) = buildNotesPdf(context, videoId)
+                    val (file, count) = build()
                     if (print) {
                         printPdf(context, file)
                     } else {
@@ -313,6 +338,18 @@ internal fun NotesPdfButtons(activeVideoId: String?) {
                 }
         }
     }
+}
+
+/** "PDF saqlash" and "Chop etish", for the open lesson or for every lesson's notes together. */
+@Composable
+internal fun NotesPdfButtons(activeVideoId: String?) {
+    val context = LocalContext.current
+    val runner = rememberPdfRunner()
+
+    fun run(
+        videoId: String?,
+        print: Boolean,
+    ) = runner.run(print) { buildNotesPdf(context, videoId) }
 
     Text("PDF va chop etish")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -326,5 +363,5 @@ internal fun NotesPdfButtons(activeVideoId: String?) {
             run(null, print = true)
         }) { Text("Barcha konspektlar: chop etish") }
     }
-    message?.let { Hint(it) }
+    runner.message?.let { Hint(it) }
 }

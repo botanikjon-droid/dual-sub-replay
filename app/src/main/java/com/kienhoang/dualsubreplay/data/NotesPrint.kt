@@ -49,12 +49,15 @@ internal fun printOrder(
     return listed + notesIds.filterNot { it in listed }.sorted()
 }
 
+internal const val NOTES_BOOK_TITLE = "UZI darslari: konspekt"
+
 internal fun notesPrintBlocks(
     lessons: List<PrintableLesson>,
     bookSubtitle: String,
+    bookTitle: String = NOTES_BOOK_TITLE,
 ): List<PrintBlock> =
     buildList {
-        add(PrintBlock.BookTitle("UZI darslari: konspekt", bookSubtitle))
+        add(PrintBlock.BookTitle(bookTitle, bookSubtitle))
         lessons.forEach { lesson -> addAll(lessonBlocks(lesson)) }
     }
 

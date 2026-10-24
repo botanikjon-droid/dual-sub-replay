@@ -99,11 +99,12 @@ internal fun LessonNotesCard(
     }
 }
 
+/** A lesson's notes: pictures, konspekt, terms and quiz. [onCaptureFrames] is null away from the open lesson. */
 @Composable
-private fun NotesBody(
+internal fun NotesBody(
     videoId: String,
     notes: LessonNotes,
-    onCaptureFrames: () -> Unit,
+    onCaptureFrames: (() -> Unit)?,
 ) {
     HorizontalDivider()
     NoteFrames(videoId, notes.frames, onCaptureFrames)
@@ -128,15 +129,15 @@ private fun NotesBody(
 private fun NoteFrames(
     videoId: String,
     frames: List<NoteFrame>,
-    onCaptureFrames: () -> Unit,
+    onCaptureFrames: (() -> Unit)?,
 ) {
     if (frames.isEmpty()) {
-        Hint("Video ko\u2018rayotganda subtitr ustidagi \uD83D\uDCF7 tugmasi ekrandagi UZI kadrini konspektga qo\u2018shadi.")
+        if (onCaptureFrames != null) Hint(FRAME_BUTTON_HINT)
         return
     }
     val missing = frames.count { it.image.isEmpty() }
     Text("Rasmli konspekt (${frames.size - missing} / ${frames.size} kadr)", fontWeight = FontWeight.SemiBold)
-    if (missing > 0) {
+    if (missing > 0 && onCaptureFrames != null) {
         Button(onClick = onCaptureFrames, modifier = Modifier.fillMaxWidth().testTag("capture_note_frames")) {
             Text("\uD83D\uDCF7 Kadrlarni videodan olish ($missing ta)")
         }
@@ -149,6 +150,9 @@ private fun NoteFrames(
         }
     }
 }
+
+private const val FRAME_BUTTON_HINT =
+    "Video ko‘rayotganda subtitr ustidagi 📷 tugmasi ekrandagi UZI kadrini konspektga qo‘shadi."
 
 @Composable
 private fun FrameImage(file: File?) {
@@ -184,7 +188,7 @@ private fun Quiz(notes: LessonNotes) {
 }
 
 @Composable
-private fun QuizItem(
+internal fun QuizItem(
     index: Int,
     question: QuizQuestion,
     chosen: Int?,
