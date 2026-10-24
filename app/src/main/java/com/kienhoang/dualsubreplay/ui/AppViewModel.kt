@@ -1770,13 +1770,19 @@ class AppViewModel internal constructor(
         }
         try {
             withContext(Dispatchers.IO) {
+                // A stored translation is punctuated, unlike YouTube's automatic English: its sentences set the rows.
+                val stored = importedTranslation?.takeIf { it.first == videoId }?.second
                 displayStore =
-                    prepareCaptionDisplayStore(
-                        source = rawStore,
-                        directory = subtitleDirectory,
-                        format = format,
-                        natural = natural,
-                    )
+                    if (stored != null) {
+                        prepareImportedSentenceStore(rawStore, stored, subtitleDirectory)
+                    } else {
+                        prepareCaptionDisplayStore(
+                            source = rawStore,
+                            directory = subtitleDirectory,
+                            format = format,
+                            natural = natural,
+                        )
+                    }
                 // The uz build's Gemini translator sends the coming sentences together, so it needs them.
                 if (BUILD_PREFERS_WHOLE_SENTENCE) {
                     com.kienhoang.dualsubreplay.translation.TranslationLookahead.sentences =
