@@ -49,12 +49,8 @@ private val DISTRACTION_SELECTORS =
         // Comments.
         "ytm-comments-entry-point-header-renderer",
         "ytm-comment-section-renderer",
-        // Bottom tabs (Home, Shorts, Subscriptions) and promotions.
+        // Bottom tabs (Home, Shorts, Subscriptions) and banners.
         "ytm-pivot-bar-renderer",
-        "ytm-promoted-sparkles-web-renderer",
-        "ytm-companion-ad-renderer",
-        "ad-slot-renderer",
-        "ytm-merch-shelf-renderer",
         "ytm-statement-banner-renderer",
         // Videos offered inside the player: end screen, cards, autoplay countdown, pause overlay.
         ".ytp-endscreen-content",

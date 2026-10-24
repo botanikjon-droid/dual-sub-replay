@@ -116,7 +116,7 @@ internal fun RowScope.SubtitleModeButton(
 
 private fun mark(selected: Boolean): String = if (selected) "\u2713 " else ""
 
-/** The full-screen button of the top bar: YouTube's own full screen, with the subtitles on the video. */
+/** The full-screen button of the top bar: the app's own full screen (YouTube's own button works too). */
 @Composable
 internal fun RowScope.FullscreenButton(
     activeVideoId: String?,

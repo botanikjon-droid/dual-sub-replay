@@ -210,15 +210,12 @@ internal class YouTubeWebController {
 
     fun bindScripts(action: (String) -> Unit) { scriptAction = action }
 
-    private var fullscreenAction: (() -> Unit)? = null
-
-    fun bindFullscreen(action: () -> Unit) {
-        fullscreenAction = action
-    }
-
-    /** YouTube's own full screen (its button is tapped for the doctor); the app's own one when that fails. */
+    /**
+     * The app's own full screen. The page's own full-screen button is left to the doctor's finger: the app never
+     * sends taps of its own into the page.
+     */
     fun enterFullscreen() {
-        fullscreenAction?.invoke() ?: run { shokalonFullscreen.value = true }
+        shokalonFullscreen.value = true
     }
 
     /** Opens another YouTube page in the same WebView, as a tap on a link would. */
@@ -544,9 +541,6 @@ internal fun SingleYouTubePage(
         }
     }
 
-    // The full-screen button of the app's bar taps YouTube's own full-screen button.
-    LaunchedEffect(webView) { controller.bindFullscreen { tapYouTubeFullscreen(webView) } }
-
     // SHOKALON's own full screen: the player fills the page while it is on.
     LaunchedEffect(webView) {
         if (!shokalonFocusMode) return@LaunchedEffect
@@ -804,62 +798,5 @@ internal fun WebPageErrorCard(
                 Text("Reload")
             }
         }
-    }
-}
-
-/** Where YouTube's full-screen button is (CSS pixels, its centre), or the video's corner to show the controls. */
-private const val FULLSCREEN_BUTTON_SCRIPT =
-    "(function(){var s='button.fullscreen-icon,.fullscreen-icon,.ytp-fullscreen-button," +
-        "button[aria-label*=\\\"ull screen\\\" i],button[aria-label*=\\\"ullscreen\\\" i]';" +
-        "var b=document.querySelector(s);var v=document.querySelector('video');if(!b&&!v)return '';" +
-        "var r=(b||v).getBoundingClientRect();if(r.width<1)return '';" +
-        "return JSON.stringify({found:!!b,x:r.left+r.width/2,y:r.top+r.height/2,dpr:window.devicePixelRatio||1});})()"
-
-private const val CONTROLS_SHOW_DELAY_MS = 450L
-
-/**
- * A full screen the page accepts must start from a real touch, so the touch is given to the WebView at the
- * place of YouTube's full-screen button: one tap shows the player controls, the next presses the button.
- * When the button cannot be found, the app's own full screen is used instead.
- */
-private fun tapYouTubeFullscreen(webView: WebView) {
-    fun locate(then: (org.json.JSONObject?) -> Unit) =
-        webView.evaluateJavascript(FULLSCREEN_BUTTON_SCRIPT) { raw ->
-            val text = runCatching { JSONTokener(raw).nextValue() as? String }.getOrNull()
-            then(text?.takeIf(String::isNotBlank)?.let { runCatching { JSONObject(it) }.getOrNull() })
-        }
-    locate { first ->
-        if (first == null) {
-            shokalonFullscreen.value = true
-            return@locate
-        }
-        if (youtubePlayerControlsVisible.value && first.optBoolean("found")) {
-            // The controls are showing: one tap on the button is enough.
-            tapAt(webView, first)
-            return@locate
-        }
-        tapAt(webView, first)
-        webView.postDelayed({
-            if (youtubeFullscreenActive.value) return@postDelayed
-            locate { button ->
-                if (button?.optBoolean("found") == true) tapAt(webView, button) else shokalonFullscreen.value = true
-            }
-        }, CONTROLS_SHOW_DELAY_MS)
-    }
-}
-
-private fun tapAt(
-    webView: WebView,
-    point: org.json.JSONObject,
-) {
-    val scale = point.optDouble("dpr", 1.0).toFloat()
-    val x = point.optDouble("x").toFloat() * scale
-    val y = point.optDouble("y").toFloat() * scale
-    val time = android.os.SystemClock.uptimeMillis()
-    for ((action, at) in listOf(android.view.MotionEvent.ACTION_DOWN to time, android.view.MotionEvent.ACTION_UP to time + 60)) {
-        val event = android.view.MotionEvent.obtain(time, at, action, x, y, 0)
-        event.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
-        webView.dispatchTouchEvent(event)
-        event.recycle()
     }
 }
