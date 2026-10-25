@@ -164,7 +164,7 @@ internal fun SentenceCheckHost(
         },
         confirmButton = {
             Button(
-                enabled = uzbek.isNotBlank() && uzbek.trim() != shown.translatedText?.trim(),
+                enabled = uzbek.trim() != shown.translatedText?.trim(),
                 onClick = {
                     scope.launch {
                         message =
@@ -180,7 +180,7 @@ internal fun SentenceCheckHost(
                     }
                 },
                 modifier = Modifier.testTag("sentence_check_save"),
-            ) { Text("Saqlash") }
+            ) { Text(if (uzbek.isBlank()) "Gapni o\u2018chirish" else "Saqlash") }
         },
         dismissButton = { TextButton(onClick = { sentenceToCheck.value = null }) { Text("Yopish") } },
     )

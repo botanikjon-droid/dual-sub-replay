@@ -109,7 +109,9 @@ internal fun applyImportedTranslation(
     val assigned = Array(rows.size) { mutableListOf<String>() }
     val windowStart = rows.minOf { it.startMs }
     val windowEnd = rows.maxOf { it.endMs }
-    cues.forEach { cue ->
+    // Rows follow sentences, and a stored cue can end one sentence and start the next: each part of such a
+    // cue goes to its own row, never the whole cue to one (which showed and spoke a sentence twice).
+    splitCuesAtSentenceEnds(cues).forEach { cue ->
         if (cue.endMs <= windowStart || cue.startMs >= windowEnd) return@forEach
         var best = -1
         var bestOverlap = 0L

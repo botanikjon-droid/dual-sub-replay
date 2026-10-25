@@ -90,7 +90,8 @@ internal fun parseReviewFile(text: String): List<ReviewSentence> {
 }
 
 /**
- * Stored cues with the sentence from [startMs] to [endMs] replaced by [text] as one cue over that time. A cue
+ * Stored cues with the sentence from [startMs] to [endMs] replaced by [text] as one cue over that time (removed
+ * when [text] is empty). A cue
  * belongs to the sentence when its middle lies inside it, so a neighbour that only touches it stays.
  */
 internal fun applySentenceCorrection(
@@ -100,10 +101,10 @@ internal fun applySentenceCorrection(
     text: String,
 ): List<RawCaptionCue> {
     val clean = text.replace(Regex("\\s+"), " ").trim()
-    require(clean.isNotEmpty()) { "Tarjima bo‘sh bo‘lmasin." }
     // Rows are built from cues cut at sentence ends, so the sentence is found among the same pieces.
     val kept = splitCuesAtSentenceEnds(cues).filterNot { (it.startMs + it.endMs) / 2 in startMs until endMs }
-    return (kept + RawCaptionCue(startMs, endMs, clean)).sortedBy { it.startMs }
+    // An empty text deletes the sentence (a part that was said twice).
+    return (if (clean.isEmpty()) kept else kept + RawCaptionCue(startMs, endMs, clean)).sortedBy { it.startMs }
 }
 
 /** What a search-and-replace changed: the new cues, how many places, and a few of them for a preview. */

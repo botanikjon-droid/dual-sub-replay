@@ -113,7 +113,8 @@ internal fun parseSentenceFixes(
     return sentences.mapIndexed { index, sentence ->
         val item = byNumber[index + 1]
         val uzbek = item?.optString("uzbek")?.trim().orEmpty()
-        val changed = item != null && item.optBoolean("changed") && uzbek.isNotEmpty() && uzbek != sentence.uzbek.trim()
+        // Claude's text counts whenever it differs, even if it forgot to set "changed".
+        val changed = item != null && uzbek.isNotEmpty() && uzbek != sentence.uzbek.trim()
         SentenceFix(
             sentence,
             if (changed) uzbek else sentence.uzbek,

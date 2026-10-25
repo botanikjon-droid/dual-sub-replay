@@ -988,7 +988,7 @@ class AppViewModel internal constructor(
     ): String {
         val cues = storedTranslationCues() ?: throw IllegalStateException(NO_STORED_TRANSLATION_MESSAGE)
         saveEditedTranslation(applySentenceCorrection(cues, startMs, endMs, text))
-        return "Gap tuzatildi va saqlandi."
+        return if (text.isBlank()) "Gap o\u2018chirildi." else "Gap tuzatildi va saqlandi."
     }
 
     /** The marked sentences of the open lesson as one file to check elsewhere (all sentences when none is marked). */

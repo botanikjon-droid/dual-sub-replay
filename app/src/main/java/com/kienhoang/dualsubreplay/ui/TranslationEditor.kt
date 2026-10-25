@@ -4,10 +4,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -17,6 +20,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kienhoang.dualsubreplay.data.ReviewSentence
 import com.kienhoang.dualsubreplay.translation.SentenceFix
@@ -51,17 +55,23 @@ internal fun TranslationEditor(
     var mode by remember(sentence.startMs) { mutableStateOf(EditMode.HAND) }
     var meaning by remember(sentence.startMs) { mutableStateOf("") }
     var asking by remember(sentence.startMs) { mutableStateOf(false) }
+    var answer by remember(sentence.startMs) { mutableStateOf<SentenceFix?>(null) }
 
     fun ask(note: String?) {
         val fix = fixer ?: return
         asking = true
+        answer = null
         onMessage(if (note == null) "Claude tekshirmoqda…" else "Claude siz yozgan ma’noda gap tuzmoqda…")
         scope.launch {
             claudeCall { fix(sentence.copy(uzbek = uzbek), note) }
                 .onSuccess { result ->
                     if (result.changed) onUzbek(result.uzbek)
+                    answer = result
                     onMessage(fixMessage(result, note != null))
-                }.onFailure { onMessage(it.message ?: "Claude javob bermadi.") }
+                }.onFailure {
+                    answer = null
+                    onMessage(it.message ?: "Claude javob bermadi.")
+                }
             asking = false
         }
     }
@@ -107,6 +117,24 @@ internal fun TranslationEditor(
                     onClick = { ask(meaning.trim()) },
                     modifier = Modifier.testTag("sentence_meaning_claude"),
                 ) { Text("Claude shu ma’noda yozsin") }
+        }
+        answer?.let { ClaudeAnswer(it) }
+    }
+}
+
+/** Claude's answer right under the button: the new sentence (already in the field) and why. */
+@Composable
+private fun ClaudeAnswer(fix: SentenceFix) {
+    Surface(shape = MaterialTheme.shapes.medium, tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth().testTag("claude_answer")) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Claude javobi", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            if (fix.changed) {
+                Text(fix.uzbek, style = MaterialTheme.typography.bodyMedium, color = FIXED_GREEN, fontWeight = FontWeight.Medium)
+                if (fix.reason.isNotBlank()) Hint("Sabab: ${fix.reason}")
+                Hint("Yuqoridagi maydonga qo‘yildi. Tekshirib, \u201CSaqlash\u201D ni bosing.")
+            } else {
+                Text("O‘zgartirish kerak emas: tarjima to‘g‘ri.", style = MaterialTheme.typography.bodyMedium)
+            }
         }
     }
 }
