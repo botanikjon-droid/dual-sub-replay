@@ -276,7 +276,8 @@ private fun TranslatedCardText(
         } else {
             AnnotatedString(translatedText ?: fallbackText)
         }
-    if (wordLearningEnabled && tapToLearnEnabled && translatedText != null) {
+    // SHOKALON: a word of the Uzbek line is always tappable, to replace it.
+    if ((shokalonFocusMode || wordLearningEnabled && tapToLearnEnabled) && translatedText != null) {
         SelectableSubtitleText(
             text = translatedText,
             annotated = annotatedTrans,
@@ -292,7 +293,7 @@ private fun TranslatedCardText(
             highlightColor = highlightColor,
             onWordClick = onWordClick,
             onBlankTap = onReplay,
-            alignedOriginalTokens = originalTokens,
+            alignedOriginalTokens = originalTokens.takeIf { it.isNotEmpty() },
         )
     } else {
         Text(
