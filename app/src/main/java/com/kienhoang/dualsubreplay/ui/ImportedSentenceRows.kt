@@ -3,6 +3,7 @@ package com.kienhoang.dualsubreplay.ui
 import com.kienhoang.dualsubreplay.data.RawCaptionCue
 import com.kienhoang.dualsubreplay.data.SubtitleSegment
 import com.kienhoang.dualsubreplay.data.SubtitleStore
+import com.kienhoang.dualsubreplay.data.splitCuesAtSentenceEnds
 import java.io.File
 
 /*
@@ -22,10 +23,10 @@ internal data class TranslatedSentenceSpan(
 
 private val SENTENCE_END = Regex("""[.!?…][”"»')\]]*$""")
 private val NON_SPEECH = Regex("""^(♪+|\[[^\]]*])$""")
-private const val MAX_CUES_PER_SENTENCE = 6
+private const val MAX_CUES_PER_SENTENCE = 8
 private const val MAX_SENTENCE_MS = 30_000L
 
-/** Joins stored cues until the Uzbek text ends a sentence; music and [bracketed] cues stay alone. */
+/** Joins stored cues (cut at inner sentence ends) until the Uzbek ends a sentence; music and [bracketed] cues stay alone. */
 internal fun translatedSentenceSpans(cues: List<RawCaptionCue>): List<TranslatedSentenceSpan> {
     val spans = mutableListOf<TranslatedSentenceSpan>()
     val open = mutableListOf<RawCaptionCue>()
@@ -40,7 +41,8 @@ internal fun translatedSentenceSpans(cues: List<RawCaptionCue>): List<Translated
             )
         open.clear()
     }
-    cues.sortedBy { it.startMs }.forEach { cue ->
+    // A cue that ends one sentence and starts the next is cut there, so a row closes at the sentence end.
+    splitCuesAtSentenceEnds(cues).sortedBy { it.startMs }.forEach { cue ->
         val text = cue.text.trim()
         if (text.isEmpty()) return@forEach
         if (NON_SPEECH.matches(text)) {

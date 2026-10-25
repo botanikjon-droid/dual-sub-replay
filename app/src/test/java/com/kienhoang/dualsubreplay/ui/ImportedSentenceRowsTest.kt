@@ -39,9 +39,9 @@ class ImportedSentenceRowsTest {
     }
 
     @Test
-    fun aSentenceWithoutPunctuationStopsAtSixCues() {
-        val cues = (0 until 8).map { cue(it * 1_000L, it * 1_000L + 1_000, "so‘z") }
-        assertEquals(listOf(6, 2), translatedSentenceSpans(cues).map { it.text.split(" ").size })
+    fun aSentenceWithoutPunctuationStopsAtEightCues() {
+        val cues = (0 until 10).map { cue(it * 1_000L, it * 1_000L + 1_000, "so‘z") }
+        assertEquals(listOf(8, 2), translatedSentenceSpans(cues).map { it.text.split(" ").size })
     }
 
     @Test

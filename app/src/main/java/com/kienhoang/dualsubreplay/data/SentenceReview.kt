@@ -101,7 +101,8 @@ internal fun applySentenceCorrection(
 ): List<RawCaptionCue> {
     val clean = text.replace(Regex("\\s+"), " ").trim()
     require(clean.isNotEmpty()) { "Tarjima bo‘sh bo‘lmasin." }
-    val kept = cues.filterNot { (it.startMs + it.endMs) / 2 in startMs until endMs }
+    // Rows are built from cues cut at sentence ends, so the sentence is found among the same pieces.
+    val kept = splitCuesAtSentenceEnds(cues).filterNot { (it.startMs + it.endMs) / 2 in startMs until endMs }
     return (kept + RawCaptionCue(startMs, endMs, clean)).sortedBy { it.startMs }
 }
 

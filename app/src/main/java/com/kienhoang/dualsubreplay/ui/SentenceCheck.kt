@@ -52,7 +52,6 @@ import com.kienhoang.dualsubreplay.data.readBoundedText
 import com.kienhoang.dualsubreplay.data.reviewFileText
 import com.kienhoang.dualsubreplay.data.reviewTime
 import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
-import com.kienhoang.dualsubreplay.translation.SentenceFix
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -94,7 +93,7 @@ internal fun SentenceCheckHost(
     lessonTitle: String?,
     onSave: suspend (startMs: Long, endMs: Long, text: String) -> String,
     onToggleMark: (startMs: Long, endMs: Long) -> Boolean,
-    onClaudeFix: (suspend (ReviewSentence) -> SentenceFix)? = null,
+    onClaudeFix: SentenceFixer? = null,
 ) {
     val segment by sentenceToCheck.collectAsStateWithLifecycle()
     val shown = segment ?: return
@@ -118,11 +117,12 @@ internal fun SentenceCheckHost(
             ) {
                 Text("Inglizcha (eshitilgani)", style = MaterialTheme.typography.labelLarge)
                 SelectionContainer { Text(shown.originalText, style = MaterialTheme.typography.bodyMedium) }
-                OutlinedTextField(
-                    value = uzbek,
-                    onValueChange = { uzbek = it },
-                    label = { Text("O‘zbekcha tarjima") },
-                    modifier = Modifier.fillMaxWidth().testTag("sentence_check_uzbek"),
+                TranslationEditor(
+                    ReviewSentence(shown.startMs, shown.endMs, shown.originalText, uzbek),
+                    uzbek,
+                    onUzbek = { uzbek = it },
+                    onMessage = { message = it },
+                    fixer = onClaudeFix,
                 )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OutlinedButton(onClick = {
@@ -157,15 +157,6 @@ internal fun SentenceCheckHost(
                     OutlinedButton(onClick = {
                         message = if (onToggleMark(shown.startMs, shown.endMs)) MARKED else UNMARKED
                     }) { Text(if (marked) "Ro‘yxatdan olish" else "Tekshirish ro‘yxatiga") }
-                    if (onClaudeFix != null) {
-                        ClaudeSentenceButton(
-                            ReviewSentence(shown.startMs, shown.endMs, shown.originalText, uzbek),
-                            onClaudeFix,
-                        ) { fixed, note ->
-                            fixed?.let { uzbek = it }
-                            message = note
-                        }
-                    }
                 }
                 Hint(MARK_LIST_HINT)
                 message?.let { Text(it, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold) }
@@ -195,35 +186,9 @@ internal fun SentenceCheckHost(
     )
 }
 
-/** "Claude bilan tuzatish" of one sentence: [onResult] gets Claude's Uzbek (null when right) and a note. */
-@Composable
-private fun ClaudeSentenceButton(
-    sentence: ReviewSentence,
-    fix: suspend (ReviewSentence) -> SentenceFix,
-    onResult: (String?, String) -> Unit,
-) {
-    val scope = rememberCoroutineScope()
-    var asking by remember(sentence.startMs) { mutableStateOf(false) }
-    Button(enabled = !asking, onClick = {
-        asking = true
-        onResult(null, "Claude tekshirmoqda…")
-        scope.launch {
-            claudeCall { fix(sentence) }
-                .onSuccess { result ->
-                    val note = if (result.changed) "Claude: ${result.reason} $CLAUDE_SAVE_HINT" else CLAUDE_RIGHT
-                    onResult(result.uzbek.takeIf { result.changed }, note)
-                }.onFailure { onResult(null, it.message ?: "Claude javob bermadi.") }
-            asking = false
-        }
-    }, modifier = Modifier.testTag("sentence_check_claude")) { Text("Claude bilan tuzatish") }
-}
-
 private const val MARK_LIST_HINT =
     "Ro‘yxatdagi gaplar “Dars” ekranidagi “Tekshirish fayli” bilan bitta faylga chiqadi; " +
         "tuzatilgan fayl o‘sha yerda qayta yuklanadi."
-
-private const val CLAUDE_SAVE_HINT = "\u2014 tekshirib, \u201CSaqlash\u201D ni bosing."
-private const val CLAUDE_RIGHT = "Claude: gap to\u2018g\u2018ri."
 
 /** The Uzbek of a pasted answer: the text after "UZ:" when the answer repeats the block, else all of it. */
 internal fun pastedUzbek(pasted: String): String {

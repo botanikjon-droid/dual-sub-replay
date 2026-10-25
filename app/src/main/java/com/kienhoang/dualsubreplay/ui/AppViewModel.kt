@@ -1027,7 +1027,10 @@ class AppViewModel internal constructor(
     }
 
     /** Claude's check of one sentence (the long-pressed one). */
-    internal suspend fun claudeFixOne(sentence: ReviewSentence): SentenceFix = fixSentencesWithClaude(listOf(sentence)).first()
+    internal suspend fun claudeFixOne(
+        sentence: ReviewSentence,
+        meaning: String?,
+    ): SentenceFix = fixSentencesWithClaude(listOf(sentence), meaning?.let(::meaningRequest)).first()
 
     /** "Claude bilan tuzatish" of the marked sentences (all when none is marked). */
     internal val claudeFixActions =
