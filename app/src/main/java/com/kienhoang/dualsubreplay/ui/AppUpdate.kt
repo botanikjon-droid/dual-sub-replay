@@ -1,9 +1,12 @@
 package com.kienhoang.dualsubreplay.ui
 
+import android.app.DownloadManager
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,10 +40,11 @@ import java.net.URL
 /*
  * "Dasturni yangilash" for the Uzbek build. CI publishes each Uzbek build as the uz-latest
  * pre-release of the doctor's fork; its notes name the CI run ("(run 31)"), and the installed build's
- * version name ends with the same number ("-uz-build31"). The dialog compares the two and opens the APK's
- * download link in the browser; Android's own downloads and installer take it from there. The app itself
- * never downloads or installs APKs (no install permission), so it does not look like an app installer.
- * Only public release data is read; nothing is sent.
+ * version name ends with the same number ("-uz-build31"). The dialog compares the two and hands the APK's
+ * link to Android's own download service (the browser's in-app tab could stop at 100 % without saving the
+ * file); its "download complete" notification opens Android's installer. The app itself never downloads or
+ * installs APKs (no install permission), so it does not look like an app installer. Only public release
+ * data is read; nothing is sent.
  */
 
 private suspend fun fetchUzRelease(): UzRelease =
@@ -72,7 +76,39 @@ private fun openInBrowser(
         false
     }
 
-/** Checks uz-latest and opens the new APK's download in the browser. */
+/**
+ * Gives the APK to Android's download service (Downloads folder, a notification that opens the installer
+ * when done). Android 9 and older would need a storage permission for that, so there the browser opens.
+ */
+private fun startDownload(
+    context: Context,
+    url: String,
+    build: Int?,
+): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return openInBrowser(context, url)
+    val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager ?: return openInBrowser(context, url)
+    val name = "SHOKALON-build${build ?: "yangi"}.apk"
+    val request =
+        DownloadManager
+            .Request(Uri.parse(url))
+            .setTitle(name)
+            .setDescription("SHOKALON yangilanishi: tugagach bosing va \u201CO\u2018rnatish\u201Dni tanlang")
+            .setMimeType(APK_MIME)
+            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name)
+    return try {
+        manager.enqueue(request)
+        true
+    } catch (error: IllegalStateException) {
+        openInBrowser(context, url)
+    } catch (error: IllegalArgumentException) {
+        openInBrowser(context, url)
+    }
+}
+
+private const val APK_MIME = "application/vnd.android.package-archive"
+
+/** Checks uz-latest and starts the new APK's download. */
 @Composable
 internal fun AppUpdateDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -100,10 +136,10 @@ internal fun AppUpdateDialog(onDismiss: () -> Unit) {
                 enabled = release != null || error != null,
                 modifier = Modifier.testTag("download_update"),
                 onClick = {
-                    opened = openInBrowser(context, release?.apkUrl ?: UZ_APK_URL)
-                    if (!opened) error = "Brauzer topilmadi."
+                    opened = startDownload(context, release?.apkUrl ?: UZ_APK_URL, release?.build)
+                    if (!opened) error = "Yuklab olishni boshlab bo\u2018lmadi."
                 },
-            ) { Text("Brauzerda yuklab olish") }
+            ) { Text("Yuklab olish") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Yopish") } },
     )
@@ -138,7 +174,10 @@ private fun UpdateDialogBody(
             }
         }
         if (opened) {
-            Text("Yuklab olish brauzerda boshlandi. Tugagach, yuklangan faylni oching va “O‘rnatish”ni bosing.")
+            Text(
+                "Yuklab olish boshlandi (bildirishnomalar panelida ko\u2018rinadi). Tugagach, \u201CYuklab olindi\u201D " +
+                    "bildirishnomasini bosing va \u201CO\u2018rnatish\u201Dni tanlang. Fayl \u201CDownload\u201D papkasida ham bo\u2018ladi.",
+            )
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
