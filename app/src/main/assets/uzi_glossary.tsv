@@ -270,3 +270,7 @@ id	category	english	aliases	uzbek	note	status	general
 267	Umumiy patologiya	benign tumor	benign tumour	yaxshi sifatli o‘sma		new	0
 268	Umumiy patologiya	malignant tumor	malignant tumour	yomon sifatli o‘sma		new	0
 269	Qorin bo‘shlig‘i a’zolari	lymphatic vessel	lymphatic vessels; lymph vessel; lymph vessels	limfa tomiri		new	0
+270	Tasvir va exogenlik	plane	planes; scan plane; scanning plane; imaging plane; image plane; section plane	kesim (tekislik)	Ultratovush kesimi (skanerlash tekisligi). 'Samolyot' deb tarjima qilinmaydi.	new	0
+271	Tasvir va exogenlik	sagittal plane	sagittal section; sagittal view; sagittal planes	sagittal kesim		new	0
+272	Tasvir va exogenlik	transverse plane	transverse view; axial plane; transverse planes	ko‘ndalang kesim		new	0
+273	Tasvir va exogenlik	coronal plane	coronal section; coronal view; coronal planes	frontal (koronar) kesim		new	0

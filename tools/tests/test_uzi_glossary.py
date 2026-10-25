@@ -65,11 +65,11 @@ class AssetTest(unittest.TestCase):
         self.assertEqual(header, conv.HEADER)
         rows = [l.split("\t") for l in body]
         self.assertTrue(all(len(r) == len(conv.HEADER) for r in rows))
-        self.assertEqual(len(rows), 269)
+        self.assertEqual(len(rows), 273)
         statuses = [r[6] for r in rows]
         self.assertEqual(statuses.count("approved"), 168)
         self.assertEqual(statuses.count("corrected"), 59)
-        self.assertEqual(statuses.count("new"), 42)
+        self.assertEqual(statuses.count("new"), 46)
         self.assertEqual(sum(r[7] == "1" for r in rows), 20)
 
     @unittest.skipUnless(importlib.util.find_spec("openpyxl"), "openpyxl not installed")
