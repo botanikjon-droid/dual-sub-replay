@@ -32,6 +32,8 @@ internal val SENTENCE_FIX_SYSTEM =
     or mishear words) and the current Uzbek. Check the Uzbek for: wrong medical meaning, wrong or inconsistent
     terms (prefer the glossary terms), missing or added content, unnatural word order, grammar and spelling
     (Uzbek Latin script; write o‘ and g‘ with the ‘ sign, and ’ for the tutuq belgisi).
+    Translate idioms by meaning, say spoken filler and repeated stage talk once and briefly, and ignore the
+    stray capital letters of automatic captions in the middle of sentences.
     If the Uzbek is already correct, return it unchanged with changed=false. Otherwise return the whole
     corrected sentence and changed=true. Keep numbers, units and abbreviations as in the lecture.
     The reason is one short Uzbek sentence naming what was wrong (empty when unchanged).
