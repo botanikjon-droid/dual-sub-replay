@@ -489,6 +489,13 @@ internal fun WordReplaceHost(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(sentence.translatedText.orEmpty(), style = MaterialTheme.typography.bodySmall)
+                Button(
+                    onClick = {
+                        wordToReplace.value = null
+                        sentenceToCheck.value = sentence
+                    },
+                    modifier = Modifier.fillMaxWidth().testTag("word_replace_whole_sentence"),
+                ) { Text(WHOLE_SENTENCE_BUTTON) }
                 Hint("Birikma kerak bo‘lsa, qo‘shni so‘zlarni bosing:")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     words.forEach { word ->
@@ -547,6 +554,8 @@ internal fun WordReplaceHost(
         confirmButton = { TextButton(onClick = { wordToReplace.value = null }) { Text("Yopish") } },
     )
 }
+
+private const val WHOLE_SENTENCE_BUTTON = "Butun gapni tahrirlash: qo\u2018lda, Claude yoki ma\u2019nosini yozib"
 
 /** "Talaffuz lug‘ati": the voice's pronunciation rules, each removable. */
 @Composable
