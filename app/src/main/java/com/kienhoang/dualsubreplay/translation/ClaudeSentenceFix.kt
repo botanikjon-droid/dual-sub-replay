@@ -37,8 +37,10 @@ internal val SENTENCE_FIX_SYSTEM =
     If the Uzbek is already correct, return it unchanged with changed=false. Otherwise return the whole
     corrected sentence and changed=true. Keep numbers, units and abbreviations as in the lecture.
     The reason is one short Uzbek sentence naming what was wrong (empty when unchanged).
+    The doctor's own rules (Uzbek) decide style and meaning:
+    {{DOCTOR_RULES}}
     Answer every sentence with the $SENTENCE_FIX_TOOL tool.
-    """.trimIndent()
+    """.trimIndent().replace("{{DOCTOR_RULES}}", DOCTOR_RULES)
 
 /** The user message: the lecture, the glossary terms that occur, and the numbered sentences. */
 internal fun sentenceFixPrompt(

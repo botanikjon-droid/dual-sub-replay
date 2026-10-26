@@ -25,4 +25,21 @@ class ClaudeSentenceFirstTest {
     fun geminiKeepsItsShorterAnswer() {
         assertFalse(claudeToolSchema(sentences = false).getJSONObject("properties").has("sentences"))
     }
+
+    @Test
+    fun everyPromptCarriesTheDoctorsRulesWithoutStrayIndent() {
+        val lesson = claudeSystemPrompt()
+        assertTrue(lesson.startsWith("You are"))
+        assertTrue(lesson.contains("So‘zma-so‘z emas, asl ma’noga sodiq tarjima qil."))
+        assertTrue(
+            lesson.trimEnd().endsWith(
+                "translating the items again one by one. The items' Uzbek joined in order must read as those sentences.",
+            ),
+        )
+        assertFalse(lesson.contains("{{"))
+        assertTrue(SENTENCE_FIX_SYSTEM.contains("Sabab-natija, inkor, shart"))
+        val chat = shokalonChatSystem("Open lesson: X")
+        assertTrue(chat.contains("Open lesson: X") && chat.contains("ehtimollik darajasini"))
+        assertFalse(chat.lines().any { it.startsWith("    You") })
+    }
 }

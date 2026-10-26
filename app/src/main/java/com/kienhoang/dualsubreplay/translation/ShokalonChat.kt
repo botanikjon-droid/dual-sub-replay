@@ -117,9 +117,13 @@ internal fun shokalonChatSystem(context: String): String =
     ask what is needed if it is unclear, then record it with report_app_issue and say it will reach the
     developer when he shares the list ("Dastur takliflari").
     Medical facts: be accurate; when unsure, say so. Do not invent what the lecture says — read it.
+    When you translate or fix Uzbek, follow the doctor's own rules:
+    {{DOCTOR_RULES}}
     Current state of the app:
-    $context
+    {{CONTEXT}}
     """.trimIndent()
+        .replace("{{DOCTOR_RULES}}", DOCTOR_RULES)
+        .replace("{{CONTEXT}}", context)
 
 internal fun chatRequestBody(
     model: String,

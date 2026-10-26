@@ -96,8 +96,13 @@ internal fun lessonSystemPrompt(answerInstruction: String): String =
     8. Write o‘ and g‘ with the ‘ mark (U+2018) and the glottal stop with ’ (U+2019); never a plain apostrophe. No Cyrillic letters.
     9. In "new_terms", list ultrasound or medical terms you translated that are in none of the term lists, with the Uzbek term you used (base form) and a short note when useful. Skip common words. In "uncertain", list misheard or doubtful places (index, what was heard, options, reason).
 
-    $answerInstruction
+    The doctor's own rules follow in Uzbek; they agree with the rules above and decide any question of style and meaning (his rule 4 = report unclear places in "uncertain"; his rule 5 = check your Uzbek against the English before answering):
+    {{DOCTOR_RULES}}
+
+    {{ANSWER}}
     """.trimIndent()
+        .replace("{{DOCTOR_RULES}}", DOCTOR_RULES)
+        .replace("{{ANSWER}}", answerInstruction)
 
 internal fun claudeSystemPrompt(): String = lessonSystemPrompt(CLAUDE_ANSWER_INSTRUCTION)
 

@@ -52,6 +52,7 @@ import com.kienhoang.dualsubreplay.data.readBoundedText
 import com.kienhoang.dualsubreplay.data.reviewFileText
 import com.kienhoang.dualsubreplay.data.reviewTime
 import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
+import com.kienhoang.dualsubreplay.translation.DOCTOR_SHARE_PROMPT
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -198,9 +199,7 @@ internal fun pastedUzbek(pasted: String): String {
 
 private const val MARKED = "Tekshirish ro‘yxatiga qo‘shildi."
 private const val UNMARKED = "Ro‘yxatdan olindi."
-private const val CHECK_REQUEST =
-    "Quyidagi ultratovush (UZI) ma’ruzasi gapining o‘zbekcha tarjimasini tibbiy aniqlik, atamalar va " +
-        "grammatika bo‘yicha tekshiring. Javobda faqat tuzatilgan “UZ:” qatorini qaytaring.\n\n"
+private val CHECK_REQUEST = DOCTOR_SHARE_PROMPT + "\n\n"
 
 /**
  * "Gaplarni tekshirish fayli" on the "Dars" screen: the lesson's marked sentences (all of them when none is
