@@ -127,12 +127,15 @@ jobs:
           GOOGLE_TRANSLATE_API_KEY: ${{ secrets.GOOGLE_TRANSLATE_API_KEY }}
         run: |
           set -euo pipefail
+          # Every Uzbek build has a higher versionCode (the run number, above the old fixed 35), so Android
+          # always treats the new APK as an update of the installed app.
           # An optimized release build (minified, not debuggable), signed with the same fork key as
           # before (-PtestReleaseSigning uses the debug signing config, which is that key), so it
           # updates the installed app in place.
           bash ./gradlew testDebugUnitTest assembleRelease -Pdistribution=uz \
             -PtestReleaseSigning=true \
             -PpreviewVersionNameSuffix="-uz-build${GITHUB_RUN_NUMBER}" \
+            -PpreviewVersionCode="${GITHUB_RUN_NUMBER}" \
             -PpreviewApplicationIdSuffix=".uz" \
             --stacktrace
           cp app/build/outputs/apk/release/app-release.apk DualSub-Replay-uz.apk
