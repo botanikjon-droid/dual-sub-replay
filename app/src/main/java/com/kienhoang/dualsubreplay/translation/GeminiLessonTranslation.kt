@@ -56,7 +56,7 @@ internal fun geminiLessonRequestBody(userPrompt: String): String {
     val config =
         JSONObject()
             .put("responseMimeType", "application/json")
-            .put("responseSchema", geminiSchema(claudeToolSchema()))
+            .put("responseSchema", geminiSchema(claudeToolSchema(sentences = false)))
             .put("maxOutputTokens", GEMINI_LESSON_MAX_OUTPUT_TOKENS)
             .put("temperature", 0.2)
     return JSONObject()

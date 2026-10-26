@@ -36,7 +36,7 @@ internal data class ClaudeModelOption(
 )
 
 /** Sentences per request: one reply stays well under the output limit and a failure costs little. */
-internal const val CLAUDE_CHUNK_SIZE = 40
+internal const val CLAUDE_CHUNK_SIZE = 30
 
 /** A chunk that keeps failing is split down to this size before the run gives up. */
 internal const val CLAUDE_MIN_CHUNK_SIZE = 5
@@ -99,7 +99,19 @@ internal fun lessonSystemPrompt(answerInstruction: String): String =
     $answerInstruction
     """.trimIndent()
 
-internal fun claudeSystemPrompt(): String = lessonSystemPrompt("Answer only by calling the submit_translation tool.")
+internal fun claudeSystemPrompt(): String = lessonSystemPrompt(CLAUDE_ANSWER_INSTRUCTION)
+
+private val CLAUDE_ANSWER_INSTRUCTION =
+    """
+    Answer only by calling the submit_translation tool, in this order:
+    - "sentences": every whole sentence that touches the items, in order. "from" and "to" are the first and last
+      item index it covers (a sentence may start in context_before or end in context_after: use the nearest
+      item index). "en" is the sentence rebuilt from the captions with misheard words fixed; "uz" is its Uzbek,
+      written as one natural thought, as an Uzbek ultrasound doctor would say it: meaning first, never the
+      English word order or word-for-word phrasing, idioms by their sense, filler said once.
+    - "translations": split each Uzbek sentence of "sentences" over its items by meaning (rule 4), without
+      translating the items again one by one. The items' Uzbek joined in order must read as those sentences.
+    """.trimIndent()
 
 /** The user message: the terms that apply, the context and the chunk's items, as JSON. */
 internal fun claudeUserPrompt(
@@ -145,8 +157,12 @@ private fun objectSchema(
 
 private fun arraySchema(items: JSONObject) = JSONObject().put("type", "array").put("items", items)
 
-/** The tool Claude must call: one translation per item, new terms and doubtful places. */
-internal fun claudeToolSchema(): JSONObject {
+/**
+ * The tool Claude must call: one translation per item, new terms and doubtful places. The answer's shape. With [sentences] (Claude) the answer starts with every whole sentence of the chunk,
+ * English rebuilt from the captions and its Uzbek translated as one thought, before the per-item split:
+ * writing the whole sentence first is what keeps the Uzbek from following the English word by word.
+ */
+internal fun claudeToolSchema(sentences: Boolean = true): JSONObject {
     val translation =
         objectSchema(
             JSONObject().put("i", JSONObject().put("type", "integer")).put("uz", stringSchema()),
@@ -166,13 +182,23 @@ internal fun claudeToolSchema(): JSONObject {
                 .put("reason", stringSchema()),
             listOf("i", "heard", "reason"),
         )
-    return objectSchema(
-        JSONObject()
-            .put("translations", arraySchema(translation))
-            .put("new_terms", arraySchema(term))
-            .put("uncertain", arraySchema(uncertain)),
-        listOf("translations", "new_terms", "uncertain"),
-    )
+    val sentence =
+        objectSchema(
+            JSONObject()
+                .put("from", JSONObject().put("type", "integer"))
+                .put("to", JSONObject().put("type", "integer"))
+                .put("en", stringSchema())
+                .put("uz", stringSchema()),
+            listOf("from", "to", "en", "uz"),
+        )
+    val properties = JSONObject()
+    if (sentences) properties.put("sentences", arraySchema(sentence))
+    properties
+        .put("translations", arraySchema(translation))
+        .put("new_terms", arraySchema(term))
+        .put("uncertain", arraySchema(uncertain))
+    val required = listOf("translations", "new_terms", "uncertain")
+    return objectSchema(properties, if (sentences) listOf("sentences") + required else required)
 }
 
 internal fun claudeRequestBody(
