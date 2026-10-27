@@ -1,0 +1,26 @@
+name: Catalog links
+
+# The doctor's fork only: the newest rows of the lesson catalog checked on YouTube (exists, plays, English
+# captions), reported as annotations. The computer that adds rows cannot reach YouTube. Never fails.
+on:
+  pull_request:
+    paths:
+      - app/src/main/assets/uzi_catalog.tsv
+      - tools/catalog/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-new-rows:
+    if: github.repository == 'botanikjon-droid/dual-sub-replay'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Check the newest catalog rows on YouTube
+        run: python3 tools/catalog/check_new_rows.py
