@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -21,10 +22,12 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -452,6 +455,7 @@ internal fun WordReplaceHost(
     var replacement by remember(shown) { mutableStateOf("") }
     var where by remember(shown) { mutableStateOf(ReplaceScope.LESSON) }
     var message by remember(shown) { mutableStateOf<String?>(null) }
+    var working by remember(shown) { mutableStateOf(false) }
     val words =
         remember(sentence) {
             sentence.translatedText
@@ -464,6 +468,8 @@ internal fun WordReplaceHost(
     fun request() = ReplaceRequest(find, replacement.trim(), true, where, sentence.startMs, sentence.endMs)
 
     fun run(block: suspend () -> String) {
+        working = true
+        message = null
         scope.launch {
             message =
                 try {
@@ -477,6 +483,7 @@ internal fun WordReplaceHost(
                 } catch (error: java.io.IOException) {
                     error.message
                 }
+            working = false
         }
     }
     AlertDialog(
@@ -487,6 +494,8 @@ internal fun WordReplaceHost(
                 Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                message?.let { ResultNote(it) }
+                if (working) LinearProgressIndicator(Modifier.fillMaxWidth())
                 Text(sentence.translatedText.orEmpty(), style = MaterialTheme.typography.bodySmall)
                 Button(
                     onClick = {
@@ -539,15 +548,6 @@ internal fun WordReplaceHost(
                         message = "Endi ovoz “${find.trim()}” ni “${replacement.trim()}” deb o‘qiydi; matn o‘zgarmaydi."
                     },
                 ) { Text("Faqat ovozda shunday o‘qilsin") }
-                message?.let {
-                    SelectionContainer {
-                        Text(
-                            it,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
             }
         },
         confirmButton = { TextButton(onClick = { wordToReplace.value = null }) { Text("Yopish") } },
@@ -555,6 +555,20 @@ internal fun WordReplaceHost(
 }
 
 private const val WHOLE_SENTENCE_BUTTON = "Butun gapni tahrirlash: qo\u2018lda, Claude yoki ma\u2019nosini yozib"
+
+/** The result of a replacement, at the top of the dialog where it is seen at once. */
+@Composable
+private fun ResultNote(text: String) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth().testTag("word_replace_result"),
+    ) {
+        SelectionContainer {
+            Text(text, Modifier.padding(10.dp), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
 
 /** "Talaffuz lug‘ati": the voice's pronunciation rules, each removable. */
 @Composable

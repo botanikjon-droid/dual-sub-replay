@@ -21,6 +21,7 @@ import com.kienhoang.dualsubreplay.data.JapaneseDictionaryStore
 import com.kienhoang.dualsubreplay.data.JapaneseMorphology
 import com.kienhoang.dualsubreplay.data.immersionLanguage
 import com.kienhoang.dualsubreplay.data.initialDailyGoalPromptCompleted
+import com.kienhoang.dualsubreplay.data.splitCuesAtSentenceEnds
 import com.kienhoang.dualsubreplay.data.storedDailyGoalMinutes
 import com.kienhoang.dualsubreplay.data.LearningWordSelection
 import com.kienhoang.dualsubreplay.data.LessonLibraryStore
@@ -235,6 +236,8 @@ private const val NO_VIDEO_MESSAGE = "Avval dars videosini oching."
 private const val REVIEW_MARKS_PREFIX = "review_marks_"
 private const val MAX_REPLACE_EXAMPLES = 5
 private const val NO_STORED_TRANSLATION_MESSAGE = "Bu darsning saqlangan tarjimasi yo\u2018q: avval tarjima qiling yoki ZIP\u2019ni yuklang."
+private const val REPLACE_WAIT_MESSAGE =
+    "Bu darsning tarjimasi hali saqlanmagan: tarjima tugashini kuting (yuqoridagi \u23F3 yozuvi yo\u2018qolsin), keyin almashtiring."
 private const val MS_PER_SECOND = 1_000L
 private const val JPEG_QUALITY = 88
 private const val MAX_IMPORTED_TRANSLATION_BYTES = 8L * 1024 * 1024
@@ -1123,7 +1126,10 @@ class AppViewModel internal constructor(
                 importedTranslationDirectory.listFiles { file -> file.extension == "srt" }.orEmpty().map { it.nameWithoutExtension }
             }
         return when (scope) {
-            ReplaceScope.SENTENCE, ReplaceScope.LESSON -> listOfNotNull(activeId?.takeIf { storedTranslationCues() != null })
+            ReplaceScope.SENTENCE, ReplaceScope.LESSON -> {
+                check(activeId == null || storedTranslationCues() != null) { REPLACE_WAIT_MESSAGE }
+                listOfNotNull(activeId)
+            }
             ReplaceScope.ALL -> stored
             ReplaceScope.SECTION -> {
                 val section =
@@ -1142,9 +1148,11 @@ class AppViewModel internal constructor(
         request: ReplaceRequest,
     ): CueReplacement {
         if (request.scope != ReplaceScope.SENTENCE) return replaceInCues(cues, request.find, request.replacement, request.wholeWord)
-        val inside = cues.indices.filter { (cues[it].startMs + cues[it].endMs) / 2 in request.sentenceStartMs until request.sentenceEndMs }
-        val result = replaceInCues(inside.map(cues::get), request.find, request.replacement, request.wholeWord)
-        val changed = cues.toMutableList()
+        // Sentence rows are built from cues cut at sentence ends, so the sentence is looked for among the same pieces.
+        val pieces = splitCuesAtSentenceEnds(cues)
+        val inside = pieces.indices.filter { (pieces[it].startMs + pieces[it].endMs) / 2 in request.sentenceStartMs until request.sentenceEndMs }
+        val result = replaceInCues(inside.map(pieces::get), request.find, request.replacement, request.wholeWord)
+        val changed = pieces.toMutableList()
         inside.forEachIndexed { position, index -> changed[index] = result.cues[position] }
         return result.copy(cues = changed)
     }
