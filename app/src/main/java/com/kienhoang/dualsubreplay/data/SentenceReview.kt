@@ -107,6 +107,32 @@ internal fun applySentenceCorrection(
     return (if (clean.isEmpty()) kept else kept + RawCaptionCue(startMs, endMs, clean)).sortedBy { it.startMs }
 }
 
+/** Corrections waiting for a lesson's translation to be stored, as JSON (times and Uzbek). */
+internal fun pendingCorrectionsToJson(items: List<ReviewSentence>): String =
+    org.json
+        .JSONArray()
+        .also { array ->
+            items.forEach {
+                array.put(
+                    org.json
+                        .JSONObject()
+                        .put("s", it.startMs)
+                        .put("e", it.endMs)
+                        .put("t", it.uzbek),
+                )
+            }
+        }.toString()
+
+internal fun pendingCorrectionsFromJson(text: String): List<ReviewSentence> =
+    try {
+        val array = org.json.JSONArray(text.ifBlank { "[]" })
+        (0 until array.length()).mapNotNull { index ->
+            array.optJSONObject(index)?.let { ReviewSentence(it.optLong("s"), it.optLong("e"), "", it.optString("t")) }
+        }
+    } catch (error: org.json.JSONException) {
+        emptyList()
+    }
+
 /** What a search-and-replace changed: the new cues, how many places, and a few of them for a preview. */
 internal data class CueReplacement(
     val cues: List<RawCaptionCue>,

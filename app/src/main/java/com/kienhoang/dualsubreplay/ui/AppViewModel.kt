@@ -21,6 +21,8 @@ import com.kienhoang.dualsubreplay.data.JapaneseDictionaryStore
 import com.kienhoang.dualsubreplay.data.JapaneseMorphology
 import com.kienhoang.dualsubreplay.data.immersionLanguage
 import com.kienhoang.dualsubreplay.data.initialDailyGoalPromptCompleted
+import com.kienhoang.dualsubreplay.data.pendingCorrectionsFromJson
+import com.kienhoang.dualsubreplay.data.pendingCorrectionsToJson
 import com.kienhoang.dualsubreplay.data.splitCuesAtSentenceEnds
 import com.kienhoang.dualsubreplay.data.storedDailyGoalMinutes
 import com.kienhoang.dualsubreplay.data.LearningWordSelection
@@ -234,6 +236,8 @@ internal fun activeWordIndex(
 internal const val YOUTUBE_HOME_URL = "https://m.youtube.com/"
 private const val NO_VIDEO_MESSAGE = "Avval dars videosini oching."
 private const val REVIEW_MARKS_PREFIX = "review_marks_"
+private const val PENDING_FIX_PREFIX = "pending_fix_"
+private const val FULL_GLOSSARY_SENTENCES = 5
 private const val MAX_REPLACE_EXAMPLES = 5
 private const val NO_STORED_TRANSLATION_MESSAGE = "Bu darsning saqlangan tarjimasi yo\u2018q: avval tarjima qiling yoki ZIP\u2019ni yuklang."
 private const val REPLACE_WAIT_MESSAGE =
@@ -989,7 +993,14 @@ class AppViewModel internal constructor(
         endMs: Long,
         text: String,
     ): String {
-        val cues = storedTranslationCues() ?: throw IllegalStateException(NO_STORED_TRANSLATION_MESSAGE)
+        val cues = storedTranslationCues()
+        if (cues == null) {
+            // Claude is still translating: the correction waits and is applied to the finished translation.
+            val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+            val pending = pendingCorrections(videoId).filterNot { it.startMs == startMs && it.endMs == endMs }
+            savePendingCorrections(videoId, pending + ReviewSentence(startMs, endMs, "", text.trim()))
+            return "Tarjima hali tugamagan: tuzatish eslab qolindi va tarjima tugashi bilan shu gapga qo\u2018llanadi."
+        }
         saveEditedTranslation(applySentenceCorrection(cues, startMs, endMs, text))
         return if (text.isBlank()) "Gap o\u2018chirildi." else "Gap tuzatildi va saqlandi."
     }
@@ -1025,7 +1036,13 @@ class AppViewModel internal constructor(
         request: String? = null,
     ): List<SentenceFix> {
         val backend = ClaudeBackend(DubbingSettings.claudeApiKey.value, DubbingSettings.claudeModel.value)
-        val glossary = glossaryForBatch(UziGlossaryStore.glossary.value, sentences.map { it.english })
+        // A few sentences get the whole reviewed glossary: their misheard English ("anooic") may hide the term.
+        val glossary =
+            if (sentences.size <= FULL_GLOSSARY_SENTENCES) {
+                UziGlossaryStore.glossary.value?.entries.orEmpty()
+            } else {
+                glossaryForBatch(UziGlossaryStore.glossary.value, sentences.map { it.english })
+            }
         return requestSentenceFixes(backend, activeLessonTitle(), sentences, glossary, request)
     }
 
@@ -1260,6 +1277,30 @@ class AppViewModel internal constructor(
      * is merged with what was imported before, so long lectures can be imported piece by piece. The
      * result is kept per video, so reopening the lesson shows it again. Returns the stored cue count.
      */
+    private fun pendingCorrections(videoId: String): List<ReviewSentence> =
+        pendingCorrectionsFromJson(preferences.getString(PENDING_FIX_PREFIX + videoId, null).orEmpty())
+
+    private fun savePendingCorrections(
+        videoId: String,
+        pending: List<ReviewSentence>,
+    ) {
+        preferences
+            .edit()
+            .apply { if (pending.isEmpty()) remove(PENDING_FIX_PREFIX + videoId) else putString(PENDING_FIX_PREFIX + videoId, pendingCorrectionsToJson(pending)) }
+            .apply()
+    }
+
+    /** Corrections made while the lesson was still being translated, put on its stored translation once. */
+    private fun applyPendingCorrections(
+        videoId: String,
+        cues: List<RawCaptionCue>,
+    ): List<RawCaptionCue> {
+        val pending = pendingCorrections(videoId)
+        if (pending.isEmpty()) return cues
+        savePendingCorrections(videoId, emptyList())
+        return pending.fold(cues) { current, fix -> applySentenceCorrection(current, fix.startMs, fix.endMs, fix.uzbek) }
+    }
+
     internal suspend fun importTranslation(
         text: String,
         targetVideoId: String? = importTargetFor(text, _state.value.activeVideoId),
@@ -1275,7 +1316,7 @@ class AppViewModel internal constructor(
                 check(importedTranslationDirectory.isDirectory || importedTranslationDirectory.mkdirs()) {
                     "Tarjimani saqlab bo\u2018lmadi."
                 }
-                val merged = mergeImportedCues(readImportedTranslation(videoId).orEmpty(), incoming)
+                val merged = applyPendingCorrections(videoId, mergeImportedCues(readImportedTranslation(videoId).orEmpty(), incoming))
                 importedTranslationFile(videoId).writeText(formatSrt(merged.toSegments()), Charsets.UTF_8)
                 merged
             }
