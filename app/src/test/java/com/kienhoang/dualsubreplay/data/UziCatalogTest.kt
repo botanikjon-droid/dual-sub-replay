@@ -94,11 +94,9 @@ class UziCatalogTest {
         assertTrue(sections.all { section -> section.topics.isNotEmpty() })
         val versions = parseUziCatalogRows(text)
         assertEquals(rows, versions.size)
-        assertEquals(4, catalogVersion(versions))
+        assertEquals(3, catalogVersion(versions))
         // Version 1 is the 82 lectures checked on 2026-10-16, version 2 the 53 of the basics section,
-        // version 3 the rest of the SHOKALON catalog (v12, 2026-10-17), version 4 the 50 fetal screening
-        // lectures that fill the course plan's gaps (2026-10-27).
-        assertEquals(50, versions.count { it.added == 4 })
+        // version 3 the rest of the SHOKALON catalog (v12, 2026-10-17).
         assertEquals(82, versions.count { it.added == 1 })
         assertEquals(53, versions.count { it.added == 2 })
         assertEquals(343, versions.count { it.added == 3 })

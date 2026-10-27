@@ -114,7 +114,14 @@ internal fun ShokalonHomeScreen(
                     }
                 } else {
                     notice?.let { NoticeLine(it) }
-                    val studyCard: @Composable () -> Unit = { SectionStudyCard(open, study) { onOpen(it.videoId) } }
+                    val studyCard: @Composable () -> Unit = {
+                        SectionStudyCard(open, study) { onOpen(it.videoId) }
+                        SectionSuggestions(open) { videoId ->
+                            // A suggestion is not in the catalog yet: the focus guard lets it play.
+                            focusRequestedVideos += videoId
+                            onOpen(videoId)
+                        }
+                    }
                     SectionDetail(open, translated, activeVideoId, studyCard, onBack = { openName = null }) { action ->
                         when (action) {
                             is LessonAction.Open -> onOpen(action.video.videoId)
