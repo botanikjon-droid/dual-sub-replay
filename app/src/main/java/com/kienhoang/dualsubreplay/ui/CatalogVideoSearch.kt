@@ -3,6 +3,7 @@ package com.kienhoang.dualsubreplay.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -19,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -117,6 +119,12 @@ internal fun CatalogVideoSearch(
     }
 }
 
+/** The topic a lecture goes to when the doctor names none, so adding never stops on an empty field. */
+internal const val DEFAULT_ADDED_TOPIC = "Qo\u2018shimcha darslar"
+
+/** The topic name to store: the doctor's, or [DEFAULT_ADDED_TOPIC] when he left it empty. */
+internal fun chosenTopic(typed: String): String = typed.trim().ifEmpty { DEFAULT_ADDED_TOPIC }
+
 @Composable
 private fun AddToCatalogDialog(
     result: YouTubeSearchResult,
@@ -127,25 +135,32 @@ private fun AddToCatalogDialog(
 ) {
     val scope = rememberCoroutineScope()
     var section by remember { mutableStateOf(presetSection ?: sections.firstOrNull()?.name.orEmpty()) }
+    var changeSection by remember { mutableStateOf(presetSection == null) }
     var topic by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     val topics = sections.firstOrNull { it.name == section }?.topics.orEmpty()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Qaysi bo‘lim va mavzuga?") },
+        title = { Text("Qaysi mavzuga qo\u2018shilsin?") },
         text = {
             Column(
                 Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold) }
                 Text(result.title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
-                Text("Bo‘lim", style = MaterialTheme.typography.labelLarge)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    sections.forEach { option ->
-                        FilterChip(selected = option.name == section, onClick = {
-                            section = option.name
-                            topic = ""
-                        }, label = { Text(option.name) })
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Bo\u2018lim: $section", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                    if (!changeSection) TextButton(onClick = { changeSection = true }) { Text("O\u2018zgartirish") }
+                }
+                if (changeSection) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        sections.forEach { option ->
+                            FilterChip(selected = option.name == section, onClick = {
+                                section = option.name
+                                topic = ""
+                            }, label = { Text(option.name) })
+                        }
                     }
                 }
                 Text("Mavzu", style = MaterialTheme.typography.labelLarge)
@@ -161,20 +176,21 @@ private fun AddToCatalogDialog(
                     label = { Text("yoki yangi mavzu nomi") },
                     modifier = Modifier.testTag("catalog_add_topic"),
                 )
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                Hint("Mavzu tanlanmasa, video \u201C$DEFAULT_ADDED_TOPIC\u201D mavzusiga qo\u2018shiladi.")
             }
         },
         confirmButton = {
             Button(onClick = {
                 scope.launch {
                     try {
-                        UziCatalogStore.change { addCatalogVideo(it, section, topic, CatalogVideo(result.videoId, result.title)) }
-                        onDone("Qo‘shildi: $section › ${topic.trim()}")
+                        val name = chosenTopic(topic)
+                        UziCatalogStore.change { addCatalogVideo(it, section, name, CatalogVideo(result.videoId, result.title)) }
+                        onDone("Qo\u2018shildi: $section \u203A $name")
                     } catch (failure: IllegalArgumentException) {
                         error = failure.message
                     }
                 }
-            }, modifier = Modifier.testTag("catalog_add_confirm")) { Text("Qo‘shish") }
+            }, modifier = Modifier.testTag("catalog_add_confirm")) { Text("Qo\u2018shish") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Bekor qilish") } },
     )
