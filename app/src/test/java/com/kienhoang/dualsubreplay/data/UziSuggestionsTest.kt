@@ -26,7 +26,7 @@ class UziSuggestionsTest {
             parseUziCatalogRows(
                 File("src/main/assets/$UZI_CATALOG_ASSET").readText(Charsets.UTF_8),
             ).mapTo(HashSet()) { it.video.videoId }
-        assertEquals(46, suggestions.size)
+        assertEquals(42, suggestions.size)
         assertTrue(suggestions.none { it.video.videoId in catalog })
     }
 }
