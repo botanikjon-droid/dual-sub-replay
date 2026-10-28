@@ -89,7 +89,8 @@ internal fun ShokalonHomeScreen(
     val translated = remember(lessons) { lessons.mapTo(HashSet()) { it.videoId } }
     var openName by rememberSaveable { mutableStateOf(startSection) }
     val open = sections?.firstOrNull { it.name == openName }
-    var catalogEdit by remember { mutableStateOf<CatalogEdit?>(null) }
+    // Back from watching a search result: the picking session opens again with its ticks.
+    var catalogEdit by remember { mutableStateOf(CatalogPicker.takeResume()) }
     var removing by remember { mutableStateOf<CatalogVideo?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
     Dialog(
@@ -134,7 +135,10 @@ internal fun ShokalonHomeScreen(
                 }
             }
             catalogEdit?.let { edit ->
-                CatalogVideoSearch(edit, sections, onDismiss = { catalogEdit = null }) { message ->
+                CatalogVideoSearch(edit, sections, onDismiss = { catalogEdit = null }, onWatch = { videoId ->
+                    focusRequestedVideos += videoId
+                    onOpen(videoId)
+                }) { message ->
                     catalogEdit = null
                     notice = message
                 }

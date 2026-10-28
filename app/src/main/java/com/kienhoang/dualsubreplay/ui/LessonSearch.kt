@@ -23,6 +23,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -134,10 +137,14 @@ internal fun YouTubeSearchDialog(
     sections: List<CatalogSection>?,
     onPick: (YouTubeSearchResult) -> Unit,
     onDismiss: () -> Unit,
+    picking: PickingActions? = null,
 ) {
-    var query by rememberSaveable { mutableStateOf(initialQuery) }
-    var state by remember { mutableStateOf<SearchState>(SearchState.Idle) }
+    // A picking session coming back from "Ko‘rish" shows the same results again, without a new search.
+    val kept = CatalogPicker.state.value.takeIf { picking != null && it.results.isNotEmpty() }
+    var query by rememberSaveable { mutableStateOf(kept?.query ?: initialQuery) }
+    var state by remember { mutableStateOf<SearchState>(kept?.let { SearchState.Found(it.results) } ?: SearchState.Idle) }
     val scope = rememberCoroutineScope()
+    val pickerState by CatalogPicker.state.collectAsStateWithLifecycle()
 
     fun search() {
         val text = query.trim()
@@ -146,7 +153,15 @@ internal fun YouTubeSearchDialog(
         scope.launch {
             state =
                 try {
-                    SearchState.Found(YouTubeSearch.search(text).filter { it.videoId != excludeVideoId })
+                    SearchState.Found(
+                        YouTubeSearch.search(text).filter { it.videoId != excludeVideoId }.also {
+                            if (picking !=
+                                null
+                            ) {
+                                CatalogPicker.keep(text, it)
+                            }
+                        },
+                    )
                 } catch (cancel: CancellationException) {
                     throw cancel
                 } catch (error: IOException) {
@@ -154,7 +169,7 @@ internal fun YouTubeSearchDialog(
                 }
         }
     }
-    LaunchedEffect(Unit) { if (query.isNotBlank()) search() }
+    LaunchedEffect(Unit) { if (query.isNotBlank() && state == SearchState.Idle) search() }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize().testTag("lesson_search_dialog"), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -175,7 +190,9 @@ internal fun YouTubeSearchDialog(
                     keyboardActions = KeyboardActions(onSearch = { search() }),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).testTag("lesson_search_query"),
                 )
-                SearchResults(state, sections, onPick)
+                val ticked = pickerState.selected.mapTo(HashSet()) { it.videoId }.takeIf { picking != null }
+                Box(Modifier.weight(1f)) { SearchResults(state, sections, onPick, ticked, picking) }
+                if (picking != null) PickingBar(pickerState.selected.size, picking)
             }
         }
     }
@@ -186,6 +203,8 @@ private fun SearchResults(
     state: SearchState,
     sections: List<CatalogSection>?,
     onPick: (YouTubeSearchResult) -> Unit,
+    ticked: Set<String>?,
+    picking: PickingActions?,
 ) {
     when (state) {
         SearchState.Idle -> Box(Modifier.padding(16.dp)) { Hint("Qidiruv so‘zini yozing.") }
@@ -206,7 +225,9 @@ private fun SearchResults(
                         SearchResultCard(
                             result,
                             catalogHasVideo(sections, result.videoId) == true,
-                        ) { onPick(result) }
+                            ticked = ticked?.contains(result.videoId),
+                            onWatch = picking?.let { actions -> { actions.watch(result) } },
+                        ) { if (picking != null) CatalogPicker.toggle(result) else onPick(result) }
                     }
                 }
             }
@@ -217,6 +238,8 @@ private fun SearchResults(
 private fun SearchResultCard(
     result: YouTubeSearchResult,
     inCatalog: Boolean,
+    ticked: Boolean? = null,
+    onWatch: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     Surface(onClick = onClick, shape = RoundedCornerShape(16.dp), tonalElevation = 1.dp, shadowElevation = 2.dp) {
@@ -247,6 +270,36 @@ private fun SearchResultCard(
                 Text(result.title, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Hint(listOf(result.channel, result.views, result.published).filter(String::isNotBlank).joinToString(" · "))
                 if (inCatalog) Text("✓ SHOKALON mundarijasida bor", style = MaterialTheme.typography.labelSmall, color = Color(0xFF16A34A))
+                if (onWatch != null) {
+                    TextButton(onClick = onWatch, modifier = Modifier.testTag("search_watch")) { Text("\u25B6 Ko\u2018rish") }
+                }
+            }
+            if (ticked != null) Checkbox(checked = ticked, onCheckedChange = { onClick() }, modifier = Modifier.testTag("search_tick"))
+        }
+    }
+}
+
+/** What the search does in a picking session ("Video qo‘shish"). */
+internal class PickingActions(
+    /** Opens the result in the player; the session waits for the doctor to come back. */
+    val watch: (YouTubeSearchResult) -> Unit,
+    /** Adds the ticked results. */
+    val addSelected: () -> Unit,
+)
+
+@Composable
+private fun PickingBar(
+    count: Int,
+    picking: PickingActions,
+) {
+    Surface(tonalElevation = 6.dp, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Tanlangan: $count ta video", fontWeight = FontWeight.SemiBold)
+                Hint("Videoni bosib belgilang, \u25B6 Ko\u2018rish bilan oldin ko\u2018rib chiqing.")
+            }
+            Button(enabled = count > 0, onClick = picking.addSelected, modifier = Modifier.testTag("picker_add_selected")) {
+                Text("Qo\u2018shish")
             }
         }
     }

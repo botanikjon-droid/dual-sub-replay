@@ -509,6 +509,7 @@ private fun DualSubExperience(
                         )
                         FullscreenButton(state.activeVideoId, onFullscreen = webController::enterFullscreen)
                         ChatButton()
+                        PickerReturnButton { section -> openHomeAt?.invoke(section) }
                     }
                 }
             }

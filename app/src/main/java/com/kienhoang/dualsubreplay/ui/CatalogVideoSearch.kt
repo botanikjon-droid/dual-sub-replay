@@ -15,6 +15,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -82,9 +83,13 @@ internal fun CatalogVideoSearch(
     edit: CatalogEdit,
     sections: List<CatalogSection>?,
     onDismiss: () -> Unit,
+    onWatch: (String) -> Unit = {},
     onDone: (String) -> Unit,
 ) {
     var chosen by remember { mutableStateOf<YouTubeSearchResult?>(null) }
+    var addingSelected by remember { mutableStateOf(false) }
+    val adding = edit as? CatalogEdit.Add
+    if (adding != null) LaunchedEffect(adding.section) { CatalogPicker.begin(adding.section) }
     val (title, subtitle, query) =
         when (edit) {
             is CatalogEdit.Add ->
@@ -102,13 +107,38 @@ internal fun CatalogVideoSearch(
         excludeVideoId = (edit as? CatalogEdit.Replace)?.video?.videoId,
         sections = sections,
         onPick = { chosen = it },
-        onDismiss = onDismiss,
+        onDismiss = {
+            CatalogPicker.finish()
+            onDismiss()
+        },
+        picking =
+            adding?.let {
+                PickingActions(
+                    watch = { result ->
+                        CatalogPicker.watch()
+                        onWatch(result.videoId)
+                    },
+                    addSelected = { addingSelected = true },
+                )
+            },
     )
+    if (addingSelected && adding != null) {
+        AddToCatalogDialog(
+            CatalogPicker.state.value.selected,
+            sections.orEmpty(),
+            adding.section,
+            onDismiss = { addingSelected = false },
+        ) { message ->
+            addingSelected = false
+            CatalogPicker.finish()
+            onDone(message)
+        }
+    }
     chosen?.let { result ->
         when (edit) {
             is CatalogEdit.Add ->
                 AddToCatalogDialog(
-                    result,
+                    listOf(result),
                     sections.orEmpty(),
                     edit.section,
                     onDismiss = { chosen = null },
@@ -127,7 +157,7 @@ internal fun chosenTopic(typed: String): String = typed.trim().ifEmpty { DEFAULT
 
 @Composable
 private fun AddToCatalogDialog(
-    result: YouTubeSearchResult,
+    results: List<YouTubeSearchResult>,
     sections: List<CatalogSection>,
     presetSection: String?,
     onDismiss: () -> Unit,
@@ -148,7 +178,13 @@ private fun AddToCatalogDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold) }
-                Text(result.title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                results.forEach {
+                    Text(
+                        "\u2022 ${it.title}",
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Bo\u2018lim: $section", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
                     if (!changeSection) TextButton(onClick = { changeSection = true }) { Text("O\u2018zgartirish") }
@@ -184,8 +220,20 @@ private fun AddToCatalogDialog(
                 scope.launch {
                     try {
                         val name = chosenTopic(topic)
-                        UziCatalogStore.change { addCatalogVideo(it, section, name, CatalogVideo(result.videoId, result.title)) }
-                        onDone("Qo\u2018shildi: $section \u203A $name")
+                        UziCatalogStore.change { catalog ->
+                            results.fold(
+                                catalog,
+                            ) { current, result -> addCatalogVideo(current, section, name, CatalogVideo(result.videoId, result.title)) }
+                        }
+                        onDone(
+                            if (results.size ==
+                                1
+                            ) {
+                                "Qo\u2018shildi: $section \u203A $name"
+                            } else {
+                                "${results.size} ta video qo\u2018shildi: $section \u203A $name"
+                            },
+                        )
                     } catch (failure: IllegalArgumentException) {
                         error = failure.message
                     }
