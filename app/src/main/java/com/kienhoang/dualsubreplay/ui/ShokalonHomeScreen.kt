@@ -108,6 +108,7 @@ internal fun ShokalonHomeScreen(
                         catalogEdit = CatalogEdit.Add(null)
                     }
                     notice?.let { NoticeLine(it) }
+                    UziTestsCard()
                     SectionGrid(sections, translated) { openName = it }
                     if (lessons.isNotEmpty()) {
                         Box(Modifier.padding(12.dp)) { LessonLibraryCard(lessons, activeVideoId, onOpen) }

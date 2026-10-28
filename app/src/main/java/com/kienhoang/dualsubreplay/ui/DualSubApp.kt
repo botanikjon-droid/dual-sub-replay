@@ -185,6 +185,7 @@ fun DualSubApp(
             viewModel::claudeFixOne,
         )
         ShokalonChatHost { viewModel.chatAgent }
+        UziTestsHost()
         WordReplaceHost(viewModel::replaceInTranslations, viewModel::undoReplace, com.kienhoang.dualsubreplay.dubbing.DubbingSettings::setSpeechRule)
         if (showVocabulary) SavedWordsScreen(
             repository = viewModel.vocabulary,
