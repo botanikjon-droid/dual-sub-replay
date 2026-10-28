@@ -140,11 +140,11 @@ internal fun YouTubeSearchDialog(
     picking: PickingActions? = null,
 ) {
     // A picking session coming back from "Ko‘rish" shows the same results again, without a new search.
-    val kept = CatalogPicker.state.value.takeIf { picking != null && it.results.isNotEmpty() }
+    val pickerState by CatalogPicker.state.collectAsStateWithLifecycle()
+    val kept = pickerState.takeIf { picking != null && it.results.isNotEmpty() }
     var query by rememberSaveable { mutableStateOf(kept?.query ?: initialQuery) }
     var state by remember { mutableStateOf<SearchState>(kept?.let { SearchState.Found(it.results) } ?: SearchState.Idle) }
     val scope = rememberCoroutineScope()
-    val pickerState by CatalogPicker.state.collectAsStateWithLifecycle()
 
     fun search() {
         val text = query.trim()

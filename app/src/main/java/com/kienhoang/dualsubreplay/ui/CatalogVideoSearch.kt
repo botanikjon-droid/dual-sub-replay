@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kienhoang.dualsubreplay.data.CatalogSection
 import com.kienhoang.dualsubreplay.data.CatalogVideo
 import com.kienhoang.dualsubreplay.data.UziCatalogStore
@@ -89,6 +90,7 @@ internal fun CatalogVideoSearch(
     var chosen by remember { mutableStateOf<YouTubeSearchResult?>(null) }
     var addingSelected by remember { mutableStateOf(false) }
     val adding = edit as? CatalogEdit.Add
+    val picked by CatalogPicker.state.collectAsStateWithLifecycle()
     if (adding != null) LaunchedEffect(adding.section) { CatalogPicker.begin(adding.section) }
     val (title, subtitle, query) =
         when (edit) {
@@ -124,7 +126,7 @@ internal fun CatalogVideoSearch(
     )
     if (addingSelected && adding != null) {
         AddToCatalogDialog(
-            CatalogPicker.state.value.selected,
+            picked.selected,
             sections.orEmpty(),
             adding.section,
             onDismiss = { addingSelected = false },
