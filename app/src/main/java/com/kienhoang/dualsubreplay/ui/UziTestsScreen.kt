@@ -289,6 +289,16 @@ private fun List<UziTestQuestion>.shuffledBy(seed: Int): List<UziTestQuestion> =
         else -> shuffled(kotlin.random.Random(seed))
     }
 
+/** Keeps the phone's screen on while the voice reads, so playback does not stop when the screen locks. */
+@Composable
+private fun KeepScreenOn(on: Boolean) {
+    val view = LocalView.current
+    DisposableEffect(on) {
+        view.keepScreenOn = on
+        onDispose { view.keepScreenOn = false }
+    }
+}
+
 @Composable
 private fun NowReading(
     lesson: com.kienhoang.dualsubreplay.data.UziTestLesson?,
