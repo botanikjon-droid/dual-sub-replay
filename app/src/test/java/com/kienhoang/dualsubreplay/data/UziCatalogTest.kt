@@ -96,12 +96,12 @@ class UziCatalogTest {
         assertEquals(rows, versions.size)
         assertEquals(4, catalogVersion(versions))
         // Version 1 is the 82 lectures checked on 2026-10-16, version 2 the 53 of the basics section,
-        // version 3 the rest of the SHOKALON catalog (v12, 2026-10-17), version 4 the 23 fetal echo
+        // version 3 the rest of the SHOKALON catalog (v12, 2026-10-17), version 4 the 21 fetal echo
         // lectures in the order of the Normal Fetal Echo imaging checklist (2026-10-28).
         assertEquals(82, versions.count { it.added == 1 })
         assertEquals(53, versions.count { it.added == 2 })
         assertEquals(343, versions.count { it.added == 3 })
-        assertEquals(23, versions.count { it.added == 4 })
+        assertEquals(21, versions.count { it.added == 4 })
     }
 
     @Test
