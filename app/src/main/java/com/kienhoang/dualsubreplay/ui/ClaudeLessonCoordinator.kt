@@ -1,11 +1,19 @@
 package com.kienhoang.dualsubreplay.ui
 
+import android.util.Log
+import com.kienhoang.dualsubreplay.data.ApiUsageEntry
+import com.kienhoang.dualsubreplay.data.ApiUsageLog
 import com.kienhoang.dualsubreplay.data.LearnedGlossaryStore
+import com.kienhoang.dualsubreplay.data.LessonProgress
+import com.kienhoang.dualsubreplay.data.LessonProgressFiles
 import com.kienhoang.dualsubreplay.data.RawCaptionCue
+import com.kienhoang.dualsubreplay.data.SavedSentence
 import com.kienhoang.dualsubreplay.data.SubtitleSegment
 import com.kienhoang.dualsubreplay.data.UziGlossaryStore
 import com.kienhoang.dualsubreplay.data.checkTranslation
+import com.kienhoang.dualsubreplay.data.chunkIdOf
 import com.kienhoang.dualsubreplay.data.formatSrt
+import com.kienhoang.dualsubreplay.data.lessonFingerprint
 import com.kienhoang.dualsubreplay.data.mergeLearnedSuggestions
 import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
 import com.kienhoang.dualsubreplay.dubbing.LessonVoicePrefetch
@@ -27,11 +35,14 @@ import com.kienhoang.dualsubreplay.translation.glossaryForBatch
 import com.kienhoang.dualsubreplay.translation.translatedSegments
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.IOException
 
 /** A place Claude marked as misheard or doubtful, shown on the lesson screen for the doctor to check. */
 internal data class ClaudeDoubt(
@@ -70,11 +81,15 @@ internal data class ClaudeRunState(
 /** Kept for the app's lifetime, so a Gemini model out of free quota is not asked again today. */
 private val geminiLessonQuota = GeminiModelQuota()
 
-/** The real engines, with the doctor's keys and choices from the settings. */
-internal fun lessonTranslatorFor(engine: LessonEngine): LessonTranslator =
-    when (engine) {
+/** The real engines, with the doctor's keys and choices from the settings; their calls go to the usage log. */
+internal fun lessonTranslatorFor(
+    engine: LessonEngine,
+    videoId: String,
+): LessonTranslator {
+    val log = { call: ApiUsageEntry -> ApiUsageLog.record(call.copy(lessonId = videoId)) }
+    return when (engine) {
         LessonEngine.CLAUDE ->
-            LessonTranslator(ClaudeBackend(DubbingSettings.claudeApiKey.value, DubbingSettings.claudeModel.value))
+            LessonTranslator(ClaudeBackend(DubbingSettings.claudeApiKey.value, DubbingSettings.claudeModel.value, onCall = log))
         LessonEngine.GEMINI ->
             LessonTranslator(
                 GeminiBackend(DubbingSettings.geminiApiKey.value, geminiLessonQuota, onModel = { model ->
@@ -84,14 +99,20 @@ internal fun lessonTranslatorFor(engine: LessonEngine): LessonTranslator =
             )
         LessonEngine.DEEPSEEK -> {
             val claudeKey = DubbingSettings.claudeApiKey.value
-            val backup = if (claudeKey.isNotBlank()) ClaudeBackend(claudeKey, DubbingSettings.claudeModel.value) else null
+            val backup =
+                if (claudeKey.isNotBlank()) {
+                    ClaudeBackend(claudeKey, DubbingSettings.claudeModel.value, onCall = { log(it.copy(fallback = true)) })
+                } else {
+                    null
+                }
             LessonTranslator(
                 FallbackLessonBackend(
-                    primary = DeepSeekBackend(DubbingSettings.deepseekApiKey.value),
+                    primary = DeepSeekBackend(DubbingSettings.deepseekApiKey.value, onCall = log),
                     fallback = backup,
+                    limit = DubbingSettings.claudeFallbackLimit.value,
                     onFallback = { reason ->
                         DubbingSettings.publishTranslatorStatus(
-                            "DeepSeek xato berdi ($reason): shu qism Claude bilan tarjima qilindi.",
+                            "DeepSeek javobi yaroqsiz ($reason): shu qism Claude bilan tarjima qilindi.",
                         )
                     },
                 ),
@@ -99,6 +120,7 @@ internal fun lessonTranslatorFor(engine: LessonEngine): LessonTranslator =
             )
         }
     }
+}
 
 private fun keyFor(engine: LessonEngine): String =
     when (engine) {
@@ -121,7 +143,9 @@ internal class ClaudeLessonCoordinator(
     private val segmentsFor: suspend (String) -> List<SubtitleSegment>,
     private val importSrt: suspend (text: String, videoId: String, source: String) -> Int,
     private val notify: (String) -> Unit,
-    private val translatorFor: (LessonEngine) -> LessonTranslator = ::lessonTranslatorFor,
+    private val translatorFor: (LessonEngine, String) -> LessonTranslator = ::lessonTranslatorFor,
+    /** Where finished chunks wait until the whole lesson is stored; null keeps them in memory only. */
+    private val progress: LessonProgressFiles? = null,
 ) {
     private val _state = MutableStateFlow(ClaudeRunState())
     val state: StateFlow<ClaudeRunState> = _state
@@ -187,22 +211,43 @@ internal class ClaudeLessonCoordinator(
             // Claude and Gemini get every caption row and rebuild the sentences themselves.
             val groups = segments.indices.map { SentenceGroup(listOf(it), segments[it].originalText, emptyList()) }
             val sentences = groups.map { it.text }
-            _state.update { it.copy(total = sentences.size, message = "${engine.label} butun darsni tarjima qilmoqda…") }
+            val fingerprint = lessonFingerprint(sentences)
+            // Sentences paid for in an earlier, unfinished run are not sent again.
+            val saved = LinkedHashMap(readProgress(videoId, fingerprint))
+            _state.update {
+                it.copy(
+                    total = sentences.size,
+                    done = saved.size,
+                    message =
+                        if (saved.isEmpty()) {
+                            "${engine.label} butun darsni tarjima qilmoqda…"
+                        } else {
+                            "Oldin saqlangan ${saved.size} gap qayta yuborilmaydi; ${engine.label} qolganini tarjima qilmoqda…"
+                        },
+                )
+            }
             val doubts = mutableListOf<ClaudeDoubt>()
             val result =
-                translatorFor(engine).translate(
+                translatorFor(engine, videoId).translate(
                     sentences = sentences,
                     glossaryFor = { texts -> glossaryForBatch(UziGlossaryStore.glossary.value, texts) },
                     terms = { LearnedGlossaryStore.terms.value },
-                ) { chunk, progress ->
+                    done = saved.mapValues { it.value.uzbek },
+                ) { chunk, step ->
+                    val provider = chunk.engine.ifBlank { engine.label }
+                    val chunkId = chunkIdOf(chunk.translations.keys)
+                    chunk.translations.forEach { (index, uzbek) -> saved[index] = SavedSentence(index, uzbek, provider, chunkId) }
+                    saveProgress(LessonProgress(videoId, fingerprint, saved))
                     val added = learn(chunk, videoId)
                     doubts += doubtsOf(chunk, sentences)
                     _state.update {
-                        it.copy(done = progress.done, total = progress.total, newTerms = it.newTerms + added, doubts = doubts.toList())
+                        it.copy(done = step.done, total = step.total, newTerms = it.newTerms + added, doubts = doubts.toList())
                     }
                 }
+            val source = providersLabel(saved.values.map(SavedSentence::provider), engine)
             val count =
-                importSrt(formatSrt(translatedSegments(segments, spreadOverRows(groups, result.translations))), videoId, engine.label)
+                importSrt(formatSrt(translatedSegments(segments, spreadOverRows(groups, result.translations))), videoId, source)
+            progress?.let { files -> withContext(Dispatchers.IO) { files.delete(videoId) } }
             // Speak the whole lesson into the voice cache now, so playback never waits for a sentence.
             if (DubbingSettings.enabled.value) {
                 // Playback speaks whole sentences (ImportedSentenceRows), so those are what gets prepared.
@@ -212,7 +257,8 @@ internal class ClaudeLessonCoordinator(
                     }
                 LessonVoicePrefetch.start(translatedSentenceSpans(cues).map { it.text })
             }
-            val summary = summary(engine, count, _state.value.newTerms, doubts.size)
+            val claudeBackup = if (engine == LessonEngine.DEEPSEEK) saved.values.count { it.provider == LessonEngine.CLAUDE.label } else 0
+            val summary = summary(source, count, _state.value.newTerms, doubts.size, claudeBackup)
             _state.update { it.copy(running = false, message = summary) }
             notify(summary)
         } catch (cancel: CancellationException) {
@@ -222,6 +268,26 @@ internal class ClaudeLessonCoordinator(
                 if (error is GeminiQuotaExhausted) geminiQuotaMessage(error.untilMs) else error.message ?: "Tarjima bajarilmadi."
             _state.update { it.copy(running = false, message = reason) }
             notify(if (automatic) "${engine.label} avtomatik tarjimasi to‘xtadi: $reason" else reason)
+        }
+    }
+
+    private suspend fun readProgress(
+        videoId: String,
+        fingerprint: String,
+    ): Map<Int, SavedSentence> {
+        val files = progress ?: return emptyMap()
+        return withContext(Dispatchers.IO) { files.read(videoId, fingerprint) }
+    }
+
+    /** Written before the next chunk is asked for; a failed write is logged and the run goes on. */
+    private suspend fun saveProgress(state: LessonProgress) {
+        val files = progress ?: return
+        withContext(Dispatchers.IO) {
+            try {
+                files.save(state)
+            } catch (error: IOException) {
+                Log.w(TAG, "Lesson progress not saved", error)
+            }
         }
     }
 
@@ -285,14 +351,32 @@ internal class ClaudeLessonCoordinator(
         }
 
     private fun summary(
-        engine: LessonEngine,
+        source: String,
         count: Int,
         newTerms: Int,
         doubts: Int,
+        claudeBackup: Int,
     ): String =
         buildString {
-            append("${engine.label} tarjimasi tayyor: $count qator.")
+            append("$source tarjimasi tayyor: $count qator.")
+            if (claudeBackup > 0) append(" Claude zaxirada $claudeBackup gapni tarjima qildi.")
             if (newTerms > 0) append(" Lug‘atga $newTerms ta yangi atama taklif qilindi.")
             if (doubts > 0) append(" Tekshirish kerak: $doubts ta joy.")
         }
+
+    private companion object {
+        const val TAG = "LessonTranslation"
+    }
+}
+
+/** "DeepSeek", or "DeepSeek + Claude" when Claude translated some sentences; the engine's name if none known. */
+internal fun providersLabel(
+    providers: List<String>,
+    engine: LessonEngine,
+): String {
+    val used = providers.filter(String::isNotBlank).distinct()
+    return when {
+        used.isEmpty() -> engine.label
+        else -> (listOf(engine.label).filter(used::contains) + used.filter { it != engine.label }).joinToString(" + ")
+    }
 }

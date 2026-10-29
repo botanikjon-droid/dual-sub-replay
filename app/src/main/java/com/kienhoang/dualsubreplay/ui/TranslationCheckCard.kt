@@ -45,7 +45,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kienhoang.dualsubreplay.data.ApiUsageLog
 import com.kienhoang.dualsubreplay.data.RawCaptionCue
+import com.kienhoang.dualsubreplay.data.apiUsageLine
+import com.kienhoang.dualsubreplay.data.apiUsageTotals
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -108,6 +112,7 @@ internal fun TranslationCheckCard(
             "Saqlangan o‘zbekcha tarjimani shu yerda qatorma-qator tuzating yoki nusxa olib boshqa ilovada " +
                 "(masalan, Claude yoki ChatGPT'da) tekshiring. “EN + UZ” nusxasida har bir gap inglizchasi bilan yonma-yon turadi.",
         )
+        LessonApiUsage(activeVideoId)
         val enabled = activeVideoId != null
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Button(
@@ -232,4 +237,13 @@ private fun TranslationEditor(
             }
         }
     }
+}
+
+/** The open lesson's API calls and tokens from the usage log (nothing when it made none). */
+@Composable
+private fun LessonApiUsage(videoId: String?) {
+    val entries by ApiUsageLog.entries.collectAsStateWithLifecycle()
+    val totals = remember(entries, videoId) { videoId?.let { apiUsageTotals(entries, it) } }
+    if (totals == null || totals.calls == 0) return
+    Text(apiUsageLine(totals), style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("lesson_api_usage"))
 }

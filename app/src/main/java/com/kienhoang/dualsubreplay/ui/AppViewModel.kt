@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kienhoang.dualsubreplay.data.AnalyzedToken
+import com.kienhoang.dualsubreplay.data.ApiUsageLog
 import com.kienhoang.dualsubreplay.data.AppProposal
 import com.kienhoang.dualsubreplay.data.AppProposalStore
 import com.kienhoang.dualsubreplay.data.CaptionLanguage
@@ -28,6 +29,7 @@ import com.kienhoang.dualsubreplay.data.storedDailyGoalMinutes
 import com.kienhoang.dualsubreplay.data.LearningWordSelection
 import com.kienhoang.dualsubreplay.data.LessonLibraryStore
 import com.kienhoang.dualsubreplay.data.LessonNotes
+import com.kienhoang.dualsubreplay.data.LessonProgressFiles
 import com.kienhoang.dualsubreplay.data.LessonRecord
 import com.kienhoang.dualsubreplay.data.NoteFrame
 import com.kienhoang.dualsubreplay.data.addManualFrame
@@ -243,6 +245,9 @@ private const val NO_STORED_TRANSLATION_MESSAGE = "Bu darsning saqlangan tarjima
 private const val REPLACE_WAIT_MESSAGE =
     "Bu darsning tarjimasi hali saqlanmagan: tarjima tugashini kuting (yuqoridagi \u23F3 yozuvi yo\u2018qolsin), keyin almashtiring."
 private const val MS_PER_SECOND = 1_000L
+
+/** Lesson translations in progress, chunk by chunk, until the whole lesson is stored. */
+private const val LESSON_PROGRESS_DIRECTORY = "lesson-progress"
 private const val JPEG_QUALITY = 88
 private const val MAX_IMPORTED_TRANSLATION_BYTES = 8L * 1024 * 1024
 private const val LAST_SHARED_VIDEO_PREFERENCE = "last_translation_share_video"
@@ -351,6 +356,7 @@ class AppViewModel internal constructor(
         viewModelScope.launch { com.kienhoang.dualsubreplay.data.LearnedGlossaryStore.load(application) }
         // The list of translated lessons and their notes.
         viewModelScope.launch { LessonLibraryStore.load(application) }
+        viewModelScope.launch { ApiUsageLog.load(application) }
         viewModelScope.launch { AppProposalStore.load(application) }
         // Focus mode needs the catalog to tell lessons from other YouTube videos.
         if (shokalonFocusMode) viewModelScope.launch { UziCatalogStore.load(application) }
@@ -374,6 +380,7 @@ class AppViewModel internal constructor(
             segmentsFor = { videoId -> lessonSegments(videoId).second },
             importSrt = { text, videoId, source -> importTranslation(text, videoId, source) },
             notify = { Toast.makeText(getApplication(), it, Toast.LENGTH_LONG).show() },
+            progress = LessonProgressFiles(File(application.filesDir, LESSON_PROGRESS_DIRECTORY)),
         )
     internal val claudeRun: StateFlow<ClaudeRunState> get() = claude.state
 

@@ -18,7 +18,13 @@ class ClaudeSentenceFirstTest {
         assertTrue(keys.indexOf("sentences") in 0 until keys.indexOf("translations"))
         assertTrue(schema.getJSONArray("required").toString().contains("sentences"))
         val body = JSONObject(claudeRequestBody("m", "{}"))
-        assertTrue(body.getString("system").contains("\"sentences\": every whole sentence"))
+        assertTrue(
+            body
+                .getJSONArray("system")
+                .getJSONObject(0)
+                .getString("text")
+                .contains("\"sentences\": every whole sentence"),
+        )
     }
 
     @Test

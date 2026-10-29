@@ -61,6 +61,27 @@ internal fun claudeChunks(
         .chunked(size.coerceAtLeast(1))
         .map { indices -> ClaudeChunk(indices.first(), indices.map { sentences[it] }) }
 
+/**
+ * Chunks of the sentences that have no translation yet ([done] are skipped): a resumed lesson sends only
+ * what is missing. Each chunk holds consecutive sentences, so its items keep their lesson indices.
+ */
+internal fun missingChunks(
+    sentences: List<String>,
+    done: Set<Int>,
+    size: Int = CLAUDE_CHUNK_SIZE,
+): List<ClaudeChunk> {
+    val chunks = mutableListOf<ClaudeChunk>()
+    val run = mutableListOf<Int>()
+
+    fun flush() {
+        run.chunked(size.coerceAtLeast(1)).forEach { indices -> chunks += ClaudeChunk(indices.first(), indices.map { sentences[it] }) }
+        run.clear()
+    }
+    sentences.indices.forEach { index -> if (index in done) flush() else run += index }
+    flush()
+    return chunks
+}
+
 /** Halves a chunk that failed; null when it is already as small as allowed. */
 internal fun splitClaudeChunk(
     chunk: ClaudeChunk,
@@ -213,7 +234,7 @@ internal fun claudeRequestBody(
     JSONObject()
         .put("model", model)
         .put("max_tokens", CLAUDE_MAX_TOKENS)
-        .put("system", claudeSystemPrompt())
+        .put("system", cachedSystem(claudeSystemPrompt()))
         .put(
             "tools",
             JSONArray().put(
@@ -239,7 +260,40 @@ internal data class ClaudeChunkResult(
     val translations: Map<Int, String>,
     val newTerms: List<LearnedTerm>,
     val uncertain: List<ClaudeUncertainty>,
+    /** The provider that really answered ("DeepSeek", "Claude", "Gemini"). */
+    val engine: String = "",
 )
+
+/**
+ * The system prompt as one block marked for prompt caching. The tools come before the system prompt in
+ * the cached prefix, so both are cached; the user message (the lesson's sentences) changes and is not.
+ * A prompt shorter than the model's minimum is simply not cached: the request works the same.
+ */
+internal fun cachedSystem(text: String): JSONArray =
+    JSONArray().put(
+        JSONObject()
+            .put("type", "text")
+            .put("text", text)
+            .put("cache_control", JSONObject().put("type", "ephemeral")),
+    )
+
+/** Token counts from a Messages API reply ("usage"); not reported when the reply has none. */
+internal fun claudeUsage(body: String?): TokenUsage {
+    val usage =
+        try {
+            body?.let { JSONObject(it).optJSONObject("usage") }
+        } catch (error: JSONException) {
+            null
+        } ?: return TokenUsage.UNREPORTED
+    if (!usage.has("input_tokens") && !usage.has("output_tokens")) return TokenUsage.UNREPORTED
+    return TokenUsage(
+        input = usage.optLong("input_tokens"),
+        output = usage.optLong("output_tokens"),
+        cacheRead = usage.optLong("cache_read_input_tokens"),
+        cacheWrite = usage.optLong("cache_creation_input_tokens"),
+        reported = true,
+    )
+}
 
 /** A reply Claude cut short or answered wrongly; a smaller chunk usually succeeds. */
 internal class ClaudeReplyException(
@@ -296,6 +350,7 @@ internal fun parseLessonAnswer(
         translations = wanted.sorted().associateWith { translations.getValue(it) },
         newTerms = parseTerms(answer.optJSONArray("new_terms")),
         uncertain = parseUncertain(answer.optJSONArray("uncertain"), wanted),
+        engine = engine,
     )
 }
 

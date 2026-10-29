@@ -23,6 +23,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -308,12 +311,33 @@ private fun DeepSeekKeyField() {
     Hint(
         if (key.isBlank()) {
             "Kalitni platform.deepseek.com dan oling. Kalit faqat shu telefonda saqlanadi. " +
-                "Kalit kiritilsa, yangi darslar DeepSeek bilan tarjima qilinadi; xato bo\u2018lsa Claude zaxirada ishlaydi."
+                "Kalit kiritilsa, yangi darslar DeepSeek bilan tarjima qilinadi."
         } else {
             "Yangi darslar DeepSeek bilan butunligicha bir marta tarjima qilinadi va saqlanadi. " +
-                "Xato bo\u2018lsa, o\u2018sha qism Claude bilan tarjima qilinadi (Claude kaliti kerak)."
+                "Kalit noto\u2018g\u2018ri, balans tugagan yoki limit bo\u2018lsa tarjima to\u2018xtaydi va sababi yoziladi. " +
+                "Faqat DeepSeek javobi buzilganda o\u2018sha kichik qism Claude bilan tarjima qilinadi (Claude kaliti kerak)."
         },
     )
+    if (key.isNotBlank()) ClaudeFallbackLimitField()
+}
+
+/** How many small chunks Claude may translate per lesson when DeepSeek's reply is unusable. */
+@Composable
+private fun ClaudeFallbackLimitField() {
+    val limit by DubbingSettings.claudeFallbackLimit.collectAsStateWithLifecycle()
+    // The field keeps what is typed (it may be empty for a moment); the setting takes every whole number.
+    var typed by remember { mutableStateOf(limit.toString()) }
+    OutlinedTextField(
+        value = typed,
+        onValueChange = { text ->
+            typed = text.filter(Char::isDigit).take(3)
+            typed.toIntOrNull()?.let(DubbingSettings::setClaudeFallbackLimit)
+        },
+        label = { Text("Claude zaxira limiti (bir darsda, blok)") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).testTag("claude_fallback_limit"),
+    )
+    Hint("0 \u2014 Claude zaxirasi o\u2018chiq. Limit tugasa tarjima to\u2018xtaydi, tayyor qismi saqlanib qoladi.")
 }
 
 /** Glossary-guided translation: approved UZI terms are given to the translator. */

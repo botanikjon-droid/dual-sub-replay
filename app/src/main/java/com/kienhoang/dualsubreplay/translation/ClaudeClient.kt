@@ -1,7 +1,10 @@
 package com.kienhoang.dualsubreplay.translation
 
+import com.kienhoang.dualsubreplay.data.ApiUsageEntry
+import com.kienhoang.dualsubreplay.data.ApiUsageLog
 import com.kienhoang.dualsubreplay.data.GlossaryEntry
 import com.kienhoang.dualsubreplay.data.LearnedTerm
+import com.kienhoang.dualsubreplay.data.chunkIdOf
 import com.kienhoang.dualsubreplay.data.learnedTermsIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -66,6 +69,56 @@ internal object HttpClaudeTransport : ClaudeTransport {
         }
 }
 
+/** Token counts of one reply, as the provider reported them. */
+internal data class TokenUsage(
+    val input: Long,
+    val output: Long,
+    val cacheRead: Long,
+    val cacheWrite: Long,
+    val reported: Boolean,
+) {
+    companion object {
+        val UNREPORTED = TokenUsage(0, 0, 0, 0, reported = false)
+    }
+}
+
+/** Where a backend reports each API call (the lesson run adds the lesson id). */
+internal typealias ApiCallSink = (ApiUsageEntry) -> Unit
+
+/** One call for the usage log; [chunk] null for calls outside a lesson run. */
+internal fun apiCall(
+    timeMs: Long,
+    provider: String,
+    model: String,
+    chunk: ClaudeChunk?,
+    usage: TokenUsage,
+    status: String,
+    success: Boolean,
+): ApiUsageEntry =
+    ApiUsageEntry(
+        timeMs = timeMs,
+        lessonId = "",
+        chunkId = chunk?.let { chunkIdOf(it.sentences.indices.map { offset -> it.start + offset }) }.orEmpty(),
+        provider = provider,
+        model = model,
+        inputTokens = usage.input,
+        outputTokens = usage.output,
+        cacheReadTokens = usage.cacheRead,
+        cacheWriteTokens = usage.cacheWrite,
+        tokensReported = usage.reported,
+        status = status,
+        fallback = false,
+        success = success,
+    )
+
+/**
+ * Stops a lesson run with a reason for the doctor: a wrong key, no balance, a refused request, retries used
+ * up or the Claude backup limit reached. Never a reason to ask another provider.
+ */
+internal class TranslationStoppedException(
+    message: String,
+) : IOException(message)
+
 /** Progress of a lesson translation, for the lesson screen and the toast at the end. */
 internal data class ClaudeProgress(
     val done: Int,
@@ -98,16 +151,22 @@ internal class LessonTranslator(
     private val backend: LessonBackend,
     private val chunkSize: Int = CLAUDE_CHUNK_SIZE,
 ) {
+    /**
+     * [done] are sentences already translated in an earlier run: they are not sent again, only given as
+     * context, and [onChunk] is called for the new chunks only.
+     */
     suspend fun translate(
         sentences: List<String>,
         glossaryFor: (List<String>) -> List<GlossaryEntry>,
         terms: () -> List<LearnedTerm>,
+        done: Map<Int, String> = emptyMap(),
         onChunk: suspend (ClaudeChunkResult, ClaudeProgress) -> Unit,
     ): ClaudeLessonResult {
         val finished = linkedMapOf<Int, String>()
+        done.forEach { (index, uzbek) -> if (index in sentences.indices && uzbek.isNotBlank()) finished[index] = uzbek }
         val newTerms = mutableListOf<LearnedTerm>()
         val uncertain = mutableListOf<ClaudeUncertainty>()
-        val queue = ArrayDeque(claudeChunks(sentences, chunkSize))
+        val queue = ArrayDeque(missingChunks(sentences, finished.keys, chunkSize))
         while (queue.isNotEmpty()) {
             val chunk = queue.removeFirst()
             val texts = chunk.sentences
@@ -135,6 +194,8 @@ internal class ClaudeBackend(
     val model: String,
     private val transport: ClaudeTransport = HttpClaudeTransport,
     private val retryPausesMs: List<Long> = listOf(3_000L, 10_000L, 30_000L),
+    private val onCall: ApiCallSink = ApiUsageLog::record,
+    private val now: () -> Long = System::currentTimeMillis,
 ) : LessonBackend {
     init {
         require(apiKey.isNotBlank()) { "Claude API kalitini kiriting." }
@@ -143,23 +204,57 @@ internal class ClaudeBackend(
     override suspend fun translate(
         userPrompt: String,
         chunk: ClaudeChunk,
-    ): ClaudeChunkResult = parseClaudeReply(request(claudeRequestBody(model, userPrompt)), chunk)
+    ): ClaudeChunkResult {
+        val reply = request(claudeRequestBody(model, userPrompt), chunk)
+        val result =
+            try {
+                parseClaudeReply(reply, chunk)
+            } catch (error: ClaudeReplyException) {
+                log(chunk, claudeUsage(reply), STATUS_BAD_REPLY, success = false)
+                throw error
+            }
+        log(chunk, claudeUsage(reply), STATUS_OK, success = true)
+        return result
+    }
 
-    /** Sends one Messages API request, retrying a busy service; returns the raw reply. */
-    suspend fun request(body: String): String {
+    /**
+     * Sends one Messages API request, retrying a busy service; returns the raw reply. Every failed attempt
+     * is logged; a successful one too when [chunk] is null (the lesson run logs its own after reading it).
+     */
+    suspend fun request(
+        body: String,
+        chunk: ClaudeChunk? = null,
+    ): String {
         var attempt = 0
         while (true) {
             try {
-                return transport.send(apiKey, body)
+                val reply = transport.send(apiKey, body)
+                if (chunk == null) log(null, claudeUsage(reply), STATUS_OK, success = true)
+                return reply
             } catch (error: ClaudeHttpException) {
+                log(chunk, TokenUsage.UNREPORTED, error.code.toString(), success = false)
                 if (!isRetryableClaudeStatus(error.code) || attempt >= retryPausesMs.size) throw error
                 delay(error.retryAfterMs?.coerceAtMost(MAX_RETRY_AFTER_MS) ?: retryPausesMs[attempt])
                 attempt++
+            } catch (error: IOException) {
+                log(chunk, TokenUsage.UNREPORTED, STATUS_NETWORK, success = false)
+                throw error
             }
         }
     }
+
+    private fun log(
+        chunk: ClaudeChunk?,
+        usage: TokenUsage,
+        status: String,
+        success: Boolean,
+    ) = onCall(apiCall(now(), "Claude", model, chunk, usage, status, success))
 
     private companion object {
         const val MAX_RETRY_AFTER_MS = 60_000L
     }
 }
+
+internal const val STATUS_OK = "200"
+internal const val STATUS_BAD_REPLY = "bad_reply"
+internal const val STATUS_NETWORK = "network"

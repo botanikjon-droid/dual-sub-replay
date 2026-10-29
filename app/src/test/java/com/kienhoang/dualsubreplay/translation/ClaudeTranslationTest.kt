@@ -102,7 +102,13 @@ class ClaudeTranslationTest {
         assertEquals("claude-sonnet-5-5", body.getString("model"))
         assertEquals(CLAUDE_TOOL_NAME, body.getJSONObject("tool_choice").getString("name"))
         assertEquals(CLAUDE_TOOL_NAME, body.getJSONArray("tools").getJSONObject(0).getString("name"))
-        assertTrue(body.getString("system").contains("dangling"))
+        assertTrue(
+            body
+                .getJSONArray("system")
+                .getJSONObject(0)
+                .getString("text")
+                .contains("dangling"),
+        )
     }
 
     @Test

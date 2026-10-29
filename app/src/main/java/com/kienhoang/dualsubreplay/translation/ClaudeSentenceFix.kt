@@ -86,7 +86,7 @@ internal fun sentenceFixRequestBody(
     return JSONObject()
         .put("model", model)
         .put("max_tokens", CLAUDE_MAX_TOKENS)
-        .put("system", SENTENCE_FIX_SYSTEM)
+        .put("system", cachedSystem(SENTENCE_FIX_SYSTEM))
         .put(
             "tools",
             JSONArray().put(
