@@ -124,7 +124,7 @@ internal fun applyImportedTranslation(
         }
         if (best >= 0) assigned[best] += cue.text
     }
-    return rows.mapIndexed { index, row -> row.copy(translatedText = assigned[index].joinToString(" ")) }
+    return rows.mapIndexed { index, row -> row.copy(translatedText = withoutHesitations(assigned[index].joinToString(" "))) }
 }
 
 /** Imported cues as segments, so they can be written back with [formatSrt]. */
