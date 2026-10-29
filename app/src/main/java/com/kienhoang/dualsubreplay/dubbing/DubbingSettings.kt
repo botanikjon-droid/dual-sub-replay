@@ -34,6 +34,7 @@ internal object DubbingSettings {
     private const val KEY_TRANSLATION_PROVIDER = "translation_provider"
     private const val KEY_GEMINI_API_KEY = "gemini_api_key"
     private const val KEY_CLAUDE_API_KEY = "claude_api_key"
+    private const val KEY_DEEPSEEK_API_KEY = "deepseek_api_key"
     private const val KEY_CLAUDE_MODEL = "claude_model"
     private const val KEY_CLAUDE_AUTO = "claude_auto"
     private const val KEY_GEMINI_WHOLE_LESSON = "gemini_whole_lesson"
@@ -57,6 +58,7 @@ internal object DubbingSettings {
     private val _geminiApiKey = MutableStateFlow("")
     private val _translatorStatus = MutableStateFlow("")
     private val _claudeApiKey = MutableStateFlow("")
+    private val _deepseekApiKey = MutableStateFlow("")
     private val _claudeModel = MutableStateFlow(CLAUDE_MODELS.first().id)
     private val _claudeAuto = MutableStateFlow(false)
     private val _geminiWholeLesson = MutableStateFlow(true)
@@ -98,6 +100,7 @@ internal object DubbingSettings {
 
     /** The user's Claude API key for "Claude bilan tarjima": only in this app's private preferences. */
     val claudeApiKey: StateFlow<String> = _claudeApiKey
+    val deepseekApiKey: StateFlow<String> = _deepseekApiKey
 
     /** The Claude model that translates lessons (one of [CLAUDE_MODELS]). */
     val claudeModel: StateFlow<String> = _claudeModel
@@ -171,6 +174,7 @@ internal object DubbingSettings {
 
     private fun loadClaude(saved: SharedPreferences) {
         _claudeApiKey.value = saved.getString(KEY_CLAUDE_API_KEY, null).orEmpty()
+        _deepseekApiKey.value = saved.getString(KEY_DEEPSEEK_API_KEY, null).orEmpty()
         _claudeModel.value =
             saved.getString(KEY_CLAUDE_MODEL, null)?.takeIf { id -> CLAUDE_MODELS.any { it.id == id } } ?: CLAUDE_MODELS.first().id
         _claudeAuto.value = saved.getBoolean(KEY_CLAUDE_AUTO, false)
@@ -203,6 +207,11 @@ internal object DubbingSettings {
     fun setClaudeApiKey(key: String) {
         _claudeApiKey.value = key.trim()
         preferences?.edit()?.putString(KEY_CLAUDE_API_KEY, _claudeApiKey.value)?.apply()
+    }
+
+    fun setDeepseekApiKey(key: String) {
+        _deepseekApiKey.value = key.trim()
+        preferences?.edit()?.putString(KEY_DEEPSEEK_API_KEY, _deepseekApiKey.value)?.apply()
     }
 
     fun setClaudeModel(id: String) {

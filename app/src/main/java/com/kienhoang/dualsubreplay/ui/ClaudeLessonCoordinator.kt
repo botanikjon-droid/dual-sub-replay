@@ -9,8 +9,11 @@ import com.kienhoang.dualsubreplay.data.formatSrt
 import com.kienhoang.dualsubreplay.data.mergeLearnedSuggestions
 import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
 import com.kienhoang.dualsubreplay.dubbing.LessonVoicePrefetch
+import com.kienhoang.dualsubreplay.translation.CLAUDE_CHUNK_SIZE
 import com.kienhoang.dualsubreplay.translation.ClaudeBackend
 import com.kienhoang.dualsubreplay.translation.ClaudeChunkResult
+import com.kienhoang.dualsubreplay.translation.DeepSeekBackend
+import com.kienhoang.dualsubreplay.translation.FallbackLessonBackend
 import com.kienhoang.dualsubreplay.translation.GEMINI_LESSON_CHUNK_SIZE
 import com.kienhoang.dualsubreplay.translation.GeminiBackend
 import com.kienhoang.dualsubreplay.translation.GeminiModelQuota
@@ -40,12 +43,16 @@ internal data class ClaudeDoubt(
     val reason: String,
 )
 
-/** Who translates a whole lesson: Claude (paid, best) or Gemini (free tier, one request per lesson). */
+/**
+ * Who translates a whole lesson: DeepSeek (cheap, first choice when its key is set), Claude (paid, the
+ * backup for DeepSeek and the manual choice) or Gemini (free tier, one request per lesson).
+ */
 internal enum class LessonEngine(
     val label: String,
 ) {
     CLAUDE("Claude"),
     GEMINI("Gemini"),
+    DEEPSEEK("DeepSeek"),
 }
 
 /** The latest whole-lesson run, for the lesson screen. */
@@ -75,12 +82,29 @@ internal fun lessonTranslatorFor(engine: LessonEngine): LessonTranslator =
                 }),
                 chunkSize = GEMINI_LESSON_CHUNK_SIZE,
             )
+        LessonEngine.DEEPSEEK -> {
+            val claudeKey = DubbingSettings.claudeApiKey.value
+            val backup = if (claudeKey.isNotBlank()) ClaudeBackend(claudeKey, DubbingSettings.claudeModel.value) else null
+            LessonTranslator(
+                FallbackLessonBackend(
+                    primary = DeepSeekBackend(DubbingSettings.deepseekApiKey.value),
+                    fallback = backup,
+                    onFallback = { reason ->
+                        DubbingSettings.publishTranslatorStatus(
+                            "DeepSeek xato berdi ($reason): shu qism Claude bilan tarjima qilindi.",
+                        )
+                    },
+                ),
+                chunkSize = CLAUDE_CHUNK_SIZE,
+            )
+        }
     }
 
 private fun keyFor(engine: LessonEngine): String =
     when (engine) {
         LessonEngine.CLAUDE -> DubbingSettings.claudeApiKey.value
         LessonEngine.GEMINI -> DubbingSettings.geminiApiKey.value
+        LessonEngine.DEEPSEEK -> DubbingSettings.deepseekApiKey.value
     }
 
 /**
@@ -118,6 +142,7 @@ internal class ClaudeLessonCoordinator(
         if (hasStoredTranslation || TranslationLanguages.normalize(targetLanguage) != "uz") return
         val engine =
             when {
+                DubbingSettings.deepseekApiKey.value.isNotBlank() -> LessonEngine.DEEPSEEK
                 DubbingSettings.claudeApiKey.value.isNotBlank() &&
                     (DubbingSettings.claudeAuto.value || DubbingSettings.translationProvider.value == TRANSLATION_PROVIDER_CLAUDE) ->
                     LessonEngine.CLAUDE

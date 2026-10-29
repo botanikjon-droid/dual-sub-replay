@@ -238,6 +238,7 @@ private fun TranslatorControls() {
         )
     }
     if (provider == TRANSLATION_PROVIDER_CLAUDE) ClaudeKeyField()
+    DeepSeekKeyField()
     if (provider == TRANSLATION_PROVIDER_GEMINI) {
         OutlinedTextField(
             value = key,
@@ -284,6 +285,33 @@ private fun ClaudeKeyField() {
             "Claude har bir yangi darsni UZI lug\u2018ati bilan butunligicha bir marta tarjima qiladi va saqlaydi: " +
                 "qayta ochilganda pul sarflanmaydi. Model \u201CDars\u201D ekranida tanlanadi. " +
                 "Tayyor bo\u2018lguncha yoki xato bo\u2018lsa Google Translate ishlaydi."
+        },
+    )
+}
+
+/**
+ * The DeepSeek key: when it is set, DeepSeek translates every newly opened Uzbek lesson whole, once.
+ * Claude (with its key) takes over a chunk DeepSeek fails on, so the lesson still gets translated.
+ */
+@Composable
+private fun DeepSeekKeyField() {
+    val key by DubbingSettings.deepseekApiKey.collectAsStateWithLifecycle()
+    OutlinedTextField(
+        value = key,
+        onValueChange = DubbingSettings::setDeepseekApiKey,
+        label = { Text("DeepSeek API kaliti") },
+        placeholder = { Text("sk-\u2026") },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).testTag("deepseek_api_key"),
+    )
+    Hint(
+        if (key.isBlank()) {
+            "Kalitni platform.deepseek.com dan oling. Kalit faqat shu telefonda saqlanadi. " +
+                "Kalit kiritilsa, yangi darslar DeepSeek bilan tarjima qilinadi; xato bo\u2018lsa Claude zaxirada ishlaydi."
+        } else {
+            "Yangi darslar DeepSeek bilan butunligicha bir marta tarjima qilinadi va saqlanadi. " +
+                "Xato bo\u2018lsa, o\u2018sha qism Claude bilan tarjima qilinadi (Claude kaliti kerak)."
         },
     )
 }

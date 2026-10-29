@@ -45,6 +45,8 @@ internal fun lessonNotesWriterFor(engine: LessonEngine): LessonNotesWriter =
     when (engine) {
         LessonEngine.CLAUDE -> claudeNotesWriter(ClaudeBackend(DubbingSettings.claudeApiKey.value, DubbingSettings.claudeModel.value))
         LessonEngine.GEMINI -> geminiNotesWriter(GeminiBackend(DubbingSettings.geminiApiKey.value, geminiNotesQuota))
+        // Notes are not written by DeepSeek (it translates lessons only): they go to Claude.
+        LessonEngine.DEEPSEEK -> claudeNotesWriter(ClaudeBackend(DubbingSettings.claudeApiKey.value, DubbingSettings.claudeModel.value))
     }
 
 /**
