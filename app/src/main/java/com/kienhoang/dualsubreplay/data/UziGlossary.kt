@@ -366,8 +366,9 @@ internal fun uzbekPrimaryTerm(uzbek: String): String =
 internal fun glossaryGuidedSource(
     glossary: UziGlossary,
     english: String,
+    includeGeneral: Boolean = false,
 ): String {
-    val matches = glossary.findTerms(english)
+    val matches = glossary.findTerms(english, includeGeneral)
     if (matches.isEmpty()) return english
     val builder = StringBuilder(english.length)
     var cursor = 0

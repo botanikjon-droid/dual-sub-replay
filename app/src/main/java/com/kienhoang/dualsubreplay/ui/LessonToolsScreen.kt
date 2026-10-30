@@ -82,6 +82,13 @@ internal fun LessonToolsScreen(
     importTranslation: suspend (String) -> Int,
     onClearImport: () -> Unit,
     onDismiss: () -> Unit,
+    claudeRun: ClaudeRunState = ClaudeRunState(),
+    onClaudeTranslate: () -> Unit = {},
+    onGeminiTranslate: () -> Unit = {},
+    onClaudeCancel: () -> Unit = {},
+    lessonList: @Composable () -> Unit = {},
+    notesCard: @Composable () -> Unit = {},
+    recordingCard: @Composable () -> Unit = {},
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
@@ -198,6 +205,10 @@ internal fun LessonToolsScreen(
                         }
                     }
 
+                    lessonList()
+
+                    recordingCard()
+
                     SubtitleOutCard(
                         hasVideo = activeVideoId != null,
                         enabled = activeVideoId != null && !busy,
@@ -228,6 +239,16 @@ internal fun LessonToolsScreen(
                             }
                         },
                     )
+
+                    ClaudeTranslateCard(
+                        activeVideoId = activeVideoId,
+                        run = claudeRun,
+                        onTranslate = onClaudeTranslate,
+                        onGeminiTranslate = onGeminiTranslate,
+                        onCancel = onClaudeCancel,
+                    )
+                    notesCard()
+                    LearnedGlossaryCard()
 
                     LessonCard(title = "Tarjima subtitrini yuklash", icon = Icons.Default.Translate) {
                         Hint(
@@ -314,7 +335,7 @@ private fun SubtitleOutCard(
 }
 
 @Composable
-private fun LessonCard(
+internal fun LessonCard(
     title: String,
     icon: ImageVector,
     content: @Composable ColumnScope.() -> Unit,
@@ -336,7 +357,7 @@ private fun LessonCard(
 }
 
 @Composable
-private fun Hint(text: String) {
+internal fun Hint(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 

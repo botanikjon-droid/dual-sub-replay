@@ -2,14 +2,20 @@ package com.kienhoang.dualsubreplay.ui
 
 import android.app.Application
 import android.os.SystemClock
+import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kienhoang.dualsubreplay.data.AnalyzedToken
+import com.kienhoang.dualsubreplay.data.ApiUsageLog
+import com.kienhoang.dualsubreplay.data.AppProposal
+import com.kienhoang.dualsubreplay.data.AppProposalStore
 import com.kienhoang.dualsubreplay.data.CaptionLanguage
 import com.kienhoang.dualsubreplay.data.CaptionProvider
 import com.kienhoang.dualsubreplay.data.CaptionTrackResult
 import com.kienhoang.dualsubreplay.data.CaptionUnavailableException
+import com.kienhoang.dualsubreplay.data.CatalogSection
+import com.kienhoang.dualsubreplay.data.CatalogVideo
 import com.kienhoang.dualsubreplay.data.ImmersionAccumulator
 import com.kienhoang.dualsubreplay.data.ImmersionRepository
 import com.kienhoang.dualsubreplay.data.ImmersionTimeTracker
@@ -17,10 +23,23 @@ import com.kienhoang.dualsubreplay.data.JapaneseDictionaryStore
 import com.kienhoang.dualsubreplay.data.JapaneseMorphology
 import com.kienhoang.dualsubreplay.data.immersionLanguage
 import com.kienhoang.dualsubreplay.data.initialDailyGoalPromptCompleted
+import com.kienhoang.dualsubreplay.data.pendingCorrectionsFromJson
+import com.kienhoang.dualsubreplay.data.pendingCorrectionsToJson
+import com.kienhoang.dualsubreplay.data.splitCuesAtSentenceEnds
 import com.kienhoang.dualsubreplay.data.storedDailyGoalMinutes
 import com.kienhoang.dualsubreplay.data.LearningWordSelection
+import com.kienhoang.dualsubreplay.data.LessonLibraryStore
+import com.kienhoang.dualsubreplay.data.LessonNotes
+import com.kienhoang.dualsubreplay.data.LessonProgressFiles
+import com.kienhoang.dualsubreplay.data.LessonRecord
+import com.kienhoang.dualsubreplay.data.NoteFrame
+import com.kienhoang.dualsubreplay.data.addManualFrame
+import com.kienhoang.dualsubreplay.data.formatVideoTime
+import com.kienhoang.dualsubreplay.data.withFrameImage
 import com.kienhoang.dualsubreplay.data.RawCaptionCue
 import com.kienhoang.dualsubreplay.data.RecentCaptionTracks
+import com.kienhoang.dualsubreplay.data.RecordedCaptionStore
+import com.kienhoang.dualsubreplay.data.RecordingSummary
 import com.kienhoang.dualsubreplay.data.SavedWord
 import com.kienhoang.dualsubreplay.data.SubtitleMerger
 import com.kienhoang.dualsubreplay.data.SubtitleSegment
@@ -36,14 +55,36 @@ import com.kienhoang.dualsubreplay.data.mergeImportedCues
 import com.kienhoang.dualsubreplay.data.parseSubtitleFile
 import com.kienhoang.dualsubreplay.data.readBoundedText
 import com.kienhoang.dualsubreplay.data.toSegments
+import com.kienhoang.dualsubreplay.data.ReplaceScope
+import com.kienhoang.dualsubreplay.data.ReplaceRequest
+import com.kienhoang.dualsubreplay.data.CueReplacement
+import com.kienhoang.dualsubreplay.data.replaceInCues
+import com.kienhoang.dualsubreplay.data.ReviewSentence
+import com.kienhoang.dualsubreplay.data.reviewFileVideoId
+import com.kienhoang.dualsubreplay.data.reviewFileText
+import com.kienhoang.dualsubreplay.data.parseReviewFile
+import com.kienhoang.dualsubreplay.data.applySentenceCorrection
+import com.kienhoang.dualsubreplay.data.UziCatalogStore
+import com.kienhoang.dualsubreplay.data.UziGlossaryStore
 import com.kienhoang.dualsubreplay.data.translationRequest
 import com.kienhoang.dualsubreplay.data.retireLegacyDownloadJobs
 import com.kienhoang.dualsubreplay.data.savedWordFrom
 import com.kienhoang.dualsubreplay.data.subtitleFileName
+import com.kienhoang.dualsubreplay.data.SHOKALON_IDS_ASSET
+import com.kienhoang.dualsubreplay.data.SHOKALON_TRANSLATION_SOURCE
+import com.kienhoang.dualsubreplay.data.parseShokalonIds
+import com.kienhoang.dualsubreplay.data.readTranslationZip
+import com.kienhoang.dualsubreplay.data.translationZipSummary
 import com.kienhoang.dualsubreplay.dubbing.DubbingController
+import com.kienhoang.dualsubreplay.dubbing.DubbingSettings
+import com.kienhoang.dualsubreplay.dubbing.LessonVoicePrefetch
 import com.kienhoang.dualsubreplay.dubbing.createDubbingVoice
+import com.kienhoang.dualsubreplay.translation.ClaudeBackend
 import com.kienhoang.dualsubreplay.translation.OnDeviceTranslator
+import com.kienhoang.dualsubreplay.translation.SentenceFix
 import com.kienhoang.dualsubreplay.translation.TranslationLanguages
+import com.kienhoang.dualsubreplay.translation.glossaryForBatch
+import com.kienhoang.dualsubreplay.translation.requestSentenceFixes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -61,6 +102,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.time.LocalDate
 import com.kienhoang.dualsubreplay.data.activeWordIndex as timedActiveWordIndex
 
@@ -116,6 +158,8 @@ data class DualSubUiState(
     val translationError: String? = null,
     /** Cues in the user's imported translation for the open video; 0 when none is imported. */
     val importedTranslationCues: Int = 0,
+    /** Captions recorded from the YouTube page for the open video (videos without a downloadable track), or null. */
+    val recordedCaptions: RecordingSummary? = null,
 )
 
 /**
@@ -194,6 +238,18 @@ internal fun activeWordIndex(
 
 internal const val YOUTUBE_HOME_URL = "https://m.youtube.com/"
 private const val NO_VIDEO_MESSAGE = "Avval dars videosini oching."
+private const val REVIEW_MARKS_PREFIX = "review_marks_"
+private const val PENDING_FIX_PREFIX = "pending_fix_"
+private const val FULL_GLOSSARY_SENTENCES = 5
+private const val MAX_REPLACE_EXAMPLES = 5
+private const val NO_STORED_TRANSLATION_MESSAGE = "Bu darsning saqlangan tarjimasi yo\u2018q: avval tarjima qiling yoki ZIP\u2019ni yuklang."
+private const val REPLACE_WAIT_MESSAGE =
+    "Bu darsning tarjimasi hali saqlanmagan: tarjima tugashini kuting (yuqoridagi \u23F3 yozuvi yo\u2018qolsin), keyin almashtiring."
+private const val MS_PER_SECOND = 1_000L
+
+/** Lesson translations in progress, chunk by chunk, until the whole lesson is stored. */
+private const val LESSON_PROGRESS_DIRECTORY = "lesson-progress"
+private const val JPEG_QUALITY = 88
 private const val MAX_IMPORTED_TRANSLATION_BYTES = 8L * 1024 * 1024
 private const val LAST_SHARED_VIDEO_PREFERENCE = "last_translation_share_video"
 
@@ -287,7 +343,8 @@ class AppViewModel internal constructor(
         )
 
     // Speaks translated sentences in the "uz" build; idle where no voice exists.
-    private val dubbing = DubbingController(viewModelScope, createDubbingVoice(application))
+    private val dubbingVoice = createDubbingVoice(application)
+    private val dubbing = DubbingController(viewModelScope, dubbingVoice)
     internal val vocabulary = VocabularyRepository.get(application)
     internal val immersion = ImmersionRepository.get(application)
 
@@ -296,7 +353,304 @@ class AppViewModel internal constructor(
         JapaneseMorphology.useStore(JapaneseDictionaryStore(File(application.filesDir, "japanese-dictionary")))
         // The UZI glossary (small asset) for term hints when English captions are shown in Uzbek.
         com.kienhoang.dualsubreplay.data.UziGlossaryStore.load(application, viewModelScope)
+        // Terms Claude suggested and the doctor approved, kept across lessons.
+        viewModelScope.launch { com.kienhoang.dualsubreplay.data.LearnedGlossaryStore.load(application) }
+        // The list of translated lessons and their notes.
+        viewModelScope.launch { LessonLibraryStore.load(application) }
+        viewModelScope.launch { ApiUsageLog.load(application) }
+        viewModelScope.launch { AppProposalStore.load(application) }
+        // Focus mode needs the catalog to tell lessons from other YouTube videos.
+        if (shokalonFocusMode) viewModelScope.launch { UziCatalogStore.load(application) }
+        // Speaking a translated lesson in advance uses the same voice as playback.
+        LessonVoicePrefetch.voice = dubbingVoice
+        // Playback speaks whole translated sentences, so the voice is prepared sentence by sentence too.
+        LessonVoicePrefetch.currentLessonTexts = {
+            importedTranslation
+                ?.takeIf { it.first == _state.value.activeVideoId }
+                ?.second
+                ?.let { cues -> translatedSentenceSpans(cues).map { it.text } }
+                .orEmpty()
+        }
+        VideoFrameSource.onCaptureNow = ::captureCurrentFrame
     }
+
+    /** "Claude bilan tarjima": translates the open lesson with the doctor's own Claude API key. */
+    private val claude =
+        ClaudeLessonCoordinator(
+            scope = viewModelScope,
+            segmentsFor = { videoId -> lessonSegments(videoId).second },
+            importSrt = { text, videoId, source -> importTranslation(text, videoId, source) },
+            notify = { Toast.makeText(getApplication(), it, Toast.LENGTH_LONG).show() },
+            progress = LessonProgressFiles(File(application.filesDir, LESSON_PROGRESS_DIRECTORY)),
+            machineDrafts = ::machineDrafts,
+        )
+    internal val claudeRun: StateFlow<ClaudeRunState> get() = claude.state
+
+    fun translateLessonWithClaude() {
+        val videoId = _state.value.activeVideoId ?: return
+        claude.start(videoId, LessonEngine.CLAUDE)
+    }
+
+    /** The whole open lesson in one Gemini request (the free tier counts requests, not sentences). */
+    fun translateLessonWithGemini() {
+        val videoId = _state.value.activeVideoId ?: return
+        claude.start(videoId, LessonEngine.GEMINI)
+    }
+
+    fun cancelClaudeTranslation() = claude.cancel()
+
+    /** "Konspekt va test": the open lesson's summary and quiz, stored per video. */
+    private val lessonNotes =
+        LessonNotesCoordinator(
+            scope = viewModelScope,
+            inputFor = ::notesInput,
+            load = LessonLibraryStore::notes,
+            save = LessonLibraryStore::saveNotes,
+        )
+    internal val lessonNotesState: StateFlow<LessonNotesState> get() = lessonNotes.state
+
+    fun showLessonNotes() = lessonNotes.show(_state.value.activeVideoId)
+
+    internal fun writeLessonNotes(engine: LessonEngine) {
+        val videoId = _state.value.activeVideoId ?: return
+        lessonNotes.start(videoId, engine)
+    }
+
+    fun cancelLessonNotes() = lessonNotes.cancel()
+
+    /** What the notes of [videoId] are written from: its English subtitles and, when stored, its Uzbek translation. */
+    private suspend fun notesInput(videoId: String): LessonNotesInput {
+        val (title, segments) = lessonSegments(videoId)
+        val uzbek =
+            importedLines(videoId)
+                ?: withContext(Dispatchers.IO) { runCatching { readImportedTranslation(videoId) }.getOrNull() }?.map { it.text }
+        return LessonNotesInput(
+            title ?: lessonRecord(videoId)?.title,
+            segments.map { it.originalText },
+            uzbek,
+            segments.map { (it.startMs / MS_PER_SECOND).toInt() },
+        )
+    }
+
+    /** "Konspektsiz darslarga yozish" of a SHOKALON section. */
+    private val sectionNotes =
+        SectionNotesBatch(viewModelScope, ::notesInput, LessonLibraryStore::notes, LessonLibraryStore::saveNotes)
+    internal val sectionNotesProgress: StateFlow<SectionNotesProgress> get() = sectionNotes.progress
+
+    internal fun writeSectionNotes(
+        section: String,
+        videos: List<CatalogVideo>,
+        engine: LessonEngine,
+    ) = sectionNotes.start(section, videos, engine)
+
+    fun cancelSectionNotes() = sectionNotes.cancel()
+
+    /** "SHOKALON chat": Claude with the doctor's key, reading and proposing through [chatAccess]. */
+    internal val chatAgent by lazy { ShokalonChatAgent(viewModelScope, chatAccess) }
+
+    private val chatAccess =
+        object : ChatAppAccess {
+            override fun context(): String {
+                val videoId = _state.value.activeVideoId ?: return "No lesson is open (the doctor is on the sections screen)."
+                val section = lessonSteps(UziCatalogStore.sections.value, videoId)?.section
+                val translated = storedTranslationCues()?.size
+                return listOfNotNull(
+                    "Open lesson: ${activeLessonTitle() ?: videoId} (YouTube $videoId)",
+                    section?.let { "Section: $it" },
+                    if (translated != null) "Stored Uzbek translation: $translated cues" else "No stored Uzbek translation yet",
+                    "Notes written: ${if (videoId in LessonLibraryStore.notedIds.value) "yes" else "no"}",
+                    "Sentences marked for checking: ${reviewMarkStore.value[videoId].orEmpty().size}",
+                ).joinToString("\n")
+            }
+
+            override suspend fun lessonSentences(): Triple<String, String?, List<ReviewSentence>> {
+                val videoId = _state.value.activeVideoId ?: throw IllegalStateException("No lesson is open.")
+                val (title, sentences) = lessonReviewSentences(onlyMarked = false)
+                return Triple(videoId, title, sentences)
+            }
+
+            override suspend fun lessonNotes(): LessonNotes? = _state.value.activeVideoId?.let { LessonLibraryStore.notes(it) }
+
+            override fun catalog(): String = chatCatalog(UziCatalogStore.sections.value.orEmpty())
+
+            override suspend fun previewReplace(request: ReplaceRequest): String = replaceInTranslations(request, apply = false)
+
+            override suspend fun applyFixes(
+                videoId: String,
+                fixes: List<SentenceFix>,
+            ): String = applySentenceFixes(videoId, fixes)
+
+            override suspend fun applyReplace(request: ReplaceRequest): String = replaceInTranslations(request, apply = true)
+
+            override fun rewriteNotes(): String {
+                check(_state.value.activeVideoId != null) { NO_VIDEO_MESSAGE }
+                writeLessonNotes(LessonEngine.CLAUDE)
+                return "Konspekt va test Claude bilan qayta yozilmoqda (“Konspekt va test” kartasida ko‘rinadi)."
+            }
+
+            override suspend fun recordProposal(proposal: AppProposal) = AppProposalStore.add(proposal)
+
+            override fun backend(): ClaudeBackend = ClaudeBackend(DubbingSettings.claudeApiKey.value, DubbingSettings.claudeModel.value)
+        }
+
+    /** The catalog for Claude: sections, topics and lectures, with T (translated) and K (notes) marks. */
+    private fun chatCatalog(sections: List<CatalogSection>): String {
+        val translated = LessonLibraryStore.records.value.mapTo(HashSet()) { it.videoId }
+        val noted = LessonLibraryStore.notedIds.value
+        return buildString {
+            sections.forEach { section ->
+                append("# ").append(section.name).append('\n')
+                section.topics.forEach { topic ->
+                    append("## ").append(topic.name).append('\n')
+                    topic.videos.forEach { video ->
+                        append("- ").append(video.title)
+                        if (video.videoId in translated) append(" [T]")
+                        if (video.videoId in noted) append(" [K]")
+                        append('\n')
+                    }
+                }
+            }
+        }.ifEmpty { "The catalog is not loaded." }
+    }
+
+    private var frameJob: Job? = null
+
+    /** Takes every planned picture of the open lesson's notes from the video, one after another. */
+    fun captureNoteFrames() {
+        val videoId = _state.value.activeVideoId ?: return
+        if (frameJob?.isActive == true) return
+        frameJob =
+            viewModelScope.launch {
+                val notes = LessonLibraryStore.notes(videoId)
+                val todo = notes?.frames.orEmpty().filter { it.image.isEmpty() }
+                if (notes == null || todo.isEmpty()) {
+                    toast(if (notes == null) "Avval konspekt yozing." else "Barcha rasmlar olingan.")
+                    return@launch
+                }
+                toast("Rasmlar olinmoqda: video ${todo.size} ta joyga o\u2018tib to\u2018xtaydi.")
+                var current: LessonNotes = notes
+                var taken = 0
+                for (frame in todo) {
+                    if (_state.value.activeVideoId != videoId) break
+                    val (next, stop) = takeFrame(videoId, frame.seconds.toFloat()) { name -> current.withFrameImage(frame.seconds, name) }
+                    if (next != null) {
+                        current = next
+                        taken++
+                    }
+                    if (stop) break
+                }
+                toast("Rasmli konspekt: ${todo.size} tadan $taken ta kadr olindi.")
+            }
+    }
+
+    /** "📷": the frame on the screen now goes into the notes, with the current subtitle as its caption. */
+    fun captureCurrentFrame() {
+        val videoId = _state.value.activeVideoId ?: return
+        if (frameJob?.isActive == true) return
+        frameJob =
+            viewModelScope.launch {
+                val notes = LessonLibraryStore.notes(videoId)
+                val segment = _state.value.segments.getOrNull(_state.value.currentIndex)
+                val caption = segment?.translatedText?.takeIf(String::isNotBlank) ?: segment?.originalText.orEmpty()
+                takeFrame(videoId, second = null) { name ->
+                    val seconds = name.removeSuffix(".jpg").toIntOrNull() ?: 0
+                    addManualFrame(notes, NoteFrame(seconds, caption.ifBlank { "Kadr ${formatVideoTime(seconds)}" }, name))
+                }.first?.let { saved ->
+                    toast("\uD83D\uDCF7 Kadr konspektga qo\u2018shildi (${saved.frames.size} ta rasm).")
+                }
+            }
+    }
+
+    /**
+     * Takes one frame and stores it; returns the updated notes (null when nothing was saved) and
+     * whether the remaining frames should not be tried (black or failed copy).
+     */
+    private suspend fun takeFrame(
+        videoId: String,
+        second: Float?,
+        update: (String) -> LessonNotes,
+    ): Pair<LessonNotes?, Boolean> {
+        val grab = VideoFrameSource.grab
+        if (grab == null) {
+            toast("Avval dars videosini oching.")
+            return null to true
+        }
+        return when (val result = grab(second)) {
+            is FrameGrab.Taken -> {
+                val jpeg = withContext(Dispatchers.Default) { jpegOf(result.bitmap) }
+                val name = LessonLibraryStore.saveFrame(videoId, result.seconds, jpeg) ?: return null to false
+                val next = update(name)
+                LessonLibraryStore.saveNotes(videoId, next)
+                lessonNotes.replace(videoId, next)
+                next to false
+            }
+            FrameGrab.Black -> {
+                toast("Kadr qora chiqdi: bu telefonda video tasvirini dastur ichidan nusxalab bo\u2018lmadi.")
+                null to true
+            }
+            is FrameGrab.Failed -> {
+                toast(result.reason)
+                null to true
+            }
+        }
+    }
+
+    private fun jpegOf(bitmap: android.graphics.Bitmap): ByteArray =
+        java.io.ByteArrayOutputStream().use { out ->
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+            out.toByteArray()
+        }
+
+    private fun toast(message: String) = Toast.makeText(getApplication(), message, Toast.LENGTH_LONG).show()
+
+    /** The last lesson page, where focus mode returns from a page that is not a lesson. */
+    private var lastLessonUrl: String? = null
+
+    /** A catalog lecture, a translated lesson or a video the doctor opened himself; unknown until the catalog loads. */
+    internal fun isLessonVideo(videoId: String): Boolean =
+        videoId in focusRequestedVideos ||
+            LessonLibraryStore.records.value.any { it.videoId == videoId } ||
+            catalogHasVideo(com.kienhoang.dualsubreplay.data.UziCatalogStore.sections.value, videoId) != false
+
+    /** Focus mode: leaves another video, Shorts or a feed for the last lesson (or the empty home page). */
+    private fun leaveDistraction() {
+        val back = lastLessonUrl ?: YOUTUBE_HOME_URL
+        _state.update { it.copy(browserUrl = back, browserNavigationRequestId = it.browserNavigationRequestId + 1) }
+        toast(FOCUS_BLOCKED_MESSAGE)
+    }
+
+    /** Opens a lesson from the catalog or reopens one from the list of translated lessons. */
+    fun openTranslatedLesson(videoId: String) {
+        openLessonLink(mobileWatchUrl(videoId))
+    }
+
+    /** Fetches a caption track and remembers the video's title for the list of translated lessons. */
+    private suspend fun fetchCaptionTrack(
+        videoId: String,
+        languages: List<String>,
+    ): CaptionTrackResult {
+        // A recording the user chose to use stands in for the track YouTube does not let the app download.
+        captionRecorder.store.completeCues(videoId)?.let { (language, cues) ->
+            return CaptionTrackResult(
+                languageCode = TranslationLanguages.normalize(language ?: "en"),
+                isGenerated = true,
+                cues = cues,
+                title = lessonTitles[videoId],
+            )
+        }
+        val track = captionProvider.fetch(videoId, languages)
+        track.title?.takeIf(String::isNotBlank)?.let { lessonTitles[videoId] = it }
+        return track
+    }
+
+    /** The stored translation's lines of [videoId] when that lesson is open, else null. */
+    private fun importedLines(videoId: String?): List<String>? {
+        val (id, cues) = importedTranslation ?: return null
+        return if (id == videoId) cues.map { it.text } else null
+    }
+
+    /** Video titles seen in this session, for the list of translated lessons. */
+    private val lessonTitles = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     private val immersionTracker = ImmersionTimeTracker()
     private val immersionAccumulator = ImmersionAccumulator()
@@ -326,12 +680,20 @@ class AppViewModel internal constructor(
     private var importedTranslation: Pair<String, List<RawCaptionCue>>? = null
     private val importedTranslationDirectory = File(application.filesDir, "imported-translations")
 
+    /** Records the captions the page shows for videos whose caption track cannot be downloaded. */
+    private val captionRecorder =
+        CaptionRecorder(RecordedCaptionStore(File(application.filesDir, RecordedCaptionStore.FOLDER)), viewModelScope) { id, summary ->
+            _state.update { if (it.activeVideoId == id) it.copy(recordedCaptions = summary) else it }
+        }
+
     private val _state =
         MutableStateFlow(
             DualSubUiState(
                 browserUrl =
                     preferences
                         .getString("last_browser_url", YOUTUBE_HOME_URL)
+                        // SHOKALON starts on its sections screen: no lesson plays until the doctor picks one.
+                        ?.takeUnless { shokalonFocusMode }
                         ?.let(::trustedEmbeddedUrlOrHome)
                         ?: YOUTUBE_HOME_URL,
                 originalVisibility = storedCaptionVisibility(preferences.getString(ORIGINAL_VISIBILITY, null)),
@@ -449,6 +811,7 @@ class AppViewModel internal constructor(
         }
 
     override fun onCleared() {
+        captionRecorder.saveNow()
         flushImmersion()
         loadingJob?.cancel()
         dubbing.reset()
@@ -541,6 +904,7 @@ class AppViewModel internal constructor(
             return
         }
         val videoId = YouTubeUrlParser.extractVideoId(text) ?: return
+        focusRequestedVideos += videoId
         val watchUrl = mobileWatchUrl(videoId)
         preferences.edit().putString("last_browser_url", watchUrl).apply()
         _state.update {
@@ -566,21 +930,345 @@ class AppViewModel internal constructor(
     internal suspend fun subtitleExport(): SubtitleExport {
         val current = _state.value
         val videoId = current.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        val (title, segments) = lessonSegments(videoId)
+        return SubtitleExport(
+            videoId = videoId,
+            title = title,
+            cueCount = segments.size,
+            text = withContext(Dispatchers.Default) { formatSrt(segments) },
+        )
+    }
+
+    /** A lesson's title and its sentences as the app shows them (the SubtitleMerger rows), for export and Claude. */
+    private suspend fun lessonSegments(videoId: String): Pair<String?, List<SubtitleSegment>> {
+        val current = _state.value
         val track =
             withContext(Dispatchers.IO) {
-                captionProvider.fetch(videoId, preferredCaptionLanguages(current.sourcePreference))
+                fetchCaptionTrack(videoId, preferredCaptionLanguages(current.sourcePreference))
             }
         val segments =
             withContext(Dispatchers.Default) {
                 SubtitleMerger.merge(track.cues, enhancedNaturalFlow = current.naturalSubtitlesEnabled)
             }
         if (segments.isEmpty()) throw IllegalStateException("Bu videoning subtitrida matn yo\u2018q.")
-        return SubtitleExport(
-            videoId = videoId,
-            title = track.title,
-            cueCount = segments.size,
-            text = withContext(Dispatchers.Default) { formatSrt(segments) },
+        return track.title to segments
+    }
+
+    /**
+     * Google Translate's Uzbek for [texts], from the same translator and cache as playback (sentences already
+     * shown cost no request). A sentence it could not translate stays blank and DeepSeek translates it alone.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun machineDrafts(texts: List<String>): List<String> {
+        val source = _state.value.sourcePreference.takeUnless { it == "auto" } ?: "en"
+        val drafts = MutableList(texts.size) { "" }
+        try {
+            translator.translateAll(source, "uz", texts) { index, text -> drafts[index] = text }
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (error: Exception) {
+            // Google failed part-way (offline, rate limited): the drafts made so far still help.
+            Log.w("LessonTranslation", "Machine drafts stopped", error)
+        }
+        return drafts
+    }
+
+    /** The open lesson's title, for files the doctor sends out. */
+    internal fun activeLessonTitle(): String? = _state.value.activeVideoId?.let { lessonTitles[it] ?: lessonRecord(it)?.title }
+
+    private fun lessonRecord(videoId: String) = LessonLibraryStore.records.value.firstOrNull { it.videoId == videoId }
+
+    /** Sentences the doctor marked for checking, per lesson: their start and end times. */
+    private val reviewMarkStore = sentenceReviewMarks
+
+    /** Marks (or unmarks) a sentence of the open lesson for checking; true when it is marked now. */
+    internal fun toggleReviewMark(
+        startMs: Long,
+        endMs: Long,
+    ): Boolean {
+        val videoId = _state.value.activeVideoId ?: return false
+        val mark = startMs to endMs
+        val current = reviewMarkStore.value[videoId].orEmpty()
+        val next = if (mark in current) current - mark else current + mark
+        reviewMarkStore.value = reviewMarkStore.value + (videoId to next)
+        preferences.edit().putString(REVIEW_MARKS_PREFIX + videoId, next.joinToString(",") { "${it.first}-${it.second}" }).apply()
+        return mark in next
+    }
+
+    private fun loadReviewMarks(videoId: String) {
+        if (videoId in reviewMarkStore.value) return
+        val saved =
+            preferences
+                .getString(REVIEW_MARKS_PREFIX + videoId, null)
+                .orEmpty()
+                .split(',')
+                .mapNotNull(::parseReviewMark)
+                .toSet()
+        reviewMarkStore.value = reviewMarkStore.value + (videoId to saved)
+    }
+
+    private fun parseReviewMark(part: String): Pair<Long, Long>? {
+        val bounds = part.split('-')
+        if (bounds.size != 2) return null
+        val start = bounds[0].toLongOrNull() ?: return null
+        val end = bounds[1].toLongOrNull() ?: return null
+        return start to end
+    }
+
+    /** Replaces the stored translation of one sentence (from [startMs] to [endMs]) with the doctor's text. */
+    internal suspend fun saveSentenceCorrection(
+        startMs: Long,
+        endMs: Long,
+        text: String,
+    ): String {
+        val cues = storedTranslationCues()
+        if (cues == null) {
+            // Claude is still translating: the correction waits and is applied to the finished translation.
+            val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+            val pending = pendingCorrections(videoId).filterNot { it.startMs == startMs && it.endMs == endMs }
+            savePendingCorrections(videoId, pending + ReviewSentence(startMs, endMs, "", text.trim()))
+            return "Tarjima hali tugamagan: tuzatish eslab qolindi va tarjima tugashi bilan shu gapga qo\u2018llanadi."
+        }
+        saveEditedTranslation(applySentenceCorrection(cues, startMs, endMs, text))
+        return if (text.isBlank()) "Gap o\u2018chirildi." else "Gap tuzatildi va saqlandi."
+    }
+
+    /** The marked sentences of the open lesson as one file to check elsewhere (all sentences when none is marked). */
+    internal suspend fun reviewFileExport(): SubtitleExport {
+        val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        val (title, sentences) = lessonReviewSentences(onlyMarked = true)
+        return SubtitleExport(videoId, "${title ?: videoId} (tekshirish)", sentences.size, reviewFileText(title, videoId, sentences))
+    }
+
+    /**
+     * The open lesson's sentences with their stored Uzbek: the marked ones when [onlyMarked] and some are
+     * marked, else all of them.
+     */
+    internal suspend fun lessonReviewSentences(onlyMarked: Boolean): Pair<String?, List<ReviewSentence>> {
+        val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        val cues = storedTranslationCues() ?: throw IllegalStateException(NO_STORED_TRANSLATION_MESSAGE)
+        val (title, segments) = lessonSegments(videoId)
+        val rows =
+            withContext(Dispatchers.Default) {
+                applyImportedTranslation(importedSentenceRows(segments, translatedSentenceSpans(cues)), cues)
+            }
+        val marks = if (onlyMarked) reviewMarkStore.value[videoId].orEmpty() else emptySet()
+        val chosen = rows.filter { row -> marks.isEmpty() || (row.startMs to row.endMs) in marks }
+        val sentences = chosen.map { ReviewSentence(it.startMs, it.endMs, it.originalText, it.translatedText.orEmpty()) }
+        return (title ?: activeLessonTitle()) to sentences
+    }
+
+    /** Claude checks [sentences] of the open lesson against the glossary; nothing is changed yet. */
+    internal suspend fun fixSentencesWithClaude(
+        sentences: List<ReviewSentence>,
+        request: String? = null,
+    ): List<SentenceFix> {
+        val backend = ClaudeBackend(DubbingSettings.claudeApiKey.value, DubbingSettings.claudeModel.value)
+        // A few sentences get the whole reviewed glossary: their misheard English ("anooic") may hide the term.
+        val glossary =
+            if (sentences.size <= FULL_GLOSSARY_SENTENCES) {
+                UziGlossaryStore.glossary.value?.entries.orEmpty()
+            } else {
+                glossaryForBatch(UziGlossaryStore.glossary.value, sentences.map { it.english })
+            }
+        return requestSentenceFixes(backend, activeLessonTitle(), sentences, glossary, request)
+    }
+
+    /** Claude's check of one sentence (the long-pressed one). */
+    internal suspend fun claudeFixOne(
+        sentence: ReviewSentence,
+        meaning: String?,
+    ): SentenceFix = fixSentencesWithClaude(listOf(sentence), meaning?.let(::meaningRequest)).first()
+
+    /** "Claude bilan tuzatish" of the marked sentences (all when none is marked). */
+    internal val claudeFixActions =
+        ClaudeFixActions(
+            check = {
+                val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+                videoId to fixSentencesWithClaude(lessonReviewSentences(onlyMarked = true).second)
+            },
+            apply = ::applySentenceFixes,
+            rewriteNotes = { writeLessonNotes(LessonEngine.CLAUDE) },
         )
+
+    /** Applies the chosen fixes to the open lesson [videoId] and takes them off the check list. */
+    internal suspend fun applySentenceFixes(
+        videoId: String,
+        fixes: List<SentenceFix>,
+    ): String {
+        check(_state.value.activeVideoId == videoId) { "Bu tuzatishlar boshqa darsga tegishli: o‘sha darsni oching." }
+        require(fixes.isNotEmpty()) { "Qo‘llash uchun tuzatish tanlanmagan." }
+        return applyCorrections(videoId, fixes.map { it.sentence.copy(uzbek = it.uzbek) })
+    }
+
+    private suspend fun applyCorrections(
+        videoId: String,
+        corrections: List<ReviewSentence>,
+    ): String {
+        var cues = storedTranslationCues() ?: throw IllegalStateException(NO_STORED_TRANSLATION_MESSAGE)
+        corrections.forEach { cues = applySentenceCorrection(cues, it.startMs, it.endMs, it.uzbek) }
+        saveEditedTranslation(cues)
+        val done = corrections.mapTo(HashSet()) { it.startMs to it.endMs }
+        val left = reviewMarkStore.value[videoId].orEmpty() - done
+        reviewMarkStore.value = reviewMarkStore.value + (videoId to left)
+        preferences.edit().putString(REVIEW_MARKS_PREFIX + videoId, left.joinToString(",") { "${it.first}-${it.second}" }).apply()
+        return "${corrections.size} ta gap tuzatildi va saqlandi."
+    }
+
+    /** Applies a checked review file (or text) to the open lesson; returns what was done. */
+    internal suspend fun importReviewFile(text: String): String {
+        val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        reviewFileVideoId(text)?.let { require(it == videoId) { "Bu fayl boshqa darsga tegishli." } }
+        val corrections = parseReviewFile(text)
+        require(corrections.isNotEmpty()) { "Faylda tuzatilgan gap topilmadi (\u201C[1] 00:00:01,000 --> \u2026\u201D va \u201CUZ:\u201D qatorlari kerak)." }
+        return applyCorrections(videoId, corrections)
+    }
+
+    /** The translations as they were before the last "Hammasini almashtirish", for "Bekor qilish". */
+    private var replaceBackup: Map<String, List<RawCaptionCue>> = emptyMap()
+
+    /**
+     * Finds [request].find (a word or a phrase) in the stored translations of its scope: one sentence, the open
+     * lesson, the open lesson's catalog section, or every stored lesson. Without [apply] only reports how many
+     * places and shows a few; with it replaces them and keeps the old text for [undoReplace].
+     */
+    internal suspend fun replaceInTranslations(
+        request: ReplaceRequest,
+        apply: Boolean,
+    ): String {
+        val activeId = _state.value.activeVideoId
+        val ids = replaceScopeIds(request.scope, activeId)
+        require(ids.isNotEmpty()) { NO_STORED_TRANSLATION_MESSAGE }
+        var places = 0
+        val examples = mutableListOf<String>()
+        val backup = mutableMapOf<String, List<RawCaptionCue>>()
+        for (videoId in ids) {
+            val cues =
+                (if (videoId == activeId) storedTranslationCues() else withContext(Dispatchers.IO) { readImportedTranslation(videoId) })
+                    ?: continue
+            val result = replaceWithin(cues, request)
+            if (result.count == 0) continue
+            places += result.count
+            if (examples.size < MAX_REPLACE_EXAMPLES) examples += result.examples.take(MAX_REPLACE_EXAMPLES - examples.size)
+            if (apply) {
+                backup[videoId] = cues
+                storeTranslation(videoId, result.cues, videoId == activeId)
+            }
+        }
+        if (places == 0) return "\u201C${request.find.trim()}\u201D topilmadi."
+        if (!apply) return "$places joyda topildi:\n" + examples.joinToString("\n")
+        replaceBackup = backup
+        return "$places joyda almashtirildi (${backup.size} ta dars). Kerak bo\u2018lsa \u201CBekor qilish\u201D ni bosing."
+    }
+
+    /** The lessons a replacement looks at: the open one, its section's stored ones, or all stored ones. */
+    private suspend fun replaceScopeIds(
+        scope: ReplaceScope,
+        activeId: String?,
+    ): List<String> {
+        val stored =
+            withContext(Dispatchers.IO) {
+                importedTranslationDirectory.listFiles { file -> file.extension == "srt" }.orEmpty().map { it.nameWithoutExtension }
+            }
+        return when (scope) {
+            ReplaceScope.SENTENCE, ReplaceScope.LESSON -> {
+                check(activeId == null || storedTranslationCues() != null) { REPLACE_WAIT_MESSAGE }
+                listOfNotNull(activeId)
+            }
+            ReplaceScope.ALL -> stored
+            ReplaceScope.SECTION -> {
+                val section =
+                    UziCatalogStore.sections.value?.firstOrNull { section ->
+                        section.topics.any { topic -> topic.videos.any { it.videoId == activeId } }
+                    } ?: throw IllegalStateException("Bu dars mundarijadagi bo\u2018limga kirmaydi.")
+                val inSection = section.topics.flatMap { topic -> topic.videos.map { it.videoId } }.toSet()
+                stored.filter { it in inSection }
+            }
+        }
+    }
+
+    /** The replacement inside one lesson; for one sentence only the cues of that sentence are touched. */
+    private fun replaceWithin(
+        cues: List<RawCaptionCue>,
+        request: ReplaceRequest,
+    ): CueReplacement {
+        if (request.scope != ReplaceScope.SENTENCE) return replaceInCues(cues, request.find, request.replacement, request.wholeWord)
+        // Sentence rows are built from cues cut at sentence ends, so the sentence is looked for among the same pieces.
+        val pieces = splitCuesAtSentenceEnds(cues)
+        val inside = pieces.indices.filter { (pieces[it].startMs + pieces[it].endMs) / 2 in request.sentenceStartMs until request.sentenceEndMs }
+        val result = replaceInCues(inside.map(pieces::get), request.find, request.replacement, request.wholeWord)
+        val changed = pieces.toMutableList()
+        inside.forEachIndexed { position, index -> changed[index] = result.cues[position] }
+        return result.copy(cues = changed)
+    }
+
+    /** Puts back the translations changed by the last "Hammasini almashtirish". */
+    internal suspend fun undoReplace(): String {
+        val backup = replaceBackup.ifEmpty { throw IllegalStateException("Bekor qilinadigan almashtirish yo\u2018q.") }
+        val activeId = _state.value.activeVideoId
+        backup.forEach { (videoId, cues) -> storeTranslation(videoId, cues, videoId == activeId) }
+        replaceBackup = emptyMap()
+        return "Oxirgi almashtirish bekor qilindi (${backup.size} ta dars)."
+    }
+
+    private suspend fun storeTranslation(
+        videoId: String,
+        cues: List<RawCaptionCue>,
+        active: Boolean,
+    ) {
+        if (active) {
+            saveEditedTranslation(cues)
+        } else {
+            withContext(Dispatchers.IO) {
+                importedTranslationFile(videoId).writeText(formatSrt(cues.filter { it.text.isNotBlank() }.toSegments()), Charsets.UTF_8)
+            }
+        }
+    }
+
+    /** The open lesson's stored translation, cue by cue, for the editor; null when it has none. */
+    internal fun storedTranslationCues(): List<RawCaptionCue>? =
+        importedTranslation?.takeIf { it.first == _state.value.activeVideoId }?.second
+
+    /** Stores the doctor's corrections of the open lesson's translation and shows them at once. */
+    internal suspend fun saveEditedTranslation(cues: List<RawCaptionCue>): Int {
+        val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        val engine = lessonRecord(videoId)?.engine ?: "Fayl"
+        val kept = cues.filter { it.text.isNotBlank() }
+        require(kept.isNotEmpty()) { "Tarjima bo\u2018sh bo\u2018lib qoldi." }
+        return importTranslation(formatSrt(kept.toSegments()), videoId, source = engine)
+    }
+
+    /** The open lesson's translation as an .srt file, to copy or check in another app. */
+    internal suspend fun storedTranslationExport(): SubtitleExport {
+        val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        val cues = storedTranslationCues() ?: throw IllegalStateException(NO_STORED_TRANSLATION_MESSAGE)
+        val title = lessonTitles[videoId] ?: lessonRecord(videoId)?.title
+        val text = withContext(Dispatchers.Default) { formatSrt(cues.toSegments()) }
+        return SubtitleExport(videoId, title?.let { "$it (UZ)" }, cues.size, text)
+    }
+
+    /**
+     * The open lesson sentence by sentence, English above Uzbek with the time, for checking the translation
+     * in another app (or by another AI) without the SRT numbers in the way.
+     */
+    internal suspend fun bilingualLessonExport(): SubtitleExport {
+        val videoId = _state.value.activeVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
+        val cues = storedTranslationCues() ?: throw IllegalStateException(NO_STORED_TRANSLATION_MESSAGE)
+        val (title, segments) = lessonSegments(videoId)
+        val rows =
+            withContext(Dispatchers.Default) {
+                applyImportedTranslation(importedSentenceRows(segments, translatedSentenceSpans(cues)), cues)
+            }
+        val text =
+            buildString {
+                rows.forEachIndexed { index, row ->
+                    val seconds = row.startMs / 1_000
+                    append("${index + 1}. [${seconds / 60}:${"%02d".format(seconds % 60)}]\n")
+                    append("EN: ${row.originalText}\n")
+                    append("UZ: ${row.translatedText.orEmpty()}\n\n")
+                }
+            }
+        return SubtitleExport(videoId, title?.let { "$it (EN-UZ)" }, rows.size, text)
     }
 
     /**
@@ -617,9 +1305,34 @@ class AppViewModel internal constructor(
      * is merged with what was imported before, so long lectures can be imported piece by piece. The
      * result is kept per video, so reopening the lesson shows it again. Returns the stored cue count.
      */
+    private fun pendingCorrections(videoId: String): List<ReviewSentence> =
+        pendingCorrectionsFromJson(preferences.getString(PENDING_FIX_PREFIX + videoId, null).orEmpty())
+
+    private fun savePendingCorrections(
+        videoId: String,
+        pending: List<ReviewSentence>,
+    ) {
+        preferences
+            .edit()
+            .apply { if (pending.isEmpty()) remove(PENDING_FIX_PREFIX + videoId) else putString(PENDING_FIX_PREFIX + videoId, pendingCorrectionsToJson(pending)) }
+            .apply()
+    }
+
+    /** Corrections made while the lesson was still being translated, put on its stored translation once. */
+    private fun applyPendingCorrections(
+        videoId: String,
+        cues: List<RawCaptionCue>,
+    ): List<RawCaptionCue> {
+        val pending = pendingCorrections(videoId)
+        if (pending.isEmpty()) return cues
+        savePendingCorrections(videoId, emptyList())
+        return pending.fold(cues) { current, fix -> applySentenceCorrection(current, fix.startMs, fix.endMs, fix.uzbek) }
+    }
+
     internal suspend fun importTranslation(
         text: String,
         targetVideoId: String? = importTargetFor(text, _state.value.activeVideoId),
+        source: String = "Fayl",
     ): Int {
         val videoId = targetVideoId ?: throw IllegalStateException(NO_VIDEO_MESSAGE)
         val incoming = withContext(Dispatchers.Default) { parseSubtitleFile(text) }
@@ -631,14 +1344,44 @@ class AppViewModel internal constructor(
                 check(importedTranslationDirectory.isDirectory || importedTranslationDirectory.mkdirs()) {
                     "Tarjimani saqlab bo\u2018lmadi."
                 }
-                val merged = mergeImportedCues(readImportedTranslation(videoId).orEmpty(), incoming)
+                val merged = applyPendingCorrections(videoId, mergeImportedCues(readImportedTranslation(videoId).orEmpty(), incoming))
                 importedTranslationFile(videoId).writeText(formatSrt(merged.toSegments()), Charsets.UTF_8)
                 merged
             }
+        LessonLibraryStore.record(
+            LessonRecord(videoId, lessonTitles[videoId].orEmpty(), source, System.currentTimeMillis(), cues.size),
+        )
         if (_state.value.activeVideoId != videoId) return cues.size
         importedTranslation = videoId to cues
         loadVideo(videoId, showPanel = true)
         return cues.size
+    }
+
+    /**
+     * A ZIP of finished SHOKALON translations (SHK_…_V###_UZ-LATIN.srt): each file is stored for its
+     * catalog lecture like a translation imported by hand. Returns the Uzbek summary for the card.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    internal suspend fun importTranslationZip(uri: android.net.Uri): String {
+        val app = getApplication<Application>()
+        val contents =
+            withContext(Dispatchers.IO) {
+                val ids = app.assets.open(SHOKALON_IDS_ASSET).use { parseShokalonIds(it.readBytes().toString(Charsets.UTF_8)) }
+                val input = app.contentResolver.openInputStream(uri) ?: throw IOException("Faylni ochib bo‘lmadi.")
+                input.use { readTranslationZip(it, ids) }
+            }
+        var cues = 0
+        val failed = mutableListOf<String>()
+        contents.translations.forEach { translation ->
+            try {
+                cues += importTranslation(translation.text, translation.videoId, source = SHOKALON_TRANSLATION_SOURCE)
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (error: Exception) {
+                failed += "${translation.fileName} (${error.message})"
+            }
+        }
+        return translationZipSummary(contents.translations.size - failed.size, cues, contents.unknown, failed)
     }
 
     /** An .srt/.vtt file shared into the app (for example from a file manager or an AI chat). */
@@ -716,6 +1459,13 @@ class AppViewModel internal constructor(
 
     fun onYouTubePageChanged(url: String) {
         if (classifyMainFrameUrl(url) != EmbeddedNavigationDecision.YOUTUBE_WEB) return
+        if (shokalonFocusMode) {
+            if (focusVerdict(url, ::isLessonVideo) == FocusVerdict.BLOCK) {
+                leaveDistraction()
+                return
+            }
+            if (YouTubeUrlParser.extractVideoId(url) != null) lastLessonUrl = url
+        }
         if (url != _state.value.browserUrl) {
             preferences.edit().putString("last_browser_url", url).apply()
             _state.update { it.copy(browserUrl = url) }
@@ -770,6 +1520,7 @@ class AppViewModel internal constructor(
         seek: Boolean,
     ) {
         val current = _state.value
+        captionRecorder.onSample(videoId, liveCaption, seek)
         updateLiveSubtitle(videoId, liveCaption, seek)
         val accepted =
             liveCaption?.takeIf {
@@ -1083,6 +1834,11 @@ class AppViewModel internal constructor(
     }
 
     fun selectLearningWord(tap: WordTap?) {
+        // SHOKALON: a word of the Uzbek translation opens "So\u2018zni almashtirish" instead of word learning.
+        if (shokalonFocusMode && tap?.translated == true && tap.segment != null) {
+            wordToReplace.value = tap
+            return
+        }
         val current = _state.value
         val source = com.kienhoang.dualsubreplay.data.learningSourceLanguage(current.resolvedSourceLanguage, current.sourcePreference)
         _state.update {
@@ -1228,18 +1984,64 @@ class AppViewModel internal constructor(
         loadVideo(videoId, showPanel = true)
     }
 
+    /** Uses the open video's recorded captions as its subtitles: replay, translation, export and voice then work. */
+    fun useRecordedCaptions() = changeRecording(complete = true) { "Yozib olingan subtitr ishlatilmoqda: ${it.cues} qator." }
+
+    /** Goes back to recording, for parts of the video not recorded yet. */
+    fun continueRecordingCaptions() =
+        changeRecording(complete = false) { "Yozish davom etadi. Videoning yozilmagan qismlarini ko\u2018ring." }
+
+    private fun changeRecording(
+        complete: Boolean,
+        message: (RecordingSummary) -> String,
+    ) {
+        val videoId = _state.value.activeVideoId ?: return
+        viewModelScope.launch {
+            val summary =
+                try {
+                    captionRecorder.setComplete(videoId, complete)
+                } catch (cancel: CancellationException) {
+                    throw cancel
+                } catch (error: Exception) {
+                    toast(error.message ?: "Yozib olingan subtitrni saqlab bo\u2018lmadi.")
+                    return@launch
+                }
+            if (summary == null || summary.cues == 0) {
+                toast("Bu video uchun hali subtitr yozilmagan.")
+                return@launch
+            }
+            toast(message(summary))
+            if (_state.value.activeVideoId == videoId) loadVideo(videoId, showPanel = true)
+        }
+    }
+
+    /** Deletes the open video's recorded captions. */
+    fun deleteRecordedCaptions() {
+        val videoId = _state.value.activeVideoId ?: return
+        viewModelScope.launch {
+            val wasUsed = _state.value.recordedCaptions?.complete == true
+            captionRecorder.delete(videoId)
+            toast("Yozib olingan subtitr o\u2018chirildi.")
+            if (wasUsed && _state.value.activeVideoId == videoId) loadVideo(videoId, showPanel = true)
+        }
+    }
+
     fun showSubtitlePanel() = _state.update { it.copy(subtitlePanelVisible = true) }
 
     fun hideSubtitlePanel() = _state.update { it.copy(subtitlePanelVisible = false) }
 
     private fun openVideo(videoId: String) {
+        loadReviewMarks(videoId)
         if (_state.value.activeVideoId == videoId) return
         loadVideo(videoId, showPanel = true)
+        // Every other loadVideo call reloads the open video, whose recording is already open.
+        captionRecorder.open(videoId)
     }
 
     private fun clearActiveVideo() {
         if (_state.value.activeVideoId == null) return
         importedTranslation = null
+        captionRecorder.close()
         dubbing.reset()
         immersionTracker.reset()
         flushImmersion()
@@ -1267,6 +2069,7 @@ class AppViewModel internal constructor(
                 generatedCaptions = false,
                 segments = emptyList(),
                 importedTranslationCues = 0,
+                recordedCaptions = null,
                 currentIndex = -1,
                 activeWordIndex = -1,
                 stage = LoadStage.IDLE,
@@ -1328,7 +2131,7 @@ class AppViewModel internal constructor(
                     val natural = _state.value.naturalSubtitlesEnabled
                     val track =
                         withContext(Dispatchers.IO) {
-                            persistCaptionTrack(captionProvider.fetch(videoId, preferredLanguages), natural) { rawStore = it }
+                            persistCaptionTrack(fetchCaptionTrack(videoId, preferredLanguages), natural) { rawStore = it }
                         }
                     if (!isCurrentLoad(_state.value, videoId, generation)) return@launch
                     liveTranslationGate.reset()
@@ -1420,6 +2223,7 @@ class AppViewModel internal constructor(
     ) {
         var displayStore: SubtitleStore? = null
         if (!restoreImportedTranslation(videoId, generation)) return
+        claude.onLessonLoaded(videoId, targetLanguage, hasStoredTranslation = importedTranslation?.first == videoId)
         liveCaptionTracker.reset()
         captionHighlightResolver.reset()
         _state.update {
@@ -1449,13 +2253,19 @@ class AppViewModel internal constructor(
         }
         try {
             withContext(Dispatchers.IO) {
+                // A stored translation is punctuated, unlike YouTube's automatic English: its sentences set the rows.
+                val stored = importedTranslation?.takeIf { it.first == videoId }?.second
                 displayStore =
-                    prepareCaptionDisplayStore(
-                        source = rawStore,
-                        directory = subtitleDirectory,
-                        format = format,
-                        natural = natural,
-                    )
+                    if (stored != null) {
+                        prepareImportedSentenceStore(rawStore, stored, subtitleDirectory)
+                    } else {
+                        prepareCaptionDisplayStore(
+                            source = rawStore,
+                            directory = subtitleDirectory,
+                            format = format,
+                            natural = natural,
+                        )
+                    }
                 // The uz build's Gemini translator sends the coming sentences together, so it needs them.
                 if (BUILD_PREFERS_WHOLE_SENTENCE) {
                     com.kienhoang.dualsubreplay.translation.TranslationLookahead.sentences =
