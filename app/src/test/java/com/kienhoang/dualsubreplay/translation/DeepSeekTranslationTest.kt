@@ -90,7 +90,9 @@ class DeepSeekTranslationTest {
         transport: DeepSeekTransport,
         log: MutableList<ApiUsageEntry> = mutableListOf(),
         pauses: MutableList<Long> = mutableListOf(),
-    ) = DeepSeekBackend("sk-secret-key", transport, retryPausesMs = listOf(3_000L, 10_000L), onCall = { log += it }, now = { 42L }) {
+    ) = DeepSeekBackend("sk-secret-key", transport = transport, retryPausesMs = listOf(3_000L, 10_000L), onCall = {
+        log += it
+    }, now = { 42L }) {
         pauses += it
     }
 
@@ -111,6 +113,61 @@ class DeepSeekTranslationTest {
         assertEquals("json_object", body.getJSONObject("response_format").getString("type"))
         val system = body.getJSONArray("messages").getJSONObject(0).getString("content")
         assertTrue(system.contains("JSON schema"))
+        assertTrue(system.contains("draft_uz"))
+        assertTrue(system.contains("Indian"))
+        assertTrue(system.contains("lakh = 100 000"))
+        // DeepSeek turns thinking on by default; a translation must not pay for it.
+        assertEquals("disabled", body.getJSONObject("thinking").getString("type"))
+    }
+
+    @Test
+    fun retiredModelIsNeverSentAndTheChosenOneIs() {
+        assertTrue(DEEPSEEK_MODELS.none { it.id == "deepseek-chat" || it.id == "deepseek-reasoner" })
+        assertEquals("deepseek-flash", DEEPSEEK_MODELS.first().id)
+        assertEquals(DEEPSEEK_PRO_MODEL, JSONObject(deepSeekRequestBody("{}", DEEPSEEK_PRO_MODEL)).getString("model"))
+        var sentModel = ""
+        val log = mutableListOf<ApiUsageEntry>()
+        val backend =
+            DeepSeekBackend("k", DEEPSEEK_PRO_MODEL, { _, body ->
+                sentModel = JSONObject(body).getString("model")
+                completion(answer())
+            }, onCall = { log += it })
+        runBlocking { backend.translate("{}", chunk) }
+        assertEquals(DEEPSEEK_PRO_MODEL, sentModel)
+        assertEquals(DEEPSEEK_PRO_MODEL, log.single().model)
+    }
+
+    @Test
+    fun googleDraftsReachThePromptOfEachChunk() {
+        val lesson = listOf("The kidney is normal.", "No stones.", "Thank you.")
+        val prompts = mutableListOf<String>()
+        val backend =
+            LessonBackend { prompt, chunk ->
+                prompts += prompt
+                ClaudeChunkResult(chunk.sentences.indices.associate { chunk.start + it to "x" }, emptyList(), emptyList(), "DeepSeek")
+            }
+        runBlocking {
+            LessonTranslator(backend, chunkSize = 2).translate(
+                lesson,
+                { emptyList() },
+                { emptyList() },
+                drafts = { texts -> texts.map { if (it == "No stones.") "" else "google: $it" } },
+            ) { _, _ -> }
+        }
+        val first = JSONObject(prompts[0]).getJSONArray("items")
+        assertEquals("google: The kidney is normal.", first.getJSONObject(0).getString("draft_uz"))
+        // A blank draft is left out, so DeepSeek translates that sentence from the English alone.
+        assertFalse(first.getJSONObject(1).has("draft_uz"))
+        assertEquals("google: Thank you.", JSONObject(prompts[1]).getJSONArray("items").getJSONObject(0).getString("draft_uz"))
+    }
+
+    @Test
+    fun aFailingDraftServiceLeavesTheTranslationToDeepSeek() {
+        val drafts = runBlocking { draftsOf({ throw IOException("offline") }, listOf("a")) }
+        assertTrue(drafts.isEmpty())
+        assertTrue(runBlocking { draftsOf(null, listOf("a")) }.isEmpty())
+        val prompt = claudeUserPrompt(chunk, chunk.sentences, emptyMap(), emptyList(), emptyList(), drafts)
+        assertFalse(prompt.contains("draft_uz"))
     }
 
     @Test

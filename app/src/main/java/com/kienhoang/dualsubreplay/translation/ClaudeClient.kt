@@ -160,6 +160,7 @@ internal class LessonTranslator(
         glossaryFor: (List<String>) -> List<GlossaryEntry>,
         terms: () -> List<LearnedTerm>,
         done: Map<Int, String> = emptyMap(),
+        drafts: (suspend (List<String>) -> List<String>)? = null,
         onChunk: suspend (ClaudeChunkResult, ClaudeProgress) -> Unit,
     ): ClaudeLessonResult {
         val finished = linkedMapOf<Int, String>()
@@ -170,7 +171,8 @@ internal class LessonTranslator(
         while (queue.isNotEmpty()) {
             val chunk = queue.removeFirst()
             val texts = chunk.sentences
-            val prompt = claudeUserPrompt(chunk, sentences, finished, glossaryFor(texts), learnedTermsIn(terms(), texts))
+            val prompt =
+                claudeUserPrompt(chunk, sentences, finished, glossaryFor(texts), learnedTermsIn(terms(), texts), draftsOf(drafts, texts))
             val result =
                 try {
                     backend.translate(prompt, chunk)
@@ -187,6 +189,22 @@ internal class LessonTranslator(
         return ClaudeLessonResult(finished, newTerms, uncertain)
     }
 }
+
+/**
+ * The machine drafts of [texts], or none when the draft service fails: the translator then works from the
+ * English alone, as before. A cancelled run is never swallowed.
+ */
+internal suspend fun draftsOf(
+    drafts: (suspend (List<String>) -> List<String>)?,
+    texts: List<String>,
+): List<String> =
+    try {
+        drafts?.invoke(texts).orEmpty()
+    } catch (error: IOException) {
+        emptyList()
+    } catch (error: IllegalArgumentException) {
+        emptyList()
+    }
 
 /** Claude: forced tool call; a busy service is retried after a pause, a wrong key or model is not. */
 internal class ClaudeBackend(

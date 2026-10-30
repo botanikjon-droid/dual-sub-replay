@@ -107,7 +107,7 @@ internal fun lessonTranslatorFor(
                 }
             LessonTranslator(
                 FallbackLessonBackend(
-                    primary = DeepSeekBackend(DubbingSettings.deepseekApiKey.value, onCall = log),
+                    primary = DeepSeekBackend(DubbingSettings.deepseekApiKey.value, DubbingSettings.deepseekModel.value, onCall = log),
                     fallback = backup,
                     limit = DubbingSettings.claudeFallbackLimit.value,
                     onFallback = { reason ->
@@ -146,6 +146,8 @@ internal class ClaudeLessonCoordinator(
     private val translatorFor: (LessonEngine, String) -> LessonTranslator = ::lessonTranslatorFor,
     /** Where finished chunks wait until the whole lesson is stored; null keeps them in memory only. */
     private val progress: LessonProgressFiles? = null,
+    /** Google Translate's drafts of sentences, which DeepSeek edits instead of translating from nothing. */
+    private val machineDrafts: (suspend (List<String>) -> List<String>)? = null,
 ) {
     private val _state = MutableStateFlow(ClaudeRunState())
     val state: StateFlow<ClaudeRunState> = _state
@@ -233,6 +235,7 @@ internal class ClaudeLessonCoordinator(
                     glossaryFor = { texts -> glossaryForBatch(UziGlossaryStore.glossary.value, texts) },
                     terms = { LearnedGlossaryStore.terms.value },
                     done = saved.mapValues { it.value.uzbek },
+                    drafts = machineDrafts.takeIf { engine == LessonEngine.DEEPSEEK },
                 ) { chunk, step ->
                     val provider = chunk.engine.ifBlank { engine.label }
                     val chunkId = chunkIdOf(chunk.translations.keys)

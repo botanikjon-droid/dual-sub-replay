@@ -137,6 +137,7 @@ private val CLAUDE_ANSWER_INSTRUCTION =
       English word order or word-for-word phrasing, idioms by their sense, filler said once.
     - "translations": split each Uzbek sentence of "sentences" over its items by meaning (rule 4), without
       translating the items again one by one. The items' Uzbek joined in order must read as those sentences.
+    An item may carry "draft_uz", a raw machine translation: use it only as a hint and never copy its errors.
     """.trimIndent()
 
 /** The user message: the terms that apply, the context and the chunk's items, as JSON. */
@@ -146,6 +147,8 @@ internal fun claudeUserPrompt(
     finished: Map<Int, String>,
     glossary: List<GlossaryEntry>,
     learned: List<LearnedTerm>,
+    /** Google Translate's draft of each chunk sentence, in order; blank or missing drafts are left out. */
+    drafts: List<String> = emptyList(),
 ): String {
     val before = JSONArray()
     for (index in maxOf(0, chunk.start - CLAUDE_CONTEXT_BEFORE) until chunk.start) {
@@ -157,7 +160,15 @@ internal fun claudeUserPrompt(
     val after = JSONArray()
     for (index in end until minOf(allSentences.size, end + CLAUDE_CONTEXT_AFTER)) after.put(allSentences[index])
     val items = JSONArray()
-    chunk.sentences.forEachIndexed { offset, text -> items.put(JSONObject().put("i", chunk.start + offset).put("en", text)) }
+    chunk.sentences.forEachIndexed { offset, text ->
+        val item = JSONObject().put("i", chunk.start + offset).put("en", text)
+        drafts
+            .getOrNull(offset)
+            ?.trim()
+            ?.takeIf(String::isNotEmpty)
+            ?.let { item.put("draft_uz", it) }
+        items.put(item)
+    }
     return JSONObject()
         .put("glossary", termArray(glossary.map { it.english to uzbekPrimaryTerm(it.uzbek) }))
         .put("approved_terms", termArray(learned.filter { it.status == LearnedTermStatus.APPROVED }.map { it.english to it.uzbek }))

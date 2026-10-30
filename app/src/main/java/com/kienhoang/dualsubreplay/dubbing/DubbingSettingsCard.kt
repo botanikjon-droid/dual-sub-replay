@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kienhoang.dualsubreplay.translation.DEEPSEEK_MODELS
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_CLAUDE
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GEMINI
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_GOOGLE
@@ -313,12 +314,32 @@ private fun DeepSeekKeyField() {
             "Kalitni platform.deepseek.com dan oling. Kalit faqat shu telefonda saqlanadi. " +
                 "Kalit kiritilsa, yangi darslar DeepSeek bilan tarjima qilinadi."
         } else {
-            "Yangi darslar DeepSeek bilan butunligicha bir marta tarjima qilinadi va saqlanadi. " +
+            "Yangi darslar avval Google Translate bilan ko\u2018rsatiladi, keyin DeepSeek shu qoralamani ma\u2019no, " +
+                "atama va grammatika bo\u2018yicha tuzatib, butun darsni bir marta saqlaydi. " +
                 "Kalit noto\u2018g\u2018ri, balans tugagan yoki limit bo\u2018lsa tarjima to\u2018xtaydi va sababi yoziladi. " +
                 "Faqat DeepSeek javobi buzilganda o\u2018sha kichik qism Claude bilan tarjima qilinadi (Claude kaliti kerak)."
         },
     )
-    if (key.isNotBlank()) ClaudeFallbackLimitField()
+    if (key.isNotBlank()) {
+        DeepSeekModelChoice()
+        ClaudeFallbackLimitField()
+    }
+}
+
+/** Flash for everyday lessons; Pro when a lecture is hard. */
+@Composable
+private fun DeepSeekModelChoice() {
+    val chosen by DubbingSettings.deepseekModel.collectAsStateWithLifecycle()
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
+        DEEPSEEK_MODELS.forEach { option ->
+            FilterChip(
+                selected = option.id == chosen,
+                onClick = { DubbingSettings.setDeepseekModel(option.id) },
+                label = { Text(option.label) },
+                modifier = Modifier.testTag("deepseek_model_${option.id}"),
+            )
+        }
+    }
 }
 
 /** How many small chunks Claude may translate per lesson when DeepSeek's reply is unusable. */

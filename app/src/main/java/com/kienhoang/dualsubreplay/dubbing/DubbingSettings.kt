@@ -3,6 +3,7 @@ package com.kienhoang.dualsubreplay.dubbing
 import android.content.Context
 import android.content.SharedPreferences
 import com.kienhoang.dualsubreplay.translation.CLAUDE_MODELS
+import com.kienhoang.dualsubreplay.translation.DEEPSEEK_MODELS
 import com.kienhoang.dualsubreplay.translation.LEGACY_TRANSLATION_PROVIDER_DEEPL
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDERS
 import com.kienhoang.dualsubreplay.translation.TRANSLATION_PROVIDER_CLAUDE
@@ -36,6 +37,7 @@ internal object DubbingSettings {
     private const val KEY_CLAUDE_API_KEY = "claude_api_key"
     private const val KEY_DEEPSEEK_API_KEY = "deepseek_api_key"
     private const val KEY_CLAUDE_FALLBACK_LIMIT = "claude_fallback_limit"
+    private const val KEY_DEEPSEEK_MODEL = "deepseek_model"
 
     /** Small chunks Claude may translate per lesson when DeepSeek's reply is unusable. */
     const val DEFAULT_CLAUDE_FALLBACK_LIMIT = 5
@@ -65,6 +67,7 @@ internal object DubbingSettings {
     private val _claudeApiKey = MutableStateFlow("")
     private val _deepseekApiKey = MutableStateFlow("")
     private val _claudeFallbackLimit = MutableStateFlow(DEFAULT_CLAUDE_FALLBACK_LIMIT)
+    private val _deepseekModel = MutableStateFlow(DEEPSEEK_MODELS.first().id)
     private val _claudeModel = MutableStateFlow(CLAUDE_MODELS.first().id)
     private val _claudeAuto = MutableStateFlow(false)
     private val _geminiWholeLesson = MutableStateFlow(true)
@@ -108,6 +111,7 @@ internal object DubbingSettings {
     val claudeApiKey: StateFlow<String> = _claudeApiKey
     val deepseekApiKey: StateFlow<String> = _deepseekApiKey
     val claudeFallbackLimit: StateFlow<Int> = _claudeFallbackLimit
+    val deepseekModel: StateFlow<String> = _deepseekModel
 
     /** The Claude model that translates lessons (one of [CLAUDE_MODELS]). */
     val claudeModel: StateFlow<String> = _claudeModel
@@ -183,6 +187,9 @@ internal object DubbingSettings {
         _claudeApiKey.value = saved.getString(KEY_CLAUDE_API_KEY, null).orEmpty()
         _deepseekApiKey.value = saved.getString(KEY_DEEPSEEK_API_KEY, null).orEmpty()
         _claudeFallbackLimit.value = saved.getInt(KEY_CLAUDE_FALLBACK_LIMIT, DEFAULT_CLAUDE_FALLBACK_LIMIT)
+        // A model DeepSeek no longer offers (or none saved) falls back to the first one.
+        _deepseekModel.value =
+            saved.getString(KEY_DEEPSEEK_MODEL, null)?.takeIf { id -> DEEPSEEK_MODELS.any { it.id == id } } ?: DEEPSEEK_MODELS.first().id
         _claudeModel.value =
             saved.getString(KEY_CLAUDE_MODEL, null)?.takeIf { id -> CLAUDE_MODELS.any { it.id == id } } ?: CLAUDE_MODELS.first().id
         _claudeAuto.value = saved.getBoolean(KEY_CLAUDE_AUTO, false)
@@ -220,6 +227,12 @@ internal object DubbingSettings {
     fun setDeepseekApiKey(key: String) {
         _deepseekApiKey.value = key.trim()
         preferences?.edit()?.putString(KEY_DEEPSEEK_API_KEY, _deepseekApiKey.value)?.apply()
+    }
+
+    fun setDeepseekModel(id: String) {
+        if (DEEPSEEK_MODELS.none { it.id == id }) return
+        _deepseekModel.value = id
+        preferences?.edit()?.putString(KEY_DEEPSEEK_MODEL, id)?.apply()
     }
 
     /** 0 turns the Claude backup off; DeepSeek's unusable replies then stop the lesson at once. */

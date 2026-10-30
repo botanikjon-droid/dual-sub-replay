@@ -23,22 +23,86 @@ import java.net.URL
  */
 
 internal const val DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
-internal const val DEEPSEEK_MODEL = "deepseek-chat"
 
-/** Upper limit of output tokens for deepseek-chat; a chunk of [CLAUDE_CHUNK_SIZE] sentences fits well below it. */
+/**
+ * The model ids of DeepSeek's current API (api-docs.deepseek.com). "deepseek-chat" was retired on
+ * 24 July 2026 and is refused since then, so it must not be sent any more.
+ */
+internal const val DEEPSEEK_MODEL = "deepseek-flash"
+internal const val DEEPSEEK_PRO_MODEL = "deepseek-v4-pro"
+
+internal data class DeepSeekModelOption(
+    val id: String,
+    val label: String,
+)
+
+internal val DEEPSEEK_MODELS =
+    listOf(
+        DeepSeekModelOption(DEEPSEEK_MODEL, "Flash (tavsiya, arzon)"),
+        DeepSeekModelOption(DEEPSEEK_PRO_MODEL, "V4 Pro (aniqroq, qimmatroq)"),
+    )
+
+/** A chunk of [CLAUDE_CHUNK_SIZE] sentences needs far less; the cap only stops a runaway reply. */
 private const val DEEPSEEK_MAX_OUTPUT_TOKENS = 8_192
 private const val DEEPSEEK_READ_TIMEOUT_MS = 180_000
 private const val DEEPSEEK_CONNECT_TIMEOUT_MS = 15_000
 
+/**
+ * How DeepSeek works on a chunk: as a human medical translator who edits Google Translate's draft
+ * ("draft_uz") into natural Uzbek for ultrasound doctors, reading American, British and Indian English
+ * by their own usage. It follows the shared lesson rules ([lessonSystemPrompt]) and ends with the JSON
+ * answer shape, which JSON mode needs in the prompt.
+ */
+internal val DEEPSEEK_EDITOR_INSTRUCTION =
+    """
+    How you work on these items: you are a senior medical interpreter who is also an Uzbek ultrasound doctor.
+    Translate as a skilled human would for Uzbek ultrasound doctors: first understand what the lecturer
+    means, then say it in natural, correct Uzbek (Latin script). Never translate word for word.
+
+    An item may carry "draft_uz", a raw machine translation (Google Translate). It is only a draft:
+    - keep what is already correct and natural;
+    - fix a wrong meaning, wrong or inconsistent medical terms (the glossary decides), a lost negation,
+      numbers, units, side (right/left) and anatomical location;
+    - rebuild the sentence in Uzbek word order (the verb at the end) with correct suffixes, agreement and
+      punctuation, so it reads as one natural spoken thought;
+    - when the draft is wrong, empty or missing, translate from the English yourself. Never copy its errors.
+
+    The lecturer may speak American, British or Indian English; read each by its own usage:
+    - American: OR = operating room, ER = emergency room, attending = senior doctor, resident,
+      "work-up" = examination plan, "rule out" = exclude.
+    - British: theatre = operating room, A&E = emergency department, registrar, consultant,
+      "query" = suspected, "whilst" = while.
+    - Indian: "kindly", "do the needful", "prepone" = move earlier, "doubt" = a question,
+      "itself"/"only" for emphasis ("today itself" = this very day), "same" = it/that,
+      lakh = 100 000 and crore = 10 000 000 (write "2 lakh" as "200 000"), USG = ultrasonography,
+      PV = per vaginal examination, LSCS = caesarean section.
+    Translate what such words mean, never the words themselves.
+
+    Medical terminology: use the glossary and approved terms exactly, and the same term every time in the
+    lesson. Keep standard abbreviations (CBD, IVC, BPD, AFI) as the lecturer says them. Never invent a
+    term or guess a misheard word: keep the safest reading and list the item in "uncertain".
+
+    The audience reads the subtitle and hears it read aloud: short, clear spoken Uzbek, the polite "siz"
+    register, no English words left except abbreviations.
+    """.trimIndent()
+
 /** JSON mode needs the schema in the prompt, so the answer shape is spelled out there. */
-internal fun deepSeekRequestBody(userPrompt: String): String {
+internal fun deepSeekSystemPrompt(): String {
     val schema = claudeToolSchema(sentences = false).toString()
-    val system =
-        lessonSystemPrompt(
-            "Answer only with one JSON object that follows this JSON schema, with no text around it: $schema",
-        )
+    return lessonSystemPrompt(
+        DEEPSEEK_EDITOR_INSTRUCTION + "\n\nAnswer only with one JSON object that follows this JSON schema, with no text around it: $schema",
+    )
+}
+
+/** Thinking is switched off: DeepSeek enables it by default, and a translation needs no paid reasoning. */
+internal fun deepSeekRequestBody(
+    userPrompt: String,
+    model: String = DEEPSEEK_MODEL,
+): String {
+    val system = deepSeekSystemPrompt()
     return JSONObject()
-        .put("model", DEEPSEEK_MODEL)
+        .put("model", model)
+        .put("thinking", JSONObject().put("type", "disabled"))
         .put(
             "messages",
             JSONArray()
@@ -195,6 +259,7 @@ internal object HttpDeepSeekTransport : DeepSeekTransport {
  */
 internal class DeepSeekBackend(
     private val apiKey: String,
+    private val model: String = DEEPSEEK_MODEL,
     private val transport: DeepSeekTransport = HttpDeepSeekTransport,
     private val retryPausesMs: List<Long> = listOf(3_000L, 10_000L),
     private val onCall: ApiCallSink = ApiUsageLog::record,
@@ -209,7 +274,7 @@ internal class DeepSeekBackend(
         userPrompt: String,
         chunk: ClaudeChunk,
     ): ClaudeChunkResult {
-        val reply = send(deepSeekRequestBody(userPrompt), chunk)
+        val reply = send(deepSeekRequestBody(userPrompt, model), chunk)
         val result =
             try {
                 parseDeepSeekReply(reply, chunk)
@@ -253,7 +318,7 @@ internal class DeepSeekBackend(
         usage: TokenUsage,
         status: String,
         success: Boolean,
-    ) = onCall(apiCall(now(), "DeepSeek", DEEPSEEK_MODEL, chunk, usage, status, success))
+    ) = onCall(apiCall(now(), "DeepSeek", model, chunk, usage, status, success))
 
     private companion object {
         const val MAX_RETRY_AFTER_MS = 60_000L
