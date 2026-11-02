@@ -118,6 +118,7 @@ internal fun ShokalonHomeScreen(
                     notice?.let { NoticeLine(it) }
                     val studyCard: @Composable () -> Unit = {
                         SectionStudyCard(open, study) { onOpen(it.videoId) }
+                        SectionReadingCard(open.name)
                         SectionSuggestions(open) { videoId ->
                             // A suggestion is not in the catalog yet: the focus guard lets it play.
                             focusRequestedVideos += videoId
@@ -435,7 +436,7 @@ private fun SectionDetail(
         topic.videos.forEach { video ->
             number += 1
             val status = LessonStatus(video.videoId in translated, video.videoId in noted, video.videoId == activeVideoId)
-            LessonRow(number, video, status, art, onAction)
+            LessonRow(number, video, status, art, section.name, onAction)
         }
     }
     OutlinedButton(
@@ -468,10 +469,13 @@ private fun LessonRow(
     video: CatalogVideo,
     status: LessonStatus,
     art: SectionArt,
+    sectionName: String,
     onAction: (LessonAction) -> Unit,
 ) {
     val title = video.title
     var menu by remember { mutableStateOf(false) }
+    var reading by remember { mutableStateOf(false) }
+    if (reading) LessonReadingDialog(sectionName, title) { reading = false }
     Surface(
         onClick = { onAction(LessonAction.Open(video)) },
         shape = RoundedCornerShape(16.dp),
@@ -494,6 +498,10 @@ private fun LessonRow(
                     Icon(Icons.Default.MoreVert, contentDescription = "Dars amallari")
                 }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(text = { Text("📚 Mavzuni o‘qish (manbalar)") }, onClick = {
+                        menu = false
+                        reading = true
+                    })
                     DropdownMenuItem(text = { Text("YouTube'dan boshqa videoga almashtirish") }, onClick = {
                         menu = false
                         onAction(LessonAction.Replace(video))

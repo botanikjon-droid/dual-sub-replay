@@ -364,4 +364,15 @@ class DeepSeekTranslationTest {
         }
         assertEquals(0, claude.calls)
     }
+
+    @Test
+    fun theLecturesTopicReachesThePrompt() {
+        val lesson =
+            com.kienhoang.dualsubreplay.data
+                .LessonInfo("Transcranial Doppler basics", "Transkranial doppler", "Kirish")
+        val prompt = JSONObject(claudeUserPrompt(chunk, chunk.sentences, emptyMap(), emptyList(), emptyList(), "", lesson))
+        assertEquals("Transkranial doppler", prompt.getJSONObject("lesson").getString("section"))
+        assertTrue(deepSeekSystemPrompt().contains("Indian accent"))
+        assertTrue(claudeSystemPrompt().contains("\"doubler\"/\"dabbler\" = Doppler"))
+    }
 }

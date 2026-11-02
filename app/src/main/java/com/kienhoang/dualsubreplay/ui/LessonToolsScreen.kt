@@ -250,7 +250,9 @@ internal fun LessonToolsScreen(
                         onCancel = onClaudeCancel,
                     )
                     notesCard()
+                    LessonReadingCard(activeVideoId)
                     LearnedGlossaryCard()
+                    AsrFixesCard()
 
                     LessonCard(title = "Tarjima subtitrini yuklash", icon = Icons.Default.Translate) {
                         Hint(

@@ -3,7 +3,9 @@ package com.kienhoang.dualsubreplay.ui
 import android.util.Log
 import com.kienhoang.dualsubreplay.data.ApiUsageEntry
 import com.kienhoang.dualsubreplay.data.ApiUsageLog
+import com.kienhoang.dualsubreplay.data.AsrFixer
 import com.kienhoang.dualsubreplay.data.LearnedGlossaryStore
+import com.kienhoang.dualsubreplay.data.LessonInfo
 import com.kienhoang.dualsubreplay.data.LessonProgress
 import com.kienhoang.dualsubreplay.data.LessonProgressFiles
 import com.kienhoang.dualsubreplay.data.RawCaptionCue
@@ -80,9 +82,10 @@ internal data class ClaudeRunState(
 
 /**
  * Raised whenever the translation instructions change in a way that makes saved half-lesson results
- * unfit (2: DeepSeek rebuilds whole sentences instead of translating caption fragments one by one).
+ * unfit (2: DeepSeek rebuilds whole sentences instead of translating caption fragments one by one;
+ * 3: misheard words are fixed before sending and the lecture's topic is given).
  */
-private const val TRANSLATION_PROMPT_VERSION = 2
+private const val TRANSLATION_PROMPT_VERSION = 3
 
 /** Kept for the app's lifetime, so a Gemini model out of free quota is not asked again today. */
 private val geminiLessonQuota = GeminiModelQuota()
@@ -154,6 +157,10 @@ internal class ClaudeLessonCoordinator(
     private val progress: LessonProgressFiles? = null,
     /** Google Translate's draft of a chunk's fragments joined, which DeepSeek edits instead of translating from nothing. */
     private val machineDraft: (suspend (List<String>) -> String)? = null,
+    /** The lecture's title, section and topic for the translator. */
+    private val lessonInfo: (String) -> LessonInfo? = { null },
+    /** Misheard caption words ("doubler") fixed in the English before it is sent. */
+    private val asrFixer: () -> AsrFixer? = { null },
 ) {
     private val _state = MutableStateFlow(ClaudeRunState())
     val state: StateFlow<ClaudeRunState> = _state
@@ -218,9 +225,10 @@ internal class ClaudeLessonCoordinator(
             val segments = segmentsFor(videoId)
             // Claude and Gemini get every caption row and rebuild the sentences themselves.
             val groups = segments.indices.map { SentenceGroup(listOf(it), segments[it].originalText, emptyList()) }
-            val sentences = groups.map { it.text }
             // The prompt version is part of it: sentences saved under older instructions are translated again.
-            val fingerprint = "${lessonFingerprint(sentences)}-p$TRANSLATION_PROMPT_VERSION"
+            val fingerprint = "${lessonFingerprint(groups.map { it.text })}-p$TRANSLATION_PROMPT_VERSION"
+            val fixer = asrFixer()
+            val sentences = groups.map { group -> fixer?.fix(group.text) ?: group.text }
             // Sentences paid for in an earlier, unfinished run are not sent again.
             val saved = LinkedHashMap(readProgress(videoId, fingerprint))
             _state.update {
@@ -243,6 +251,7 @@ internal class ClaudeLessonCoordinator(
                     terms = { LearnedGlossaryStore.terms.value },
                     done = saved.mapValues { it.value.uzbek },
                     draft = machineDraft.takeIf { engine == LessonEngine.DEEPSEEK },
+                    lesson = lessonInfo(videoId),
                 ) { chunk, step ->
                     val provider = chunk.engine.ifBlank { engine.label }
                     val chunkId = chunkIdOf(chunk.translations.keys)

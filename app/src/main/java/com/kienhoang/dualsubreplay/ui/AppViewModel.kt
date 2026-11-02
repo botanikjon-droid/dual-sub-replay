@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kienhoang.dualsubreplay.data.AnalyzedToken
 import com.kienhoang.dualsubreplay.data.ApiUsageLog
+import com.kienhoang.dualsubreplay.data.AsrFixStore
 import com.kienhoang.dualsubreplay.data.AppProposal
 import com.kienhoang.dualsubreplay.data.AppProposalStore
 import com.kienhoang.dualsubreplay.data.CaptionLanguage
@@ -65,6 +66,7 @@ import com.kienhoang.dualsubreplay.data.reviewFileText
 import com.kienhoang.dualsubreplay.data.parseReviewFile
 import com.kienhoang.dualsubreplay.data.applySentenceCorrection
 import com.kienhoang.dualsubreplay.data.UziCatalogStore
+import com.kienhoang.dualsubreplay.data.lessonInfoOf
 import com.kienhoang.dualsubreplay.data.UziGlossaryStore
 import com.kienhoang.dualsubreplay.data.translationRequest
 import com.kienhoang.dualsubreplay.data.retireLegacyDownloadJobs
@@ -358,6 +360,7 @@ class AppViewModel internal constructor(
         // The list of translated lessons and their notes.
         viewModelScope.launch { LessonLibraryStore.load(application) }
         viewModelScope.launch { ApiUsageLog.load(application) }
+        viewModelScope.launch { AsrFixStore.load(application) }
         viewModelScope.launch { AppProposalStore.load(application) }
         // Focus mode needs the catalog to tell lessons from other YouTube videos.
         if (shokalonFocusMode) viewModelScope.launch { UziCatalogStore.load(application) }
@@ -383,6 +386,8 @@ class AppViewModel internal constructor(
             notify = { Toast.makeText(getApplication(), it, Toast.LENGTH_LONG).show() },
             progress = LessonProgressFiles(File(application.filesDir, LESSON_PROGRESS_DIRECTORY)),
             machineDraft = ::machineDraft,
+            lessonInfo = { id -> lessonInfoOf(UziCatalogStore.sections.value.orEmpty(), id, lessonTitles[id] ?: lessonRecord(id)?.title) },
+            asrFixer = { AsrFixStore.fixer() },
         )
     internal val claudeRun: StateFlow<ClaudeRunState> get() = claude.state
 

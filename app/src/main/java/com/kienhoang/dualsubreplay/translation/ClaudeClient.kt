@@ -4,6 +4,7 @@ import com.kienhoang.dualsubreplay.data.ApiUsageEntry
 import com.kienhoang.dualsubreplay.data.ApiUsageLog
 import com.kienhoang.dualsubreplay.data.GlossaryEntry
 import com.kienhoang.dualsubreplay.data.LearnedTerm
+import com.kienhoang.dualsubreplay.data.LessonInfo
 import com.kienhoang.dualsubreplay.data.chunkIdOf
 import com.kienhoang.dualsubreplay.data.learnedTermsIn
 import kotlinx.coroutines.Dispatchers
@@ -161,6 +162,7 @@ internal class LessonTranslator(
         terms: () -> List<LearnedTerm>,
         done: Map<Int, String> = emptyMap(),
         draft: (suspend (List<String>) -> String)? = null,
+        lesson: LessonInfo? = null,
         onChunk: suspend (ClaudeChunkResult, ClaudeProgress) -> Unit,
     ): ClaudeLessonResult {
         val finished = linkedMapOf<Int, String>()
@@ -172,7 +174,15 @@ internal class LessonTranslator(
             val chunk = queue.removeFirst()
             val texts = chunk.sentences
             val prompt =
-                claudeUserPrompt(chunk, sentences, finished, glossaryFor(texts), learnedTermsIn(terms(), texts), draftOf(draft, texts))
+                claudeUserPrompt(
+                    chunk,
+                    sentences,
+                    finished,
+                    glossaryFor(texts),
+                    learnedTermsIn(terms(), texts),
+                    draftOf(draft, texts),
+                    lesson,
+                )
             val result =
                 try {
                     backend.translate(prompt, chunk)

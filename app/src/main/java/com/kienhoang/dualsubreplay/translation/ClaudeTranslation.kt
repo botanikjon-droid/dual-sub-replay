@@ -3,6 +3,7 @@ package com.kienhoang.dualsubreplay.translation
 import com.kienhoang.dualsubreplay.data.GlossaryEntry
 import com.kienhoang.dualsubreplay.data.LearnedTerm
 import com.kienhoang.dualsubreplay.data.LearnedTermStatus
+import com.kienhoang.dualsubreplay.data.LessonInfo
 import com.kienhoang.dualsubreplay.data.SubtitleSegment
 import com.kienhoang.dualsubreplay.data.uzbekPrimaryTerm
 import org.json.JSONArray
@@ -105,7 +106,7 @@ internal fun lessonSystemPrompt(answerInstruction: String): String =
 
     Work in this order:
     1. Read "context_before", all items and "context_after" together and rebuild the full English sentences in your head. Automatic captions have no punctuation, and a sentence can continue into the next item.
-    2. Find misheard words (ASR errors) from the medical context. Examples seen before: "a trophic" = atrophic, "Fri browsing" = fibrosing, "bankers head" = pancreas head, "hypo a coach in the city" = hypoechogenicity, "omental borsa" = omental bursa, "además" = edematous, "column" after left-sided = colon, "a situs" = ascites, "entry luminal" = intraluminal, "life altering video" = live ultrasound video. Fix a word only when the context clearly supports it. When several readings are possible, translate the most likely one and report the item in "uncertain" with the options; never present a guess as certain.
+    2. Find misheard words (ASR errors) from the medical context. Examples seen before: "a trophic" = atrophic, "Fri browsing" = fibrosing, "bankers head" = pancreas head, "hypo a coach in the city" = hypoechogenicity, "omental borsa" = omental bursa, "además" = edematous, "column" after left-sided = colon, "a situs" = ascites, "entry luminal" = intraluminal, "life altering video" = live ultrasound video. Use "lesson" (the lecture's title, section and topic) to decide: in an ultrasound lecture a word that sounds like a medical term of the topic is that term. Speakers with an Indian accent are misheard most: "doubler"/"dabbler" = Doppler, "pulse ability" = pulsatility, "resist ivy" = resistive, "insinuate" = insonate, "zygote matic" = zygomatic, "phase R" = phased array, "mahz" = MHz, "hypo echo ik" = hypoechoic. Fix a word when the topic and the context support it. When several readings are possible, translate the most likely one and report the item in "uncertain" with the options; never present a guess as certain.
     3. Translate the meaning into natural, grammatical Uzbek, as an experienced Uzbek ultrasound doctor would say it to colleagues, not word by word. Uzbek order: subject, then objects and adverbials, verb at the end. Never copy English word order.
        Bad: "o‘tkir pankreatit tashxisi ikkita / quyidagi uchta mezondan kamida ikkitasi bajarilganda qo‘yiladi"
        Good: "O‘tkir pankreatit tashxisi quyidagi uchta mezonning / ikkitasi bajarilganda qo‘yiladi: ..."
@@ -149,6 +150,8 @@ internal fun claudeUserPrompt(
     learned: List<LearnedTerm>,
     /** Google Translate's draft of the chunk's items joined (blank: none), translated with their context. */
     draft: String = "",
+    /** The lecture's title, section and topic, so misheard words are read in its own subject. */
+    lesson: LessonInfo? = null,
 ): String {
     val before = JSONArray()
     for (index in maxOf(0, chunk.start - CLAUDE_CONTEXT_BEFORE) until chunk.start) {
@@ -169,6 +172,7 @@ internal fun claudeUserPrompt(
         .put("items", items)
         .put("context_after", after)
         .apply { draft.trim().takeIf(String::isNotEmpty)?.let { put("draft_uz_text", it) } }
+        .apply { lesson?.let { put("lesson", JSONObject().put("title", it.title).put("section", it.section).put("topic", it.topic)) } }
         .toString()
 }
 
