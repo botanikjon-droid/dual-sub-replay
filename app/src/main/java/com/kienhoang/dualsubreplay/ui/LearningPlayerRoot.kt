@@ -219,6 +219,8 @@ fun LearningPlayerRoot(viewModel: AppViewModel) {
     val youtubeControlsVisible by youtubePlayerControlsVisible.collectAsStateWithLifecycle()
     val youtubeDialogVisible by youtubeNativeDialogVisible.collectAsStateWithLifecycle()
     val youtubeFullscreen by youtubeFullscreenActive.collectAsStateWithLifecycle()
+    // SHOKALON's own full screen (the top-bar button) is treated like YouTube's: the subtitles go on the video.
+    val appFullscreen by shokalonFullscreen.collectAsStateWithLifecycle()
     // SHOKALON's "Subtitrni butunlay yashirish": no panel and no line on the video.
     val subtitlesHidden by shokalonSubtitlesHidden.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -384,7 +386,7 @@ fun LearningPlayerRoot(viewModel: AppViewModel) {
         orientation = configuration.orientation,
     )
     val automaticFullscreenOverlay =
-        mode == PlayerExperienceMode.TRANSCRIPT_PANEL && autoOverlayFullscreen && youtubeFullscreen
+        mode == PlayerExperienceMode.TRANSCRIPT_PANEL && autoOverlayFullscreen && (youtubeFullscreen || appFullscreen)
     val automaticPresentationOverlay = automaticLandscapeOverlay || automaticFullscreenOverlay
     val effectiveMode = if (
         mode == PlayerExperienceMode.SCROLL_FRIENDLY_OVERLAY || automaticPresentationOverlay

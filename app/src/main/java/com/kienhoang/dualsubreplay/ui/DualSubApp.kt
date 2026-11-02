@@ -375,6 +375,14 @@ private fun SelectedWordDialog(
     }
 }
 
+/** The subtitle panel has room only outside full screen, native dialogs and the side-by-side layout. */
+internal fun isPanelPlaceFree(
+    fullscreen: Boolean,
+    nativeDialogVisible: Boolean,
+    sideBySide: Boolean,
+    activeVideoId: String?,
+): Boolean = !fullscreen && !nativeDialogVisible && !sideBySide && activeVideoId != null
+
 @Composable
 @Suppress("LongMethod")
 private fun DualSubExperience(
@@ -457,8 +465,10 @@ private fun DualSubExperience(
         }
     val nativeDialogVisible by youtubeNativeDialogVisible.collectAsStateWithLifecycle()
     val tracksVisible = state.showOriginal() || state.showTranslation()
+    // In SHOKALON's full screen the video takes the whole screen: no side panel, no panel over it.
+    val fullscreen by shokalonFullscreen.collectAsStateWithLifecycle()
     val sideBySide =
-        tracksVisible && !nativeDialogVisible &&
+        !fullscreen && tracksVisible && !nativeDialogVisible &&
             shouldUseLandscapeSplit(
                 splitEnabled = state.landscapeSplitEnabled,
                 subtitlePanelVisible = state.subtitlePanelVisible,
@@ -485,7 +495,6 @@ private fun DualSubExperience(
             webController.pause()
             shokalonFullscreen.value = false
         }) { menuRequests += 1 }
-    val fullscreen by shokalonFullscreen.collectAsStateWithLifecycle()
 
     AppNavigation(onHome = openHomeAt?.let { open -> { open(null) } }, menuRequests = menuRequests, onPractice = onVocabulary, onProgress = onProgress, onLesson = {
         showLessonTools = true
@@ -577,7 +586,9 @@ private fun DualSubExperience(
                     }
                 }
 
-                if (tracksVisible && !nativeDialogVisible && !sideBySide && state.activeVideoId != null && state.subtitlePanelVisible) {
+                // Where the subtitle panel (or its button) may go: not in full screen, a dialog or the side layout.
+                val panelPlace = isPanelPlaceFree(fullscreen, nativeDialogVisible, sideBySide, state.activeVideoId)
+                if (panelPlace && tracksVisible && state.subtitlePanelVisible) {
                     val panelContent: @Composable (Modifier) -> Unit = { panelModifier ->
                         SubtitlePanel(
                             state = state,
@@ -609,11 +620,7 @@ private fun DualSubExperience(
                                 .fillMaxHeight(0.60f),
                         )
                     }
-                } else if (
-                    !nativeDialogVisible && !sideBySide &&
-                    state.activeVideoId != null &&
-                    effectivePlayerMode == PlayerExperienceMode.TRANSCRIPT_PANEL
-                ) {
+                } else if (panelPlace && effectivePlayerMode == PlayerExperienceMode.TRANSCRIPT_PANEL) {
                     UnlessSubtitlesHidden { MovableSubtitleFab(onClick = { if (tracksVisible) onShowSubtitles() else showSettings = true }) }
                 }
                 LessonEdgeSwipe(state.activeVideoId) { section -> openHomeAt?.invoke(section) }
