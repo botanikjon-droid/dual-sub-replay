@@ -19,7 +19,11 @@ import java.io.IOException
 
 internal const val TRANSLATION_PROVIDER_GOOGLE = "google"
 internal const val TRANSLATION_PROVIDER_GEMINI = "gemini"
-internal val TRANSLATION_PROVIDERS = listOf(TRANSLATION_PROVIDER_GOOGLE, TRANSLATION_PROVIDER_GEMINI)
+internal const val TRANSLATION_PROVIDER_CLAUDE = "claude"
+internal val TRANSLATION_PROVIDERS = listOf(TRANSLATION_PROVIDER_GOOGLE, TRANSLATION_PROVIDER_GEMINI, TRANSLATION_PROVIDER_CLAUDE)
+
+/** DeepL was replaced by Claude; a saved "deepl" choice now means Claude. */
+internal const val LEGACY_TRANSLATION_PROVIDER_DEEPL = "deepl"
 
 internal const val GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
@@ -107,7 +111,7 @@ internal fun glossaryForBatch(
 
 internal fun geminiSystemInstruction(): String =
     """
-    You translate English ultrasound (UZI) lecture captions into Uzbek (Latin script) for an Uzbek ultrasound doctor.
+    You translate ultrasound (UZI) lecture captions (usually English; sometimes Hindi, Russian, another language or a mix) into Uzbek (Latin script) for an Uzbek ultrasound doctor.
     Rules:
     - Return a JSON array of strings: exactly one Uzbek translation per item of "sentences", in the same order. Never merge, split, skip or reorder items.
     - The captions are automatic speech recognition: punctuation is missing and a sentence may be cut between items. Use "context" and the neighbouring items to understand the meaning, but translate only the words of each item.

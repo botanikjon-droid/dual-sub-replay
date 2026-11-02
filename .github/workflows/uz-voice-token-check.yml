@@ -1,0 +1,30 @@
+# Diagnosis only: does the Edge voice service still accept the old (v1) token that the app sends,
+# or only the new v2 token of the current edge-tts release? Same runner, same sentence.
+name: Uzbek voice token check
+
+on:
+  push:
+    paths:
+      - .github/workflows/uz-voice-token-check.yml
+
+jobs:
+  check:
+    if: github.repository == 'botanikjon-droid/dual-sub-replay'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Try edge-tts versions
+        run: |
+          for v in 7.0.2 7.2.3 7.3.1; do
+            python -m venv "venv$v" && . "venv$v/bin/activate"
+            pip -q install "edge-tts==$v"
+            if edge-tts --voice uz-UZ-SardorNeural --text "Jigar o‘lchamlari me’yorda." --write-media out.mp3 > log.txt 2>&1; then
+              echo "::notice title=edge-tts $v::OK, $(stat -c %s out.mp3) bytes"
+            else
+              echo "::error title=edge-tts $v::$(tail -c 400 log.txt | tr '\n' ' ')"
+            fi
+            rm -f out.mp3; deactivate
+          done

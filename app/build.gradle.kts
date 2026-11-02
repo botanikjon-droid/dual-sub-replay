@@ -103,9 +103,14 @@ android {
             kotlin.srcDir("src/$distribution/java")
         }
         if (distribution == "uz") {
-            // Its own launcher name, so the Uzbek build is told apart from the preview.
-            getByName("debug") {
-                res.setSrcDirs(listOf("src/uzDebug/res"))
+            // Its own launcher name and icon, so the Uzbek build is told apart from the preview. CI ships
+            // the Uzbek APK as an optimized release build (not debuggable), signed with the fork's key.
+            listOf("debug", "release").forEach { type ->
+                getByName(type) { res.setSrcDirs(listOf("src/uzDebug/res")) }
+            }
+            // JVM tests of uz-only code (the Edge voice client), run by CI's Uzbek build step.
+            getByName("test") {
+                kotlin.srcDir("src/uzTest/java")
             }
         }
         if (isFdroidBuild) {

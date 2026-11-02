@@ -101,6 +101,9 @@ internal fun LiveSubtitlePanel(
                 onWordClick = { onWordClick(it.copy(segment = null)) },
             )
         }
+        recordingStatusLine(state.recordedCaptions)?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+        }
         TextButton(onClick = onRetry, enabled = !state.retryingTranscript) {
             Text(if (state.retryingTranscript) "Retrying full transcript…" else "Retry full transcript")
         }

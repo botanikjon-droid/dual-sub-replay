@@ -1,6 +1,8 @@
 package com.kienhoang.dualsubreplay.ui
 
 import android.webkit.WebView
+import androidx.activity.OnBackPressedDispatcher
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.DisposableEffect
@@ -9,7 +11,6 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
-import androidx.test.espresso.Espresso
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -23,7 +24,9 @@ class NavigationRecoveryUiTest {
         var practice = 0
         var settings = 0
         var progress = 0
+        lateinit var back: OnBackPressedDispatcher
         compose.setContent {
+            back = checkNotNull(LocalOnBackPressedDispatcherOwner.current).onBackPressedDispatcher
             MaterialTheme {
                 AppNavigation(onPractice = { practice++ }, onSettings = { settings++ }, onProgress = { progress++ }) { menu ->
                     Column {
@@ -48,7 +51,11 @@ class NavigationRecoveryUiTest {
         compose.onNodeWithText("Close").assertIsDisplayed().performClick()
         compose.onNodeWithText("Practice").assertIsNotDisplayed()
         compose.onNodeWithContentDescription("Open navigation menu").performClick()
-        Espresso.pressBack()
+        compose.waitForIdle()
+        compose.onNodeWithText("Practice").assertIsDisplayed()
+        // The system Back goes through this dispatcher to the drawer's BackHandler. Espresso.pressBack() first waits for
+        // the emulator window to take focus, which on CI sometimes never happens (RootViewWithoutFocusException).
+        compose.runOnUiThread { back.onBackPressed() }
         compose.waitForIdle()
         compose.onNodeWithText("Practice").assertIsNotDisplayed()
         compose.onNodeWithContentDescription("Open navigation menu").performClick()
