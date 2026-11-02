@@ -48,8 +48,8 @@ private const val DEEPSEEK_READ_TIMEOUT_MS = 180_000
 private const val DEEPSEEK_CONNECT_TIMEOUT_MS = 15_000
 
 /**
- * How DeepSeek works on a chunk: as a human medical translator who edits Google Translate's draft
- * ("draft_uz") into natural Uzbek for ultrasound doctors, reading American, British and Indian English
+ * How DeepSeek works on a chunk: as a human medical translator who rebuilds the whole sentences from the
+ * caption fragments and edits Google Translate's draft ("draft_uz_text") into natural Uzbek for ultrasound doctors, reading American, British and Indian English
  * by their own usage. It follows the shared lesson rules ([lessonSystemPrompt]) and ends with the JSON
  * answer shape, which JSON mode needs in the prompt.
  */
@@ -59,13 +59,22 @@ internal val DEEPSEEK_EDITOR_INSTRUCTION =
     Translate as a skilled human would for Uzbek ultrasound doctors: first understand what the lecturer
     means, then say it in natural, correct Uzbek (Latin script). Never translate word for word.
 
-    An item may carry "draft_uz", a raw machine translation (Google Translate). It is only a draft:
-    - keep what is already correct and natural;
-    - fix a wrong meaning, wrong or inconsistent medical terms (the glossary decides), a lost negation,
-      numbers, units, side (right/left) and anatomical location;
-    - rebuild the sentence in Uzbek word order (the verb at the end) with correct suffixes, agreement and
-      punctuation, so it reads as one natural spoken thought;
-    - when the draft is wrong, empty or missing, translate from the English yourself. Never copy its errors.
+    The items are fragments of automatic captions: a sentence often starts in one item and ends in the next
+    ("by using a 2 MHz phased array probe on the temporal region above the" + "zygomatic arch"). Never
+    translate a fragment on its own. First join the items (with context_before and context_after) into whole
+    English sentences, translate each whole sentence, then split its Uzbek over its items by meaning.
+    Put a full stop only where the Uzbek sentence really ends; an item in the middle of a sentence ends
+    without a full stop, so the app can show the sentence whole.
+
+    "draft_uz_text", when given, is Google Translate's raw translation of all the items joined. It is only
+    a draft: keep what is correct and natural; fix a wrong meaning, wrong or inconsistent medical terms (the
+    glossary decides), a lost negation, numbers, units, side (right/left) and anatomical location; rebuild
+    each sentence in Uzbek word order (the verb at the end) with correct suffixes and agreement. When the
+    draft is wrong or missing, translate from the English yourself. Never copy its errors.
+
+    Automatic captions mishear units and probe names; read them from the medical context:
+    "2 mahz phas R probe" = "2 MHz phased array probe" (2 MGs li fazali massivli datchik),
+    "a convicts probe" = "a convex probe", "dopler" = Doppler.
 
     The lecturer may speak American, British or Indian English; read each by its own usage:
     - American: OR = operating room, ER = emergency room, attending = senior doctor, resident,
@@ -88,11 +97,24 @@ internal val DEEPSEEK_EDITOR_INSTRUCTION =
 
 /** JSON mode needs the schema in the prompt, so the answer shape is spelled out there. */
 internal fun deepSeekSystemPrompt(): String {
-    val schema = claudeToolSchema(sentences = false).toString()
+    val schema = claudeToolSchema(sentences = true).toString()
     return lessonSystemPrompt(
-        DEEPSEEK_EDITOR_INSTRUCTION + "\n\nAnswer only with one JSON object that follows this JSON schema, with no text around it: $schema",
+        DEEPSEEK_EDITOR_INSTRUCTION + "\n\n" + DEEPSEEK_ANSWER_INSTRUCTION +
+            "\nAnswer only with one JSON object that follows this JSON schema, with no text around it: $schema",
     )
 }
+
+/** The same sentence-first answer as Claude's tool call, written for JSON mode. */
+private val DEEPSEEK_ANSWER_INSTRUCTION =
+    """
+    Fill the JSON object in this order:
+    - "sentences": every whole sentence that touches the items, in order. "from" and "to" are the first and last
+      item index it covers (a sentence may start in context_before or end in context_after: use the nearest item
+      index). "en" is the sentence rebuilt from the captions with misheard words fixed; "uz" is its Uzbek, one
+      natural thought, meaning first.
+    - "translations": split each Uzbek sentence of "sentences" over its items by meaning (rule 4), without
+      translating the items again one by one. The items' Uzbek joined in order must read as those sentences.
+    """.trimIndent()
 
 /** Thinking is switched off: DeepSeek enables it by default, and a translation needs no paid reasoning. */
 internal fun deepSeekRequestBody(

@@ -382,7 +382,7 @@ class AppViewModel internal constructor(
             importSrt = { text, videoId, source -> importTranslation(text, videoId, source) },
             notify = { Toast.makeText(getApplication(), it, Toast.LENGTH_LONG).show() },
             progress = LessonProgressFiles(File(application.filesDir, LESSON_PROGRESS_DIRECTORY)),
-            machineDrafts = ::machineDrafts,
+            machineDraft = ::machineDraft,
         )
     internal val claudeRun: StateFlow<ClaudeRunState> get() = claude.state
 
@@ -395,6 +395,12 @@ class AppViewModel internal constructor(
     fun translateLessonWithGemini() {
         val videoId = _state.value.activeVideoId ?: return
         claude.start(videoId, LessonEngine.GEMINI)
+    }
+
+    /** DeepSeek edits Google's draft into whole Uzbek sentences; also re-translates a stored lesson. */
+    fun translateLessonWithDeepSeek() {
+        val videoId = _state.value.activeVideoId ?: return
+        claude.start(videoId, LessonEngine.DEEPSEEK)
     }
 
     fun cancelClaudeTranslation() = claude.cancel()
@@ -955,22 +961,20 @@ class AppViewModel internal constructor(
     }
 
     /**
-     * Google Translate's Uzbek for [texts], from the same translator and cache as playback (sentences already
-     * shown cost no request). A sentence it could not translate stays blank and DeepSeek translates it alone.
+     * Google Translate's Uzbek for a chunk's caption fragments joined into one text, so Google sees whole
+     * sentences instead of pieces cut mid-sentence. Blank when Google fails: DeepSeek then works from the English.
      */
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun machineDrafts(texts: List<String>): List<String> {
+    private suspend fun machineDraft(texts: List<String>): String {
         val source = _state.value.sourcePreference.takeUnless { it == "auto" } ?: "en"
-        val drafts = MutableList(texts.size) { "" }
-        try {
-            translator.translateAll(source, "uz", texts) { index, text -> drafts[index] = text }
+        return try {
+            translator.translateSingle(source, "uz", texts.joinToString(" ") { it.trim() })
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (error: Exception) {
-            // Google failed part-way (offline, rate limited): the drafts made so far still help.
-            Log.w("LessonTranslation", "Machine drafts stopped", error)
+            Log.w("LessonTranslation", "Machine draft failed", error)
+            ""
         }
-        return drafts
     }
 
     /** The open lesson's title, for files the doctor sends out. */

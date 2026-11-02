@@ -71,6 +71,7 @@ internal fun ClaudeTranslateCard(
     onTranslate: () -> Unit,
     onCancel: () -> Unit,
     onGeminiTranslate: () -> Unit = {},
+    onDeepSeekTranslate: () -> Unit = {},
 ) {
     val available by DubbingSettings.available.collectAsStateWithLifecycle()
     if (!available) return
@@ -80,6 +81,8 @@ internal fun ClaudeTranslateCard(
             "Butun dars UZI lug‘ati va tarjima qoidalari bilan bir yo‘la tarjima qilinadi. Tayyor bo‘lgach, tarjima shu darsga " +
                 "yuklanadi, ovozda o‘qiladi va dars qayta ochilganda so‘rov sarflanmaydi. Kalitlar faqat shu telefonda saqlanadi.",
         )
+        DeepSeekLessonControls(enabled = activeVideoId != null && !run.running, onTranslate = onDeepSeekTranslate)
+        HorizontalDivider()
         GeminiLessonControls(enabled = activeVideoId != null && !run.running, onTranslate = onGeminiTranslate)
         HorizontalDivider()
         ClaudeLessonControls(enabled = activeVideoId != null && !run.running, onTranslate = onTranslate)
@@ -124,6 +127,32 @@ private fun VoicePrefetchControls(enabled: Boolean) {
         ) { Text("Darsning ovozini oldindan tayyorlash") }
         state.message?.let { Hint(it) }
     }
+}
+
+/**
+ * DeepSeek: the main translator when its key is set. The button also translates again a lesson already
+ * stored (for example one translated fragment by fragment by an older version).
+ */
+@Composable
+private fun DeepSeekLessonControls(
+    enabled: Boolean,
+    onTranslate: () -> Unit,
+) {
+    val key by DubbingSettings.deepseekApiKey.collectAsStateWithLifecycle()
+    Text("DeepSeek (asosiy)", fontWeight = FontWeight.SemiBold)
+    Hint(
+        if (key.isBlank()) {
+            "DeepSeek kalitini sozlamalardagi \u201CO\u2018zbekcha ovoz\u201D bo\u2018limiga kiriting."
+        } else {
+            "Yangi dars ochilganda o\u2018zi tarjima qilinadi: Google qoralamasini DeepSeek to\u2018liq gaplar bo\u2018yicha tuzatadi. " +
+                "Saqlangan tarjima yoqmasa, shu tugma bilan darsni qayta tarjima qiling."
+        },
+    )
+    Button(
+        enabled = enabled && key.isNotBlank(),
+        modifier = Modifier.fillMaxWidth().testTag("deepseek_translate_lesson"),
+        onClick = onTranslate,
+    ) { Text("Shu darsni DeepSeek bilan tarjima qilish") }
 }
 
 /** Gemini: free tier, one request per lesson; its key is set in the "O‘zbekcha ovoz" settings. */

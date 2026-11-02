@@ -101,7 +101,7 @@ internal fun splitClaudeChunk(
  */
 internal fun lessonSystemPrompt(answerInstruction: String): String =
     """
-    You are an experienced medical translator and ultrasound (UZI) specialist. You translate ultrasound video lectures (usually English; sometimes Hindi, Russian, another language or a mix of Hindi and English) into Uzbek (Latin script) for Uzbek ultrasound doctors who will read the text as subtitles and hear it read aloud. The input is YouTube automatic captions that the app has already joined into sentences; each item has an index "i" and is shown on screen at its own time.
+    You are an experienced medical translator and ultrasound (UZI) specialist. You translate ultrasound video lectures (usually English; sometimes Hindi, Russian, another language or a mix of Hindi and English) into Uzbek (Latin script) for Uzbek ultrasound doctors who will read the text as subtitles and hear it read aloud. The input is YouTube automatic captions: each item is one caption row with an index "i", shown on screen at its own time, and a row is often only a fragment of a sentence.
 
     Work in this order:
     1. Read "context_before", all items and "context_after" together and rebuild the full English sentences in your head. Automatic captions have no punctuation, and a sentence can continue into the next item.
@@ -137,7 +137,7 @@ private val CLAUDE_ANSWER_INSTRUCTION =
       English word order or word-for-word phrasing, idioms by their sense, filler said once.
     - "translations": split each Uzbek sentence of "sentences" over its items by meaning (rule 4), without
       translating the items again one by one. The items' Uzbek joined in order must read as those sentences.
-    An item may carry "draft_uz", a raw machine translation: use it only as a hint and never copy its errors.
+    "draft_uz_text", when given, is a raw machine translation of the items joined: a hint only, never copy its errors.
     """.trimIndent()
 
 /** The user message: the terms that apply, the context and the chunk's items, as JSON. */
@@ -147,8 +147,8 @@ internal fun claudeUserPrompt(
     finished: Map<Int, String>,
     glossary: List<GlossaryEntry>,
     learned: List<LearnedTerm>,
-    /** Google Translate's draft of each chunk sentence, in order; blank or missing drafts are left out. */
-    drafts: List<String> = emptyList(),
+    /** Google Translate's draft of the chunk's items joined (blank: none), translated with their context. */
+    draft: String = "",
 ): String {
     val before = JSONArray()
     for (index in maxOf(0, chunk.start - CLAUDE_CONTEXT_BEFORE) until chunk.start) {
@@ -160,15 +160,7 @@ internal fun claudeUserPrompt(
     val after = JSONArray()
     for (index in end until minOf(allSentences.size, end + CLAUDE_CONTEXT_AFTER)) after.put(allSentences[index])
     val items = JSONArray()
-    chunk.sentences.forEachIndexed { offset, text ->
-        val item = JSONObject().put("i", chunk.start + offset).put("en", text)
-        drafts
-            .getOrNull(offset)
-            ?.trim()
-            ?.takeIf(String::isNotEmpty)
-            ?.let { item.put("draft_uz", it) }
-        items.put(item)
-    }
+    chunk.sentences.forEachIndexed { offset, text -> items.put(JSONObject().put("i", chunk.start + offset).put("en", text)) }
     return JSONObject()
         .put("glossary", termArray(glossary.map { it.english to uzbekPrimaryTerm(it.uzbek) }))
         .put("approved_terms", termArray(learned.filter { it.status == LearnedTermStatus.APPROVED }.map { it.english to it.uzbek }))
@@ -176,6 +168,7 @@ internal fun claudeUserPrompt(
         .put("context_before", before)
         .put("items", items)
         .put("context_after", after)
+        .apply { draft.trim().takeIf(String::isNotEmpty)?.let { put("draft_uz_text", it) } }
         .toString()
 }
 

@@ -39,7 +39,7 @@ class ClaudeSentenceFirstTest {
         assertTrue(lesson.contains("So‘zma-so‘z emas, asl ma’noga sodiq tarjima qil."))
         assertTrue(
             lesson.trimEnd().endsWith(
-                "An item may carry \"draft_uz\", a raw machine translation: use it only as a hint and never copy its errors.",
+                "\"draft_uz_text\", when given, is a raw machine translation of the items joined: a hint only, never copy its errors.",
             ),
         )
         assertFalse(lesson.contains("{{"))

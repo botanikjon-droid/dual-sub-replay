@@ -138,36 +138,51 @@ class DeepSeekTranslationTest {
     }
 
     @Test
-    fun googleDraftsReachThePromptOfEachChunk() {
-        val lesson = listOf("The kidney is normal.", "No stones.", "Thank you.")
+    fun googleDraftOfTheJoinedFragmentsReachesEachChunk() {
+        // Caption rows cut a sentence in the middle; Google gets them joined, so it sees whole sentences.
+        val lesson = listOf("by using a 2 MHz phased array probe on the", "temporal region above the", "zygomatic arch")
         val prompts = mutableListOf<String>()
+        val joined = mutableListOf<List<String>>()
         val backend =
             LessonBackend { prompt, chunk ->
                 prompts += prompt
                 ClaudeChunkResult(chunk.sentences.indices.associate { chunk.start + it to "x" }, emptyList(), emptyList(), "DeepSeek")
             }
         runBlocking {
-            LessonTranslator(backend, chunkSize = 2).translate(
+            LessonTranslator(backend, chunkSize = 30).translate(
                 lesson,
                 { emptyList() },
                 { emptyList() },
-                drafts = { texts -> texts.map { if (it == "No stones.") "" else "google: $it" } },
+                draft = { texts ->
+                    joined += texts
+                    "google draft"
+                },
             ) { _, _ -> }
         }
-        val first = JSONObject(prompts[0]).getJSONArray("items")
-        assertEquals("google: The kidney is normal.", first.getJSONObject(0).getString("draft_uz"))
-        // A blank draft is left out, so DeepSeek translates that sentence from the English alone.
-        assertFalse(first.getJSONObject(1).has("draft_uz"))
-        assertEquals("google: Thank you.", JSONObject(prompts[1]).getJSONArray("items").getJSONObject(0).getString("draft_uz"))
+        assertEquals(listOf(lesson), joined)
+        val prompt = JSONObject(prompts.single())
+        assertEquals("google draft", prompt.getString("draft_uz_text"))
+        assertFalse(prompt.getJSONArray("items").getJSONObject(0).has("draft_uz"))
     }
 
     @Test
     fun aFailingDraftServiceLeavesTheTranslationToDeepSeek() {
-        val drafts = runBlocking { draftsOf({ throw IOException("offline") }, listOf("a")) }
-        assertTrue(drafts.isEmpty())
-        assertTrue(runBlocking { draftsOf(null, listOf("a")) }.isEmpty())
-        val prompt = claudeUserPrompt(chunk, chunk.sentences, emptyMap(), emptyList(), emptyList(), drafts)
+        val draft = runBlocking { draftOf({ throw IOException("offline") }, listOf("a")) }
+        assertEquals("", draft)
+        assertEquals("", runBlocking { draftOf(null, listOf("a")) })
+        val prompt = claudeUserPrompt(chunk, chunk.sentences, emptyMap(), emptyList(), emptyList(), draft)
         assertFalse(prompt.contains("draft_uz"))
+    }
+
+    @Test
+    fun deepSeekRebuildsWholeSentencesBeforeSplittingThem() {
+        val system = deepSeekSystemPrompt()
+        assertTrue(system.contains("translate a fragment on its own"))
+        assertTrue(system.contains("\"sentences\": every whole sentence"))
+        assertTrue(system.contains("2 MHz phased array probe"))
+        val schema = JSONObject(system.substringAfter("with no text around it: "))
+        assertTrue(schema.getJSONObject("properties").has("sentences"))
+        assertEquals("sentences", schema.getJSONArray("required").getString(0))
     }
 
     @Test

@@ -78,6 +78,12 @@ internal data class ClaudeRunState(
     val doubts: List<ClaudeDoubt> = emptyList(),
 )
 
+/**
+ * Raised whenever the translation instructions change in a way that makes saved half-lesson results
+ * unfit (2: DeepSeek rebuilds whole sentences instead of translating caption fragments one by one).
+ */
+private const val TRANSLATION_PROMPT_VERSION = 2
+
 /** Kept for the app's lifetime, so a Gemini model out of free quota is not asked again today. */
 private val geminiLessonQuota = GeminiModelQuota()
 
@@ -146,8 +152,8 @@ internal class ClaudeLessonCoordinator(
     private val translatorFor: (LessonEngine, String) -> LessonTranslator = ::lessonTranslatorFor,
     /** Where finished chunks wait until the whole lesson is stored; null keeps them in memory only. */
     private val progress: LessonProgressFiles? = null,
-    /** Google Translate's drafts of sentences, which DeepSeek edits instead of translating from nothing. */
-    private val machineDrafts: (suspend (List<String>) -> List<String>)? = null,
+    /** Google Translate's draft of a chunk's fragments joined, which DeepSeek edits instead of translating from nothing. */
+    private val machineDraft: (suspend (List<String>) -> String)? = null,
 ) {
     private val _state = MutableStateFlow(ClaudeRunState())
     val state: StateFlow<ClaudeRunState> = _state
@@ -213,7 +219,8 @@ internal class ClaudeLessonCoordinator(
             // Claude and Gemini get every caption row and rebuild the sentences themselves.
             val groups = segments.indices.map { SentenceGroup(listOf(it), segments[it].originalText, emptyList()) }
             val sentences = groups.map { it.text }
-            val fingerprint = lessonFingerprint(sentences)
+            // The prompt version is part of it: sentences saved under older instructions are translated again.
+            val fingerprint = "${lessonFingerprint(sentences)}-p$TRANSLATION_PROMPT_VERSION"
             // Sentences paid for in an earlier, unfinished run are not sent again.
             val saved = LinkedHashMap(readProgress(videoId, fingerprint))
             _state.update {
@@ -235,7 +242,7 @@ internal class ClaudeLessonCoordinator(
                     glossaryFor = { texts -> glossaryForBatch(UziGlossaryStore.glossary.value, texts) },
                     terms = { LearnedGlossaryStore.terms.value },
                     done = saved.mapValues { it.value.uzbek },
-                    drafts = machineDrafts.takeIf { engine == LessonEngine.DEEPSEEK },
+                    draft = machineDraft.takeIf { engine == LessonEngine.DEEPSEEK },
                 ) { chunk, step ->
                     val provider = chunk.engine.ifBlank { engine.label }
                     val chunkId = chunkIdOf(chunk.translations.keys)

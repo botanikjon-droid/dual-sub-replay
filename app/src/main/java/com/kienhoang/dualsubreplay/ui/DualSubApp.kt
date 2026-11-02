@@ -292,6 +292,7 @@ private fun LessonToolsHost(
         claudeRun = claudeRun,
         onClaudeTranslate = viewModel::translateLessonWithClaude,
         onGeminiTranslate = viewModel::translateLessonWithGemini,
+        onDeepSeekTranslate = viewModel::translateLessonWithDeepSeek,
         onClaudeCancel = viewModel::cancelClaudeTranslation,
         recordingCard = {
             RecordedCaptionsCard(
