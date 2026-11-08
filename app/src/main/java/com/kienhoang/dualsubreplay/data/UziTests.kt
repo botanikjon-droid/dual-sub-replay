@@ -16,6 +16,15 @@ import org.json.JSONObject
 
 internal const val UZI_TESTS_ASSET = "uzi_tests.json"
 internal const val UZI_ATTESTATION_ASSET = "uzi_attestation.json"
+internal const val UZI_ORAL_ASSET = "uzi_oral.json"
+
+/** The qualification levels of the oral questions, in the order of the official list. */
+internal val UZI_ORAL_LEVELS =
+    linkedMapOf(
+        "2-3" to "3- va 2-toifa",
+        "1" to "1-toifa",
+        "oliy" to "Oliy toifa",
+    )
 
 /**
  * The two banks: the 465 keyed qualification questions (Cyrillic) and the 982 attestation questions
@@ -26,9 +35,12 @@ internal enum class UziTestBankKind(
     val asset: String,
     val title: String,
     val subtitle: String,
+    /** False for oral questions: they have no options, so there is no self-test tab. */
+    val quiz: Boolean = true,
 ) {
     QUALIFICATION(UZI_TESTS_ASSET, "UZI testlari", "465 savol · eshitib yodlash, o‘zini sinash, qidirish"),
     ATTESTATION(UZI_ATTESTATION_ASSET, "Atestatsiya testlari", "982 savol · har biriga oddiy tushuntirish"),
+    ORAL(UZI_ORAL_ASSET, "Og‘zaki savollar (atestatsiya)", "450 savol · tayyor og‘zaki javob, Sardor o‘qiydi, izoh va savol", quiz = false),
 }
 
 internal data class UziTestOption(
@@ -51,6 +63,8 @@ internal data class UziTestQuestion(
     val suggested: Boolean,
     /** [question] and options folded by [uziSearchKey]. */
     val searchKey: String,
+    /** The qualification level of an oral question ([UZI_ORAL_LEVELS]); empty in the test banks. */
+    val level: String = "",
 ) {
     val correctCount: Int get() = options.count { it.correct }
 }
@@ -81,6 +95,8 @@ internal val UZI_TEST_TOPICS =
         "buyrak" to "Buyrak va boshqa",
         "kokrak" to "Sut bezi",
         "yurak" to "Exokardiografiya",
+        "tashkil" to "Tashkiliy masalalar",
+        "boshqa" to "Boshqa a’zolar",
     )
 
 internal fun uziTopicName(id: String): String = UZI_TEST_TOPICS[id] ?: id
@@ -122,6 +138,7 @@ private fun parseQuestion(item: JSONObject): UziTestQuestion {
         warning = item.optString("f"),
         suggested = item.optInt("s") == 1,
         searchKey = uziSearchKey(question + " | " + options.joinToString(" | ") { it.text }),
+        level = item.optString("l"),
     )
 }
 
@@ -129,15 +146,26 @@ private fun parseQuestion(item: JSONObject): UziTestQuestion {
 internal fun UziTestBank.filter(
     topic: String?,
     query: String = "",
+    level: String? = null,
 ): List<UziTestQuestion> {
     val terms = uziSearchTerms(query)
     val number = query.trim().removePrefix("#").toIntOrNull()
-    return questions.filter { question ->
-        when {
-            number != null -> question.number == number
-            topic != null && question.topic != topic -> false
-            else -> uziMatches(question.searchKey, terms)
+    val chosen =
+        questions.filter { question ->
+            when {
+                number != null -> question.number == number
+                topic != null && question.topic != topic -> false
+                level != null && question.level != level -> false
+                else -> uziMatches(question.searchKey, terms)
+            }
         }
+    // An oral question asked at several levels is shown once when no level is chosen.
+    return if (level ==
+        null
+    ) {
+        chosen.distinctBy { if (it.options.isEmpty()) it.question.trim().lowercase() else "#${it.number}" }
+    } else {
+        chosen
     }
 }
 

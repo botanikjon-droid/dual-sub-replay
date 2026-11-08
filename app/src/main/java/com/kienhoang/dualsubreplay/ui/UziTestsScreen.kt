@@ -46,15 +46,19 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -66,12 +70,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kienhoang.dualsubreplay.data.UZI_ORAL_LEVELS
 import com.kienhoang.dualsubreplay.data.UZI_TEST_TOPICS
 import com.kienhoang.dualsubreplay.data.UziTestBank
 import com.kienhoang.dualsubreplay.data.UziTestBankKind
+import com.kienhoang.dualsubreplay.data.UziTestNotes
 import com.kienhoang.dualsubreplay.data.UziTestQuestion
 import com.kienhoang.dualsubreplay.data.UziTestStore
 import com.kienhoang.dualsubreplay.data.filter
+import com.kienhoang.dualsubreplay.data.uziNoteKey
 import com.kienhoang.dualsubreplay.data.uziTopicName
 import com.kienhoang.dualsubreplay.dubbing.ReadLine
 import com.kienhoang.dualsubreplay.dubbing.ReadStage
@@ -81,6 +88,7 @@ import com.kienhoang.dualsubreplay.dubbing.lessonScript
 import com.kienhoang.dualsubreplay.dubbing.questionScript
 import com.kienhoang.dualsubreplay.dubbing.uziTestVoice
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 
 /*
  * "UZI testlari": the qualification-exam bank inside SHOKALON. Three tabs: listen (the Uzbek voice
@@ -89,6 +97,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 
 /** The bank whose screen is open (the sections screen opens it); null when none is. */
 internal val uziTestsOpen = MutableStateFlow<UziTestBankKind?>(null)
+
+/** The bank shown on the screen, for the note and question tools under each answer. */
+private val LocalUziBank = staticCompositionLocalOf { UziTestBankKind.QUALIFICATION }
 
 private val OK_GREEN = Color(0xFF1D7A3E)
 private val OK_SOFT = Color(0x221D7A3E)
@@ -156,8 +167,11 @@ private fun UziTestsScreen(
     LaunchedEffect(kind) { UziTestStore.load(context, kind) }
     val banks by UziTestStore.banks.collectAsStateWithLifecycle()
     val bank = banks[kind]
+    LaunchedEffect(Unit) { UziTestNotes.load(context) }
     var tab by rememberSaveable { mutableStateOf(TestTab.LISTEN) }
     var topic by rememberSaveable { mutableStateOf<String?>(null) }
+    var level by rememberSaveable { mutableStateOf<String?>(null) }
+    val tabs = TestTab.entries.filter { it != TestTab.QUIZ || kind.quiz }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize().testTag("uzi_tests"), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
@@ -174,19 +188,22 @@ private fun UziTestsScreen(
                     IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "Yopish") }
                 }
                 Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    TestTab.entries.forEach { entry ->
+                    tabs.forEach { entry ->
                         FilterChip(selected = tab == entry, onClick = { tab = entry }, label = { Text(entry.label) })
                     }
                 }
+                if (!kind.quiz) LevelChips(level) { level = it }
                 TopicChips(bank, topic) { topic = it }
                 val loaded = bank
                 if (loaded == null) {
                     LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp))
                 } else {
-                    when (tab) {
-                        TestTab.LISTEN -> ListenTab(loaded, topic)
-                        TestTab.QUIZ -> QuizTab(loaded, topic)
-                        TestTab.SEARCH -> SearchTab(loaded, topic)
+                    CompositionLocalProvider(LocalUziBank provides kind) {
+                        when (tab.takeIf { it in tabs } ?: TestTab.LISTEN) {
+                            TestTab.LISTEN -> ListenTab(loaded, topic, level)
+                            TestTab.QUIZ -> QuizTab(loaded, topic)
+                            TestTab.SEARCH -> SearchTab(loaded, topic, level)
+                        }
                     }
                 }
             }
@@ -225,6 +242,7 @@ private fun TopicChips(
 private fun ListenTab(
     bank: UziTestBank,
     topic: String?,
+    level: String?,
 ) {
     val voice = remember { uziTestVoice() }
     if (voice == null) {
@@ -237,14 +255,14 @@ private fun ListenTab(
     var settings by remember { mutableStateOf(ReaderSettings()) }
     var shuffleSeed by rememberSaveable { mutableIntStateOf(0) }
     var loop by rememberSaveable { mutableStateOf(true) }
-    val questions = remember(bank, topic, shuffleSeed) { bank.filter(topic).shuffledBy(shuffleSeed) }
+    val questions = remember(bank, topic, level, shuffleSeed) { bank.filter(topic, level = level).shuffledBy(shuffleSeed) }
     val lessonList = remember(bank, topic) { bank.lessons.filter { topic == null || it.id == topic } }
     val count = if (lessons) lessonList.size else questions.size
     val playing by reader.playing.collectAsStateWithLifecycle()
     val index by reader.index.collectAsStateWithLifecycle()
     val line by reader.line.collectAsStateWithLifecycle()
     val error by reader.error.collectAsStateWithLifecycle()
-    LaunchedEffect(lessons, topic, shuffleSeed) {
+    LaunchedEffect(lessons, topic, level, shuffleSeed) {
         reader.stop()
         reader.select(0)
     }
@@ -369,6 +387,7 @@ private fun QuestionReading(
     )
     if (question.explanation.isNotBlank()) Highlighted(question.explanation, stage == ReadStage.EXPLANATION)
     WarningLine(question)
+    QuestionTools(question)
 }
 
 @Composable
@@ -670,9 +689,10 @@ private fun QuizResult(
 private fun SearchTab(
     bank: UziTestBank,
     topic: String?,
+    level: String?,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
-    val found = remember(bank, topic, query) { bank.filter(topic, query) }
+    val found = remember(bank, topic, query, level) { bank.filter(topic, query, level) }
     LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
             Column {
@@ -688,14 +708,17 @@ private fun SearchTab(
                 Hint("${found.size} ta savol")
             }
         }
-        items(found.take(SEARCH_LIMIT), key = { it.number }) { AnswerCard(it) }
+        items(found.take(SEARCH_LIMIT), key = { it.number }) { AnswerCard(it, tools = true) }
     }
 }
 
 private const val SEARCH_LIMIT = 100
 
 @Composable
-private fun AnswerCard(question: UziTestQuestion) {
+private fun AnswerCard(
+    question: UziTestQuestion,
+    tools: Boolean = false,
+) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -713,6 +736,93 @@ private fun AnswerCard(question: UziTestQuestion) {
                 modifier = Modifier.fillMaxWidth().background(OK_SOFT, BOX_SHAPE).padding(8.dp),
             )
         }
+        // An oral question has no options: its answer and the full answer are shown instead.
+        if (question.options.isEmpty()) OralAnswer(question)
         WarningLine(question)
+        if (tools) QuestionTools(question)
     }
 }
+
+@Composable
+private fun OralAnswer(question: UziTestQuestion) {
+    var full by rememberSaveable(question.number) { mutableStateOf(false) }
+    Text(
+        "✓ ${question.answer}",
+        color = OK_GREEN,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.fillMaxWidth().background(OK_SOFT, BOX_SHAPE).padding(8.dp),
+    )
+    if (question.explanation.isNotBlank()) {
+        TextButton(onClick = { full = !full }) { Text(if (full) "To‘liq javobni yopish" else "To‘liq javob") }
+        if (full) Text(question.explanation, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/** The level filter of the oral questions. */
+@Composable
+private fun LevelChips(
+    level: String?,
+    onLevel: (String?) -> Unit,
+) {
+    LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        item { FilterChip(selected = level == null, onClick = { onLevel(null) }, label = { Text("Barcha toifalar") }) }
+        items(UZI_ORAL_LEVELS.keys.toList()) { id ->
+            FilterChip(selected = level == id, onClick = { onLevel(id) }, label = { Text(UZI_ORAL_LEVELS.getValue(id)) })
+        }
+    }
+}
+
+/**
+ * Under an answer: the doctor's own note, kept on the phone, and "Tushunmadim — so‘rash", which opens
+ * SHOKALON chat with the question and its answer already in the input.
+ */
+@Composable
+private fun QuestionTools(question: UziTestQuestion) {
+    val kind = LocalUziBank.current
+    val key = uziNoteKey(kind, question.number)
+    val notes by UziTestNotes.notes.collectAsStateWithLifecycle()
+    val saved = notes[key].orEmpty()
+    var editing by rememberSaveable(key) { mutableStateOf(false) }
+    var text by rememberSaveable(key, saved) { mutableStateOf(saved) }
+    val scope = rememberCoroutineScope()
+    if (saved.isNotBlank() && !editing) {
+        Text("✏ $saved", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.fillMaxWidth().padding(top = 2.dp))
+    }
+    if (editing) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            label = { Text("Izoh yoki tushunmagan joyingiz") },
+            modifier = Modifier.fillMaxWidth().testTag("uzi_note_field"),
+        )
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (editing) {
+            TextButton(onClick = {
+                scope.launch { UziTestNotes.save(key, text) }
+                editing = false
+            }) { Text("Saqlash") }
+        } else {
+            TextButton(onClick = { editing = true }, modifier = Modifier.testTag("uzi_note")) {
+                Text(if (saved.isBlank()) "✏ Izoh yozish" else "✏ Izohni o‘zgartirish")
+            }
+        }
+        TextButton(onClick = {
+            shokalonChatDraft.value = uziAskText(kind, question, if (editing) text else saved)
+            shokalonChatOpen.value = true
+        }, modifier = Modifier.testTag("uzi_ask")) { Text("💬 Tushunmadim — so‘rash") }
+    }
+}
+
+/** The chat message that "Tushunmadim — so‘rash" prepares: the question, its answer and the doctor's note. */
+internal fun uziAskText(
+    kind: UziTestBankKind,
+    question: UziTestQuestion,
+    note: String,
+): String =
+    buildString {
+        append("${kind.title}, ${question.number}-savol: «${question.question}».\n")
+        append("Javob: «${question.answer}».\n")
+        if (note.isNotBlank()) append("Mening izohim: ${note.trim()}\n")
+        append("Tushunmagan joyim: ")
+    }

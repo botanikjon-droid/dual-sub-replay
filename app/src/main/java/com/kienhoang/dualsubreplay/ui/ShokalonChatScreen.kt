@@ -69,6 +69,9 @@ import kotlinx.coroutines.launch
 /** True while the chat is open; the top bar and the home header open it. */
 internal val shokalonChatOpen = MutableStateFlow(false)
 
+/** Text another screen puts into the chat's input when it opens the chat ("Tushunmadim — so‘rash"). */
+internal val shokalonChatDraft = MutableStateFlow<String?>(null)
+
 /** The chat button of the lesson's top bar (SHOKALON only). */
 @Composable
 internal fun RowScope.ChatButton() {
@@ -104,6 +107,12 @@ private fun ShokalonChatScreen(
     val claudeKey by DubbingSettings.claudeApiKey.collectAsStateWithLifecycle()
     val proposals by AppProposalStore.items.collectAsStateWithLifecycle()
     var text by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(Unit) {
+        shokalonChatDraft.value?.let { draft ->
+            text = draft
+            shokalonChatDraft.value = null
+        }
+    }
     var showProposals by remember { mutableStateOf(false) }
     val list = rememberLazyListState()
     LaunchedEffect(items.size) { if (items.isNotEmpty()) list.animateScrollToItem(items.lastIndex) }
