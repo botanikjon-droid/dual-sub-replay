@@ -68,6 +68,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kienhoang.dualsubreplay.data.UZI_TEST_TOPICS
 import com.kienhoang.dualsubreplay.data.UziTestBank
+import com.kienhoang.dualsubreplay.data.UziTestBankKind
 import com.kienhoang.dualsubreplay.data.UziTestQuestion
 import com.kienhoang.dualsubreplay.data.UziTestStore
 import com.kienhoang.dualsubreplay.data.filter
@@ -86,8 +87,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
  * reads question, answer and a plain explanation, or a topic lesson), test yourself, and search.
  */
 
-/** True while the test screen is open; the sections screen opens it. */
-internal val uziTestsOpen = MutableStateFlow(false)
+/** The bank whose screen is open (the sections screen opens it); null when none is. */
+internal val uziTestsOpen = MutableStateFlow<UziTestBankKind?>(null)
 
 private val OK_GREEN = Color(0xFF1D7A3E)
 private val OK_SOFT = Color(0x221D7A3E)
@@ -102,26 +103,37 @@ private const val THINK_PAUSE_MIN_MS = 1500L
 @Composable
 internal fun UziTestsHost() {
     val open by uziTestsOpen.collectAsStateWithLifecycle()
-    if (!open) return
-    UziTestsScreen { uziTestsOpen.value = false }
+    val kind = open ?: return
+    UziTestsScreen(kind) { uziTestsOpen.value = null }
 }
 
-/** The card on the sections screen that opens the tests. */
+/** The cards on the sections screen that open the two banks. */
 @Composable
 internal fun UziTestsCard() {
+    val context = LocalContext.current
+    // A bank whose file is not in this build yet is not offered.
+    val shipped =
+        remember {
+            context.assets
+                .list("")
+                .orEmpty()
+                .toSet()
+        }
+    UziTestBankKind.entries.filter { it.asset in shipped }.forEach { kind -> UziTestBankCard(kind) }
+}
+
+@Composable
+private fun UziTestBankCard(kind: UziTestBankKind) {
     Card(
-        onClick = { uziTestsOpen.value = true },
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).testTag("uzi_tests_card"),
+        onClick = { uziTestsOpen.value = kind },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).testTag("uzi_tests_card_${kind.name.lowercase()}"),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Headphones, contentDescription = null, modifier = Modifier.size(32.dp))
             Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                Text("UZI testlari", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(
-                    "465 savol · eshitib yodlash, o‘zini sinash, qidirish",
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                Text(kind.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(kind.subtitle, style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -136,10 +148,14 @@ private enum class TestTab(
 }
 
 @Composable
-private fun UziTestsScreen(onDismiss: () -> Unit) {
+private fun UziTestsScreen(
+    kind: UziTestBankKind,
+    onDismiss: () -> Unit,
+) {
     val context = LocalContext.current
-    LaunchedEffect(Unit) { UziTestStore.load(context) }
-    val bank by UziTestStore.bank.collectAsStateWithLifecycle()
+    LaunchedEffect(kind) { UziTestStore.load(context, kind) }
+    val banks by UziTestStore.banks.collectAsStateWithLifecycle()
+    val bank = banks[kind]
     var tab by rememberSaveable { mutableStateOf(TestTab.LISTEN) }
     var topic by rememberSaveable { mutableStateOf<String?>(null) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -150,7 +166,7 @@ private fun UziTestsScreen(onDismiss: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "UZI testlari",
+                        kind.title,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f),

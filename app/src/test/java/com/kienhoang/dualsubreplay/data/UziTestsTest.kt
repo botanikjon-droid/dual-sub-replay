@@ -16,7 +16,23 @@ class UziTestsTest {
         assertEquals(emptyList<Int>(), bank.questions.filter { it.correctCount == 0 }.map { it.number })
         assertEquals(emptyList<Int>(), bank.questions.filter { it.topic !in UZI_TEST_TOPICS }.map { it.number })
         assertEquals(emptyList<Int>(), bank.questions.filter { it.answer.isBlank() }.map { it.number })
-        assertEquals(UZI_TEST_TOPICS.keys.toList(), bank.lessons.map { it.id })
+        assertEquals(UZI_TEST_TOPICS.keys.take(bank.lessons.size), bank.lessons.map { it.id })
+    }
+
+    @Test
+    fun attestationBankHasAll982QuestionsKeyedAndExplained() {
+        val file = File("src/main/assets/$UZI_ATTESTATION_ASSET")
+        // The bank is added in its own commit once every answer is checked.
+        org.junit.Assume.assumeTrue(file.isFile)
+        val attestation = parseUziTestBank(file.readText(Charsets.UTF_8))
+        assertEquals((1..982).toList(), attestation.questions.map { it.number })
+        assertEquals(emptyList<Int>(), attestation.questions.filter { it.correctCount == 0 }.map { it.number })
+        assertEquals(emptyList<Int>(), attestation.questions.filter { it.options.size != 4 }.map { it.number })
+        assertEquals(emptyList<Int>(), attestation.questions.filter { it.topic !in UZI_TEST_TOPICS }.map { it.number })
+        assertEquals(emptyList<Int>(), attestation.questions.filter { it.answer.isBlank() || it.explanation.isBlank() }.map { it.number })
+        // Written in Uzbek Latin, like the attestation itself.
+        assertFalse(attestation.questions.any { q -> (q.question + q.answer + q.explanation).any { it in 'а'..'я' } })
+        assertEquals(UziTestBankKind.entries.map { it.asset }, listOf(UZI_TESTS_ASSET, UZI_ATTESTATION_ASSET))
     }
 
     @Test

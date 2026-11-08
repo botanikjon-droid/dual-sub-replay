@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
@@ -14,6 +15,21 @@ import org.json.JSONObject
  */
 
 internal const val UZI_TESTS_ASSET = "uzi_tests.json"
+internal const val UZI_ATTESTATION_ASSET = "uzi_attestation.json"
+
+/**
+ * The two banks: the 465 keyed qualification questions (Cyrillic) and the 982 attestation questions
+ * (Latin; the file had no key, so most answers are Claude's, marked as suggested, and the rest come from
+ * the keyed bank where the same question is there).
+ */
+internal enum class UziTestBankKind(
+    val asset: String,
+    val title: String,
+    val subtitle: String,
+) {
+    QUALIFICATION(UZI_TESTS_ASSET, "UZI testlari", "465 savol · eshitib yodlash, o‘zini sinash, qidirish"),
+    ATTESTATION(UZI_ATTESTATION_ASSET, "Atestatsiya testlari", "982 savol · har biriga oddiy tushuntirish"),
+}
 
 internal data class UziTestOption(
     val text: String,
@@ -63,6 +79,8 @@ internal val UZI_TEST_TOPICS =
         "gin" to "Ginekologiya",
         "fizika" to "Fizika",
         "buyrak" to "Buyrak va boshqa",
+        "kokrak" to "Sut bezi",
+        "yurak" to "Exokardiografiya",
     )
 
 internal fun uziTopicName(id: String): String = UZI_TEST_TOPICS[id] ?: id
@@ -123,22 +141,25 @@ internal fun UziTestBank.filter(
     }
 }
 
-/** Loads the bank once from the assets; [bank] stays null until then. */
+/** Loads each bank once from the assets; a bank is missing from [banks] until then. */
 internal object UziTestStore {
-    private val _bank = MutableStateFlow<UziTestBank?>(null)
-    val bank: StateFlow<UziTestBank?> = _bank
+    private val _banks = MutableStateFlow<Map<UziTestBankKind, UziTestBank>>(emptyMap())
+    val banks: StateFlow<Map<UziTestBankKind, UziTestBank>> = _banks
 
-    suspend fun load(context: Context) {
-        if (_bank.value != null) return
+    suspend fun load(
+        context: Context,
+        kind: UziTestBankKind,
+    ) {
+        if (kind in _banks.value) return
         val parsed =
             withContext(Dispatchers.IO) {
                 parseUziTestBank(
                     context.assets
-                        .open(UZI_TESTS_ASSET)
+                        .open(kind.asset)
                         .bufferedReader(Charsets.UTF_8)
                         .use { it.readText() },
                 )
             }
-        _bank.value = parsed
+        _banks.update { it + (kind to parsed) }
     }
 }
