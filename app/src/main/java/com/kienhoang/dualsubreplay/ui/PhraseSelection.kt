@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -338,9 +340,10 @@ internal fun SelectableSubtitleText(
                 speechMessage = controller.actions.speechMessage(),
                 dictionaryNote =
                     japaneseDictionaryNote(dictionaryStatus).takeIf { LanguageAwareTokenizer.isJapanese(text, languageCode) },
+                replaceMode = shokalonFocusMode && translated,
                 quickTranslate =
                     controller.actions.translate
-                        ?.takeIf { words.first == words.last }
+                        ?.takeIf { words.first == words.last && !(shokalonFocusMode && translated) }
                         ?.let { translate -> { translate(text.substring(start, end), translated) } },
                 onTranslate = {
                     val tap = phraseTap(text, tokens, words, segment, translated)
@@ -361,6 +364,7 @@ private fun PhraseActionBar(
     singleWord: Boolean,
     speechMessage: String?,
     dictionaryNote: String?,
+    replaceMode: Boolean,
     quickTranslate: (suspend () -> String)?,
     onTranslate: () -> Unit,
     onPronounce: () -> Unit,
@@ -390,6 +394,10 @@ private fun PhraseActionBar(
             shadowElevation = 8.dp,
         ) {
             Column(Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) {
+                if (replaceMode) {
+                    ReplaceBar(phrase, singleWord, onReplace = onTranslate, onClose = onClose)
+                    return@Column
+                }
                 Row {
                     TextButton(
                         onClick = {
@@ -416,6 +424,41 @@ private fun PhraseActionBar(
                 }
             }
         }
+    }
+}
+
+/**
+ * SHOKALON, on the Uzbek line: the tapped word (or phrase) goes straight to "So‘zni almashtirish", where it is
+ * replaced in this sentence, the lesson, the section or everywhere, or given a pronunciation.
+ */
+@Composable
+private fun ReplaceBar(
+    phrase: String,
+    singleWord: Boolean,
+    onReplace: () -> Unit,
+    onClose: () -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Button(onClick = onReplace, modifier = Modifier.padding(4.dp).testTag("phrase_replace")) {
+            Text("\u270F\uFE0F Almashtirish")
+        }
+        Text(
+            "\u201C$phrase\u201D",
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 1,
+            modifier = Modifier.weight(1f, fill = false).padding(horizontal = 4.dp),
+        )
+        IconButton(onClick = onClose, modifier = Modifier.testTag("phrase_close")) {
+            Icon(Icons.Default.Close, contentDescription = "Bekor qilish", modifier = Modifier.size(18.dp))
+        }
+    }
+    if (singleWord) {
+        Text(
+            "So\u2018z birikmasi uchun yana bir so\u2018zni bosing",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 6.dp),
+        )
     }
 }
 

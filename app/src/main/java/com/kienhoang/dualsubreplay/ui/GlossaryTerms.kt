@@ -33,6 +33,7 @@ import com.kienhoang.dualsubreplay.data.SubtitleSegment
 import com.kienhoang.dualsubreplay.data.UziGlossaryStore
 import com.kienhoang.dualsubreplay.data.glossaryApplies
 import com.kienhoang.dualsubreplay.data.glossaryChecksForRow
+import com.kienhoang.dualsubreplay.data.translationChecksForRow
 
 /**
  * The UZI terms of a caption row as small chips under its translation ("hepatic vein → jigar
@@ -64,6 +65,42 @@ internal fun GlossaryTermRow(
         }
     }
     opened?.let { check -> GlossaryTermDialog(check.match.text, check.match.entry, check.approvedTermUsed) { opened = null } }
+}
+
+/**
+ * Automatic warnings under a translated caption: a number, a unit or a "no/not" of the English that the
+ * Uzbek lost (see TranslationChecks.kt). They only point at a place to check; nothing is changed.
+ */
+@Composable
+internal fun TranslationCheckRow(
+    segment: SubtitleSegment,
+    sourceLanguage: String?,
+    targetLanguage: String,
+    fontScale: Float,
+) {
+    if (!glossaryApplies(sourceLanguage, targetLanguage)) return
+    val issues = remember(segment.originalText, segment.translatedText, segment.sentence) { translationChecksForRow(segment) }
+    if (issues.isEmpty()) return
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        issues.forEach { issue ->
+            Surface(
+                modifier = Modifier.testTag("translation_check_${issue.kind.name.lowercase()}"),
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFF3A1E1E),
+                contentColor = Color(0xFFFFB4A8),
+            ) {
+                Text(
+                    text = issue.label,
+                    fontSize = (12 * fontScale).sp,
+                    maxLines = 1,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                )
+            }
+        }
+    }
 }
 
 @Composable
