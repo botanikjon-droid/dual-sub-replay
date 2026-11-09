@@ -32,7 +32,7 @@ class UziTestsTest {
         assertEquals(emptyList<Int>(), attestation.questions.filter { it.answer.isBlank() || it.explanation.isBlank() }.map { it.number })
         // Written in Uzbek Latin, like the attestation itself.
         assertFalse(attestation.questions.any { q -> (q.question + q.answer + q.explanation).any { it in 'а'..'я' } })
-        assertEquals(UziTestBankKind.entries.map { it.asset }, listOf(UZI_TESTS_ASSET, UZI_ATTESTATION_ASSET))
+        assertEquals(UziTestBankKind.entries.map { it.asset }, listOf(UZI_TESTS_ASSET, UZI_ATTESTATION_ASSET, UZI_ORAL_ASSET))
     }
 
     @Test
