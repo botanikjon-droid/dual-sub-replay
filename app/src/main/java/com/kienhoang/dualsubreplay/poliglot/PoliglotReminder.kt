@@ -15,8 +15,8 @@ import com.kienhoang.dualsubreplay.R
 
 /*
  * Poliglot's daily reminder: one inexact alarm a day at the time chosen on the page. The alarm and the
- * notification go to PoliglotReminder, which no other app can call; PoliglotBootReceiver only sets the
- * alarm again after a restart or an update.
+ * notification go to PoliglotReminder, which no other app can call. A restart clears alarms and the app has
+ * no boot permission, so SHOKALON sets the alarm again whenever it opens, and after an app update.
  */
 
 private const val CHANNEL = "poliglot_daily"
@@ -102,13 +102,13 @@ class PoliglotReminder : BroadcastReceiver() {
     ) = PoliglotAlarm.notify(context)
 }
 
-/** After a restart or an app update the alarm is gone; this sets it again. */
+/** After an app update the alarm is gone; this sets it again. */
 class PoliglotBootReceiver : BroadcastReceiver() {
     override fun onReceive(
         context: Context,
         intent: Intent,
     ) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+        if (intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
             PoliglotAlarm.schedule(context)
         }
     }

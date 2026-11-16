@@ -20,7 +20,7 @@ FORBIDDEN_PERMISSIONS = {
     "android.permission.REQUEST_INSTALL_PACKAGES",
     "android.permission.FOREGROUND_SERVICE",
     "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
-    "android.permission.POST_NOTIFICATIONS",
+    # POST_NOTIFICATIONS is allowed: Poliglot's daily practice reminder (SHOKALON fork).
     "android.permission.WAKE_LOCK",
     "android.permission.RECEIVE_BOOT_COMPLETED",
 }
