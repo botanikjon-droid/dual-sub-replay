@@ -11,6 +11,7 @@ import android.content.pm.PackageManager
 import android.media.MediaMetadataRetriever
 import android.media.MediaPlayer
 import android.media.MediaRecorder
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.speech.RecognizerIntent
@@ -43,7 +44,9 @@ import java.util.Locale
  */
 
 private const val ASSET_HOST = "appassets.androidplatform.net"
-private const val START_URL = "https://$ASSET_HOST/poliglot/index.html"
+
+// WebViewAssetLoader strips the "/assets/" prefix: /assets/poliglot/index.html is assets/poliglot/index.html.
+private const val START_URL = "https://$ASSET_HOST/assets/poliglot/index.html"
 private const val INK = 0xFF14213D.toInt()
 private const val TAG = "Poliglot"
 
@@ -78,7 +81,7 @@ class PoliglotActivity : ComponentActivity() {
             WebViewAssetLoader
                 .Builder()
                 .setDomain(ASSET_HOST)
-                .addPathHandler("/poliglot/", WebViewAssetLoader.AssetsPathHandler(this))
+                .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
                 .build()
         web =
             WebView(this).apply {
@@ -104,7 +107,13 @@ class PoliglotActivity : ComponentActivity() {
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
-                    web.evaluateJavascript("window.onBack?window.onBack():false") { handled -> if (handled != "true") finish() }
+                    web.evaluateJavascript("window.onBack?window.onBack():false") { handled ->
+                        when {
+                            handled == "true" -> Unit
+                            web.canGoBack() -> web.goBack()
+                            else -> finish()
+                        }
+                    }
                 }
             },
         )
@@ -403,6 +412,98 @@ class PoliglotActivity : ComponentActivity() {
                 writeFileAtomically(File(filesDir, POLIGLOT_STATE_FILE), json)
             } catch (error: IOException) {
                 Log.w(TAG, "Progress not saved", error)
+            }
+        }
+
+        /** The daily-card course keeps its progress in files/<name>.json (only plain names, see isPoliglotDataName). */
+        @JavascriptInterface
+        fun loadData(name: String?): String {
+            if (!isPoliglotDataName(name)) return ""
+            val file = File(filesDir, "$name.json")
+            return try {
+                if (file.isFile) file.readText(Charsets.UTF_8) else ""
+            } catch (error: IOException) {
+                Log.w(TAG, "Progress not read", error)
+                ""
+            }
+        }
+
+        @JavascriptInterface
+        fun saveData(
+            name: String?,
+            json: String?,
+        ) {
+            if (!isPoliglotDataName(name) || json.isNullOrBlank()) return
+            try {
+                writeFileAtomically(File(filesDir, "$name.json"), json)
+            } catch (error: IOException) {
+                Log.w(TAG, "Progress not saved", error)
+            }
+        }
+
+        /** Morning (tasks) and evening (report) reminder times; an hour of -1 turns that reminder off. */
+        @JavascriptInterface
+        fun setReminders(
+            morningHour: Int,
+            morningMinute: Int,
+            eveningHour: Int,
+            eveningMinute: Int,
+        ) {
+            val morning = isPoliglotClockTime(morningHour, morningMinute)
+            val evening = isPoliglotClockTime(eveningHour, eveningMinute)
+            prefs()
+                .edit()
+                .putInt(PoliglotSlot.MORNING.hourKey, if (morning) morningHour else -1)
+                .putInt(PoliglotSlot.MORNING.minuteKey, if (morning) morningMinute else 0)
+                .putInt(PoliglotSlot.EVENING.hourKey, if (evening) eveningHour else -1)
+                .putInt(PoliglotSlot.EVENING.minuteKey, if (evening) eveningMinute else 0)
+                .apply()
+            if ((morning || evening) &&
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                !hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+            ) {
+                runOnUiThread { notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
+            }
+            PoliglotAlarm.schedule(this@PoliglotActivity)
+        }
+
+        /** The texts the morning and evening reminders show. */
+        @JavascriptInterface
+        fun setTexts(
+            morning: String?,
+            evening: String?,
+        ) {
+            prefs()
+                .edit()
+                .putString(PoliglotSlot.MORNING.textKey, morning.orEmpty())
+                .putString(PoliglotSlot.EVENING.textKey, evening.orEmpty())
+                .apply()
+        }
+
+        /**
+         * "Let's talk": the prompt is copied, then a new Claude chat opens with it, in the Claude app when it is
+         * installed and otherwise in the browser.
+         */
+        @JavascriptInterface
+        fun openClaude(prompt: String?) {
+            val text = prompt.orEmpty()
+            runOnUiThread {
+                getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("Poliglot", text))
+                val url = Uri.parse(claudeNewChatUrl(text))
+                val inApp = Intent(Intent.ACTION_VIEW, url).setPackage(CLAUDE_PACKAGE)
+                val launcher = packageManager.getLaunchIntentForPackage(CLAUDE_PACKAGE)
+                val attempts = listOfNotNull(inApp, launcher, Intent(Intent.ACTION_VIEW, url))
+                val opened =
+                    attempts.any { intent ->
+                        try {
+                            startActivity(intent)
+                            true
+                        } catch (error: ActivityNotFoundException) {
+                            Log.i(TAG, "Not opened: ${intent.`package` ?: intent.data}", error)
+                            false
+                        }
+                    }
+                if (!opened) toPage("claude", "none")
             }
         }
 

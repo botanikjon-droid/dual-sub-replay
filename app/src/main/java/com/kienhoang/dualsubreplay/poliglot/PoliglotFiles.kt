@@ -1,12 +1,13 @@
 package com.kienhoang.dualsubreplay.poliglot
 
+import java.net.URLEncoder
 import java.util.Calendar
 import java.util.TimeZone
 
 /*
  * "Poliglot": the 30-day English (B1 speaking) and Arabic (from zero) course, a page in assets/poliglot/.
- * Its progress lives in files/poliglot-state.json and the doctor's own recordings in files/poliglot-rec/,
- * both only on the phone.
+ * Its course content is assets/poliglot_content.json; progress lives in files/poliglot-v2.json (the old course:
+ * files/poliglot-state.json) and the doctor's own recordings in files/poliglot-rec/, all only on the phone.
  */
 
 internal const val POLIGLOT_STATE_FILE = "poliglot-state.json"
@@ -59,3 +60,11 @@ internal fun isPoliglotClockTime(
     hour: Int,
     minute: Int,
 ): Boolean = hour in 0..23 && minute in 0..59
+
+/** A name the page may keep its progress under: files/<name>.json, letters, digits and dashes only. */
+internal fun isPoliglotDataName(name: String?): Boolean = name != null && Regex("[a-z0-9-]{1,40}").matches(name)
+
+internal const val CLAUDE_PACKAGE = "com.anthropic.claude"
+
+/** A new Claude chat with [prompt] already typed in. */
+internal fun claudeNewChatUrl(prompt: String): String = "https://claude.ai/new?q=" + URLEncoder.encode(prompt, "UTF-8").replace("+", "%20")

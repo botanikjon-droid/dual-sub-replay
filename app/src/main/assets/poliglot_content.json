@@ -1,0 +1,576 @@
+{
+  "version": 1,
+  "course": "Poliglot — 30 kunlik gapirish yo'l xaritasi",
+  "start_date": "2026-11-16",
+  "spaced_repetition": {
+    "description": "Har bir so'z o'rganilgan kundan keyin shu kunlarda hikoyada qayta chiqadi. Kechki hisobotda 'unutdim' deb belgilangan so'z ertangi hikoyaga ham qo'shiladi.",
+    "review_offsets_days": [
+      1,
+      3,
+      6,
+      13,
+      29
+    ],
+    "story_ratio": {
+      "new_words": 0.6,
+      "review_words": 0.4
+    },
+    "forgotten_word_rule": "next_day"
+  },
+  "daily_tasks_template": [
+    {
+      "id": "story_read",
+      "uz": "Hikoyani ovoz chiqarib o'qing (2 marta)"
+    },
+    {
+      "id": "story_questions",
+      "uz": "3 ta savolga to'liq gap bilan javob bering"
+    },
+    {
+      "id": "retell",
+      "uz": "Hikoyani o'zingiz haqida qayta aytib bering (My name is...)"
+    },
+    {
+      "id": "write",
+      "uz": "3 ta gap yozing (yangi so'zlar bilan)"
+    },
+    {
+      "id": "agent_talk",
+      "uz": "Agent bilan 5 daqiqa gaplashing (\"Let's talk\")"
+    },
+    {
+      "id": "arabic_letters",
+      "uz": "Arab harflari: har birini 5 qatordan yozing, so'zlarni o'qing"
+    }
+  ],
+  "evening_report_fields": [
+    "english_tasks_done",
+    "arabic_tasks_done",
+    "minutes",
+    "fluency_1_5",
+    "forgotten_words",
+    "streak",
+    "days_completed",
+    "note"
+  ],
+  "day_completed_rule": "Vazifalarning yarmidan ko'pi bajarilsa kun 'bajarildi' hisoblanadi",
+  "days": [
+    {
+      "day": 1,
+      "topic_en": "About me",
+      "topic_uz": "O'zim haqimda",
+      "new_words": [
+        {
+          "en": "my name is",
+          "uz": "mening ismim"
+        },
+        {
+          "en": "I am ... years old",
+          "uz": "men ... yoshdaman"
+        },
+        {
+          "en": "I live in",
+          "uz": "men ...da yashayman"
+        },
+        {
+          "en": "I work",
+          "uz": "men ishlayman"
+        },
+        {
+          "en": "I have",
+          "uz": "menda bor"
+        },
+        {
+          "en": "I like",
+          "uz": "menga yoqadi"
+        }
+      ],
+      "review_from_days": [],
+      "story_type": "vocabulary",
+      "story_title": "Ali",
+      "story": "My name is Ali. I am forty years old. I live in a small town. I work in a hospital. I like my work. I have two sons. My sons like football. I like football too. In the evening I work in my garden. I live near my work. My name is Ali, and I like my life.",
+      "hadith": null,
+      "questions": [
+        "Where does Ali live?",
+        "What does Ali like?",
+        "How many sons does Ali have?"
+      ],
+      "retell_frame": "My name is ___. I am ___ years old. I live in ___. I work in ___. I have ___. I like ___.",
+      "arabic": {
+        "letters": [
+          "ا",
+          "ب",
+          "ت",
+          "ث"
+        ],
+        "note_uz": "ب ت ث shakli bir xil: ب pastda 1 nuqta, ت tepada 2 nuqta, ث tepada 3 nuqta",
+        "words": [
+          {
+            "ar": "بَاب",
+            "tr": "baab",
+            "uz": "eshik"
+          },
+          {
+            "ar": "بِنْت",
+            "tr": "bint",
+            "uz": "qiz"
+          },
+          {
+            "ar": "ثَوْب",
+            "tr": "savb",
+            "uz": "kiyim"
+          }
+        ]
+      }
+    },
+    {
+      "day": 2,
+      "topic_en": "My family",
+      "topic_uz": "Oilam",
+      "new_words": [
+        {
+          "en": "family",
+          "uz": "oila"
+        },
+        {
+          "en": "wife",
+          "uz": "xotin, turmush o'rtoq"
+        },
+        {
+          "en": "father",
+          "uz": "ota"
+        },
+        {
+          "en": "mother",
+          "uz": "ona"
+        },
+        {
+          "en": "son",
+          "uz": "o'g'il"
+        },
+        {
+          "en": "together",
+          "uz": "birga"
+        }
+      ],
+      "review_from_days": [
+        1
+      ],
+      "story_type": "hadith",
+      "story_title": "The best to his family",
+      "story": "My name is Karim. I live in a big house with my family. I have a wife and three sons. My father and mother live with us too. I work in a shop every day. In the evening I come home. I like to sit together with my family. One day my son asked: \"Father, why are you always kind to us?\" I said: \"The Prophet ﷺ said: The best of you are those who are best to their families.\" Now my sons help their mother every day. We are happy together.",
+      "hadith": {
+        "en": "The best of you are those who are best to their families, and I am the best of you to my family.",
+        "uz": "Sizlarning eng yaxshingiz oilasiga eng yaxshi bo'lganingizdir. Men esa oilamga sizlarning eng yaxshingizman.",
+        "source": "Termiziy rivoyati (Jome' at-Termiziy, 3895)"
+      },
+      "questions": [
+        "Who lives in Karim's house?",
+        "What does Karim like to do in the evening?",
+        "What do his sons do now?"
+      ],
+      "retell_frame": "I have a family. My family is ___. I like to ___ together with my family.",
+      "arabic": {
+        "letters": [
+          "ج",
+          "ح",
+          "خ"
+        ],
+        "note_uz": "ج pastda 1 nuqta, ح nuqtasiz, خ tepada 1 nuqta",
+        "words": [
+          {
+            "ar": "جَمَل",
+            "tr": "jamal",
+            "uz": "tuya"
+          },
+          {
+            "ar": "بَحْر",
+            "tr": "bahr",
+            "uz": "dengiz"
+          },
+          {
+            "ar": "خُبْز",
+            "tr": "xubz",
+            "uz": "non"
+          }
+        ]
+      }
+    },
+    {
+      "day": 3,
+      "topic_en": "Learning",
+      "topic_uz": "Ilm o'rganish",
+      "new_words": [
+        {
+          "en": "learn",
+          "uz": "o'rganmoq"
+        },
+        {
+          "en": "knowledge",
+          "uz": "ilm, bilim"
+        },
+        {
+          "en": "path",
+          "uz": "yo'l"
+        },
+        {
+          "en": "seek",
+          "uz": "izlamoq"
+        },
+        {
+          "en": "easy",
+          "uz": "oson"
+        },
+        {
+          "en": "every evening",
+          "uz": "har kuni kechqurun"
+        }
+      ],
+      "review_from_days": [
+        2
+      ],
+      "story_type": "hadith",
+      "story_title": "The path of knowledge",
+      "story": "My name is Yusuf. I live in a small village. I work in a shop. I have a big family. Every evening I read a book. I like to learn new things. One day my father said: \"Son, the Prophet ﷺ said: Whoever takes a path to seek knowledge, Allah makes easy for him a path to Paradise.\" Now my family and I read together every evening.",
+      "hadith": {
+        "en": "Whoever takes a path to seek knowledge, Allah makes easy for him a path to Paradise.",
+        "uz": "Kim ilm talabida yo'lga chiqsa, Alloh unga jannat yo'lini oson qiladi.",
+        "source": "Muslim rivoyati (Sahih Muslim, 2699)"
+      },
+      "questions": [
+        "What does Yusuf do every evening?",
+        "What did his father say?",
+        "What does his family do now?"
+      ],
+      "retell_frame": "Every evening I ___. I like to learn ___. Learning is ___.",
+      "arabic": {
+        "letters": [
+          "د",
+          "ذ",
+          "ر",
+          "ز"
+        ],
+        "note_uz": "د va ذ: ذ tepada 1 nuqta. ر va ز: ز tepada 1 nuqta",
+        "words": [
+          {
+            "ar": "دَرْس",
+            "tr": "dars",
+            "uz": "dars"
+          },
+          {
+            "ar": "ذَهَب",
+            "tr": "zahab",
+            "uz": "oltin"
+          },
+          {
+            "ar": "زَيْت",
+            "tr": "zayt",
+            "uz": "yog'"
+          }
+        ]
+      }
+    },
+    {
+      "day": 4,
+      "topic_en": "My work and day",
+      "topic_uz": "Ishim va kunim",
+      "new_words": [
+        {
+          "en": "morning",
+          "uz": "ertalab"
+        },
+        {
+          "en": "wake up",
+          "uz": "uyg'onmoq"
+        },
+        {
+          "en": "early",
+          "uz": "erta"
+        },
+        {
+          "en": "hard",
+          "uz": "og'ir, qiyin"
+        },
+        {
+          "en": "earn",
+          "uz": "topmoq (pul)"
+        },
+        {
+          "en": "with my own hands",
+          "uz": "o'z qo'lim bilan"
+        }
+      ],
+      "review_from_days": [
+        3,
+        1
+      ],
+      "story_type": "hadith",
+      "story_title": "Bread from my own hands",
+      "story": "My name is Bobur. I live in a village. Every morning I wake up early. I work in my field. The work is hard, but I like it. I have a small shop too. I earn money with my own hands. Every evening I read and learn something new. Learning is not easy, but it is useful. My grandfather told me: \"The Prophet ﷺ said: No one eats better food than the food he earns with his own hands.\" Now I eat my bread with a happy heart.",
+      "hadith": {
+        "en": "No one has ever eaten better food than what he eats from the work of his own hands.",
+        "uz": "Hech kim o'z qo'li mehnati bilan topganidan yaxshiroq taom yemagan.",
+        "source": "Buxoriy rivoyati (Sahih al-Buxoriy, 2072)"
+      },
+      "questions": [
+        "When does Bobur wake up?",
+        "Is his work easy?",
+        "What did his grandfather tell him?"
+      ],
+      "retell_frame": "Every morning I wake up at ___. I work ___. My work is ___, but I like it.",
+      "arabic": {
+        "letters": [
+          "س",
+          "ش",
+          "ص",
+          "ض"
+        ],
+        "note_uz": "س nuqtasiz, ش tepada 3 nuqta. ص nuqtasiz, ض tepada 1 nuqta",
+        "words": [
+          {
+            "ar": "شَمْس",
+            "tr": "shams",
+            "uz": "quyosh"
+          },
+          {
+            "ar": "صَبْر",
+            "tr": "sabr",
+            "uz": "sabr"
+          },
+          {
+            "ar": "أَرْض",
+            "tr": "arz",
+            "uz": "yer"
+          }
+        ]
+      }
+    },
+    {
+      "day": 5,
+      "topic_en": "Kindness to people",
+      "topic_uz": "Odamlarga mehribonlik",
+      "new_words": [
+        {
+          "en": "smile",
+          "uz": "tabassum, jilmaymoq"
+        },
+        {
+          "en": "neighbor",
+          "uz": "qo'shni"
+        },
+        {
+          "en": "friend",
+          "uz": "do'st"
+        },
+        {
+          "en": "kind",
+          "uz": "mehribon"
+        },
+        {
+          "en": "help",
+          "uz": "yordam bermoq"
+        },
+        {
+          "en": "charity",
+          "uz": "sadaqa, xayriya"
+        }
+      ],
+      "review_from_days": [
+        4,
+        2
+      ],
+      "story_type": "hadith",
+      "story_title": "A smile is charity",
+      "story": "Every morning I wake up early and go to work. On the way I see my neighbor. He is an old man. I always smile and say: \"Good morning!\" One day he said: \"Your smile makes my morning happy.\" I remembered the words of the Prophet ﷺ: \"Your smile in the face of your brother is charity.\" A smile is easy and free. Now my family and I smile at everyone. My wife and my mother help our neighbor too. Being kind is a good charity.",
+      "hadith": {
+        "en": "Your smiling in the face of your brother is charity.",
+        "uz": "Birodaringning yuziga tabassum qilishing sadaqadir.",
+        "source": "Termiziy rivoyati (Jome' at-Termiziy, 1956)"
+      },
+      "questions": [
+        "Who does he see every morning?",
+        "What did the neighbor say?",
+        "What does his family do now?"
+      ],
+      "retell_frame": "My neighbor is ___. I help ___. I smile at ___.",
+      "arabic": {
+        "letters": [
+          "ط",
+          "ظ",
+          "ع",
+          "غ"
+        ],
+        "note_uz": "ط nuqtasiz, ظ tepada 1 nuqta. ع nuqtasiz, غ tepada 1 nuqta",
+        "words": [
+          {
+            "ar": "طَبِيب",
+            "tr": "tabib",
+            "uz": "shifokor"
+          },
+          {
+            "ar": "عِلْم",
+            "tr": "ilm",
+            "uz": "ilm"
+          },
+          {
+            "ar": "غُرْفَة",
+            "tr": "g'urfa",
+            "uz": "xona"
+          }
+        ]
+      }
+    },
+    {
+      "day": 6,
+      "topic_en": "Feelings and patience",
+      "topic_uz": "Hissiyotlar va sabr",
+      "new_words": [
+        {
+          "en": "angry",
+          "uz": "jahldor, g'azabli"
+        },
+        {
+          "en": "calm",
+          "uz": "xotirjam"
+        },
+        {
+          "en": "strong",
+          "uz": "kuchli"
+        },
+        {
+          "en": "control",
+          "uz": "tutmoq, boshqarmoq"
+        },
+        {
+          "en": "sorry",
+          "uz": "kechirasiz, afsusdaman"
+        },
+        {
+          "en": "patient",
+          "uz": "sabrli"
+        }
+      ],
+      "review_from_days": [
+        5,
+        3
+      ],
+      "story_type": "hadith",
+      "story_title": "The strong man",
+      "story": "My friend Aziz is a strong man. But one day he was very angry. A boy broke his window with a ball. Aziz wanted to shout. Then he stopped, and he was calm. He said to the boy: \"It's okay. Be careful next time.\" The boy said: \"I'm sorry.\" Later I asked Aziz: \"How did you control your anger?\" He said: \"I read a hadith. The Prophet ﷺ said: The strong man is not the one who wins in wrestling. The strong man is the one who controls himself when he is angry.\" Being patient is not easy, but we can learn it. Now Aziz and the boy are friends, and the boy always smiles at him.",
+      "hadith": {
+        "en": "The strong man is not the one who wins in wrestling; the strong man is the one who controls himself when he is angry.",
+        "uz": "Kuchli odam kurashda yenguvchi emas, balki g'azab paytida o'zini tuta oladigan kishidir.",
+        "source": "Buxoriy (6114) va Muslim (2609) rivoyati"
+      },
+      "questions": [
+        "Why was Aziz angry?",
+        "What did Aziz say to the boy?",
+        "Who is strong, according to the hadith?"
+      ],
+      "retell_frame": "When I am angry, I ___. I try to be calm and ___.",
+      "arabic": {
+        "letters": [
+          "ف",
+          "ق",
+          "ك",
+          "ل"
+        ],
+        "note_uz": "ف tepada 1 nuqta, ق tepada 2 nuqta",
+        "words": [
+          {
+            "ar": "قَلْب",
+            "tr": "qalb",
+            "uz": "yurak"
+          },
+          {
+            "ar": "كِتَاب",
+            "tr": "kitab",
+            "uz": "kitob"
+          },
+          {
+            "ar": "فِيل",
+            "tr": "fil",
+            "uz": "fil"
+          }
+        ]
+      }
+    },
+    {
+      "day": 7,
+      "topic_en": "Intention (review day)",
+      "topic_uz": "Niyat (takrorlash kuni)",
+      "new_words": [
+        {
+          "en": "intention",
+          "uz": "niyat"
+        },
+        {
+          "en": "good deed",
+          "uz": "savobli ish, yaxshi amal"
+        },
+        {
+          "en": "begin",
+          "uz": "boshlamoq"
+        },
+        {
+          "en": "important",
+          "uz": "muhim"
+        },
+        {
+          "en": "heart",
+          "uz": "qalb, yurak"
+        },
+        {
+          "en": "patient (in hospital)",
+          "uz": "bemor"
+        }
+      ],
+      "review_from_days": [
+        6,
+        4,
+        1
+      ],
+      "story_type": "hadith",
+      "story_title": "Actions are by intentions",
+      "story": "My name is Umar. I am thirty-five years old. I live in a small town. I work as a doctor. Every morning I wake up early. Before I begin my work, I think about my intention. My teacher told me: \"The Prophet ﷺ said: Actions are only by intentions.\" If my intention is good, my work is a good deed. Some days the work is hard, and some patients are angry. I stay calm and patient. I earn money, but the most important thing is the heart. I like my work because I help people.",
+      "hadith": {
+        "en": "Actions are only by intentions.",
+        "uz": "Amallar faqat niyatlarga bog'liqdir.",
+        "source": "Buxoriy (1) va Muslim (1907) rivoyati"
+      },
+      "questions": [
+        "What does Umar do before he begins his work?",
+        "What happens when his intention is good?",
+        "What is the most important thing for Umar?"
+      ],
+      "retell_frame": "My name is ___. I work as ___. Before I begin my work, I ___. The most important thing for me is ___.",
+      "arabic": {
+        "letters": [
+          "م",
+          "ن",
+          "ه",
+          "و",
+          "ي"
+        ],
+        "note_uz": "Takrorlash kuni: 1–6-kun harflarini ham qayta yozing",
+        "words": [
+          {
+            "ar": "مَاء",
+            "tr": "maa'",
+            "uz": "suv"
+          },
+          {
+            "ar": "نُور",
+            "tr": "nur",
+            "uz": "nur"
+          },
+          {
+            "ar": "يَد",
+            "tr": "yad",
+            "uz": "qo'l"
+          }
+        ]
+      }
+    }
+  ]
+}

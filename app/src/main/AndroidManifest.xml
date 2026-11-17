@@ -10,6 +10,8 @@
         <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>
         <intent><action android:name="android.speech.RecognitionService" /></intent>
         <intent><action android:name="android.speech.action.RECOGNIZE_SPEECH" /></intent>
+        <!-- Poliglot's "Let's talk" opens the Claude app when it is installed. -->
+        <package android:name="com.anthropic.claude" />
     </queries>
 
     <application
