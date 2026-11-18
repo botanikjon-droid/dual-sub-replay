@@ -13,7 +13,6 @@ import androidx.activity.viewModels
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.kienhoang.dualsubreplay.poliglot.PoliglotAlarm
 import com.kienhoang.dualsubreplay.ui.AppViewModel
 import com.kienhoang.dualsubreplay.ui.LearningPlayerRoot
 
@@ -27,8 +26,6 @@ class MainActivity : ComponentActivity() {
         updateImmersiveMode(resources.configuration)
         setContent { LearningPlayerRoot(viewModel) }
         handleIntent(intent)
-        // Alarms do not survive a restart: Poliglot's daily reminder is set again whenever SHOKALON opens.
-        PoliglotAlarm.schedule(this)
     }
 
     override fun onNewIntent(intent: Intent) {

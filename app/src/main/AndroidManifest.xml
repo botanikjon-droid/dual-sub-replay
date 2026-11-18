@@ -3,15 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Poliglot: the doctor records his own speaking practice, and a daily reminder. -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <queries>
         <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>
-        <intent><action android:name="android.speech.RecognitionService" /></intent>
-        <intent><action android:name="android.speech.action.RECOGNIZE_SPEECH" /></intent>
-        <!-- Poliglot's "Let's talk" opens the Claude app when it is installed. -->
-        <package android:name="com.anthropic.claude" />
     </queries>
 
     <application
@@ -73,26 +66,5 @@
                 <data android:scheme="https" android:host="youtube.com" />
             </intent-filter>
         </activity>
-
-        <!-- Poliglot: English (B1 speaking) and Arabic, a 30-day course on its own screen. -->
-        <activity
-            android:name=".poliglot.PoliglotActivity"
-            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
-            android:exported="false"
-            android:label="Poliglot"
-            android:theme="@android:style/Theme.Material.Light.NoActionBar"
-            android:windowSoftInputMode="adjustResize" />
-
-        <receiver
-            android:name=".poliglot.PoliglotReminder"
-            android:exported="false" />
-
-        <receiver
-            android:name=".poliglot.PoliglotBootReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-            </intent-filter>
-        </receiver>
     </application>
 </manifest>

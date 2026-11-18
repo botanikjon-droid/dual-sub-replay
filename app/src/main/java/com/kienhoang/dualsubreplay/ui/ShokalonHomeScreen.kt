@@ -110,7 +110,6 @@ internal fun ShokalonHomeScreen(
                     }
                     notice?.let { NoticeLine(it) }
                     UziTestsCard()
-                    PoliglotCard()
                     SectionGrid(sections, translated) { openName = it }
                     if (lessons.isNotEmpty()) {
                         Box(Modifier.padding(12.dp)) { LessonLibraryCard(lessons, activeVideoId, onOpen) }
