@@ -122,6 +122,8 @@ class OnDeviceTranslator(
             val source = guidedSource(languages, text)
             return cached(languages, source) ?: translateOnline(languages, source)
         }
+
+        // Claude translates Uzbek lessons whole and stores them (ClaudeLessonCoordinator); playback uses Google meanwhile.
         if (!usesGemini(languages)) return google()
         return withFallback(
             primary = { translateWithGemini(languages, text) },
@@ -147,15 +149,18 @@ class OnDeviceTranslator(
         )
     }
 
+    // With whole-lesson Gemini on, playback uses Google until the lesson's Gemini translation is imported,
+    // so the free daily quota is spent on whole lessons, not on sentence batches.
     private fun usesGemini(languages: TranslationPair): Boolean =
-        geminiEnabled(
-            DubbingSettings.translationProvider.value,
-            DubbingSettings.geminiApiKey.value,
-            languages.source,
-            languages.target,
-            geminiPausedUntil,
-            System.currentTimeMillis(),
-        )
+        !DubbingSettings.geminiWholeLesson.value &&
+            geminiEnabled(
+                DubbingSettings.translationProvider.value,
+                DubbingSettings.geminiApiKey.value,
+                languages.source,
+                languages.target,
+                geminiPausedUntil,
+                System.currentTimeMillis(),
+            )
 
     /** Gemini results are cached apart from Google's, under the plain English sentence. */
     private fun geminiPair(languages: TranslationPair) = TranslationPair("${languages.source}$GEMINI_CACHE_SUFFIX", languages.target)

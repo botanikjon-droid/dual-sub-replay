@@ -209,6 +209,21 @@ internal class YouTubeWebController {
     private var playingClipVideo: String? = null
 
     fun bindScripts(action: (String) -> Unit) { scriptAction = action }
+
+    /**
+     * The app's own full screen. The page's own full-screen button is left to the doctor's finger: the app never
+     * sends taps of its own into the page.
+     */
+    fun enterFullscreen() {
+        shokalonFullscreen.value = true
+    }
+
+    /** Opens another YouTube page in the same WebView, as a tap on a link would. */
+    fun navigateTo(url: String) {
+        if (!isYouTubeWebUrl(url)) return
+        pause()
+        scriptAction?.invoke("location.href = ${JSONObject.quote(url)};")
+    }
     fun pause() {
         pendingClip = null
         playingClipVideo = null
@@ -419,12 +434,21 @@ internal fun SingleYouTubePage(
 
                 override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
                     super.doUpdateVisitedHistory(view, url, isReload)
+                    // YouTube changes pages without reloading; the focus style is checked again each time.
+                    if (shokalonFocusMode && url?.let(::isYouTubeWebUrl) == true) {
+                        view.evaluateJavascript(focusModeScript(enabled = true), null)
+                        view.evaluateJavascript(focusStepScript(focusLessonSteps.value), null)
+                        view.evaluateJavascript(fullscreenPlayerScript(shokalonFullscreen.value), null)
+                    }
                     reportNavigation(view, url)
                 }
 
                 override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
                     super.onPageStarted(view, url, favicon)
                     youtubeNativeDialogVisible.value = false
+                    if (shokalonFocusMode && url?.let(::isYouTubeWebUrl) == true) {
+                        view.evaluateJavascript(focusModeScript(enabled = true), null)
+                    }
                     pageError = null
                     if (url != null && handleMainFrameUrl(view, url)) return
                     reportNavigation(view, url)
@@ -447,6 +471,11 @@ internal fun SingleYouTubePage(
                             webCaptionVisibilityScript(currentSuppressPageCaptions),
                             null,
                         )
+                        if (shokalonFocusMode) {
+                            view.evaluateJavascript(focusModeScript(enabled = true), null)
+                            view.evaluateJavascript(focusStepScript(focusLessonSteps.value), null)
+                            view.evaluateJavascript(fullscreenPlayerScript(shokalonFullscreen.value), null)
+                        }
                     }
                 }
 
@@ -509,6 +538,22 @@ internal fun SingleYouTubePage(
     LaunchedEffect(webView, suppressPageCaptions) {
         if (webView.url.orEmpty().let(::isYouTubeWebUrl)) {
             webView.evaluateJavascript(webCaptionVisibilityScript(suppressPageCaptions), null)
+        }
+    }
+
+    // SHOKALON's own full screen: the player fills the page while it is on.
+    LaunchedEffect(webView) {
+        if (!shokalonFocusMode) return@LaunchedEffect
+        shokalonFullscreen.collect { on ->
+            if (webView.url.orEmpty().let(::isYouTubeWebUrl)) webView.evaluateJavascript(fullscreenPlayerScript(on), null)
+        }
+    }
+
+    // The section's next and previous lectures change with the open lesson.
+    LaunchedEffect(webView) {
+        if (!shokalonFocusMode) return@LaunchedEffect
+        focusLessonSteps.collect { steps ->
+            if (webView.url.orEmpty().let(::isYouTubeWebUrl)) webView.evaluateJavascript(focusStepScript(steps), null)
         }
     }
 
@@ -623,6 +668,13 @@ internal fun SingleYouTubePage(
             videoQualityScript()?.let { webView.evaluateJavascript(it, null) }
             delay(VIDEO_QUALITY_CHECK_MS)
         }
+    }
+
+    // Lesson notes take lecture frames from this view's window (never a download).
+    DisposableEffect(webView) {
+        val grab: suspend (Float?) -> FrameGrab = { second -> webView.grabVideoFrame(second) }
+        VideoFrameSource.grab = grab
+        onDispose { if (VideoFrameSource.grab === grab) VideoFrameSource.grab = null }
     }
 
     DisposableEffect(controller, webView) {

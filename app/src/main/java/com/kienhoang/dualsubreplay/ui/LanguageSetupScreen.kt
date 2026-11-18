@@ -95,7 +95,7 @@ fun LanguageSetupScreen(
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                text = "Welcome to DualSub Replay",
+                text = "Welcome to ${appBrand().name}",
                 style = MaterialTheme.typography.headlineSmall,
                 color = Color(0xFFF3FAFA),
             )

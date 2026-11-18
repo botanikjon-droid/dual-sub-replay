@@ -219,6 +219,10 @@ fun LearningPlayerRoot(viewModel: AppViewModel) {
     val youtubeControlsVisible by youtubePlayerControlsVisible.collectAsStateWithLifecycle()
     val youtubeDialogVisible by youtubeNativeDialogVisible.collectAsStateWithLifecycle()
     val youtubeFullscreen by youtubeFullscreenActive.collectAsStateWithLifecycle()
+    // SHOKALON's own full screen (the top-bar button) is treated like YouTube's: the subtitles go on the video.
+    val appFullscreen by shokalonFullscreen.collectAsStateWithLifecycle()
+    // SHOKALON's "Subtitrni butunlay yashirish": no panel and no line on the video.
+    val subtitlesHidden by shokalonSubtitlesHidden.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val preferences = remember(context) {
@@ -382,7 +386,7 @@ fun LearningPlayerRoot(viewModel: AppViewModel) {
         orientation = configuration.orientation,
     )
     val automaticFullscreenOverlay =
-        mode == PlayerExperienceMode.TRANSCRIPT_PANEL && autoOverlayFullscreen && youtubeFullscreen
+        mode == PlayerExperienceMode.TRANSCRIPT_PANEL && autoOverlayFullscreen && (youtubeFullscreen || appFullscreen)
     val automaticPresentationOverlay = automaticLandscapeOverlay || automaticFullscreenOverlay
     val effectiveMode = if (
         mode == PlayerExperienceMode.SCROLL_FRIENDLY_OVERLAY || automaticPresentationOverlay
@@ -408,6 +412,11 @@ fun LearningPlayerRoot(viewModel: AppViewModel) {
 
     LaunchedEffect(youtubeFullscreen) {
         if (!youtubeFullscreen) fullscreenOverlayHiddenByUser = false
+    }
+
+    // Hidden subtitles stay hidden when a lesson opens (which normally reopens the panel).
+    LaunchedEffect(subtitlesHidden, state.subtitlePanelVisible, state.activeVideoId) {
+        if (subtitlesHidden && state.subtitlePanelVisible) viewModel.hideSubtitlePanel()
     }
 
     // Opening another video normally re-opens the transcript panel. While overlay presentation is
@@ -442,7 +451,8 @@ fun LearningPlayerRoot(viewModel: AppViewModel) {
 
     val fullscreenLearningOverlay: @Composable BoxScope.() -> Unit = {
         HideFullscreenSystemBars()
-        if (!youtubeDialogVisible && overlayContent != null && effectiveMode == PlayerExperienceMode.SCROLL_FRIENDLY_OVERLAY) {
+        val overlayShown = !youtubeDialogVisible && overlayContent != null && effectiveMode == PlayerExperienceMode.SCROLL_FRIENDLY_OVERLAY
+        if (overlayShown && !subtitlesHidden && overlayContent != null) {
             if (fullscreenOverlayHiddenByUser || overlayContent.isEmpty()) {
                 MovableSubtitleFab(
                     onClick = { fullscreenOverlayHiddenByUser = false },
@@ -498,7 +508,7 @@ fun LearningPlayerRoot(viewModel: AppViewModel) {
             )
 
             if (
-                !youtubeDialogVisible && !navigationOpen && state.onboardingCompleted &&
+                !subtitlesHidden && !youtubeDialogVisible && !navigationOpen && state.onboardingCompleted &&
                 state.guideCompleted && state.dailyGoalPromptCompleted &&
                 state.activeVideoId != null &&
                 effectiveMode == PlayerExperienceMode.SCROLL_FRIENDLY_OVERLAY
@@ -758,7 +768,7 @@ internal fun LearningSubtitleOverlay(
                     } else {
                         AnnotatedString(translated)
                     }
-                    if (shouldHighlightPos && tapToLearnEnabled) {
+                    if (shokalonFocusMode || shouldHighlightPos && tapToLearnEnabled) {
                         SelectableSubtitleText(
                             text = translated,
                             annotated = annotated,

@@ -1,0 +1,44 @@
+# Builds the offline Uzbek voice model for the "uz" build and publishes it as the
+# uz-voice-mms pre-release (model, vocabulary, settings and a sample to listen to).
+# Run by hand on the doctor's fork: Actions -> "Uzbek offline voice model" -> Run workflow.
+name: Uzbek offline voice model
+
+on:
+  workflow_dispatch:
+  # Also when the export script changes on a branch, since a manual run needs the file on main.
+  push:
+    paths:
+      - tools/voice/export_mms_uzbek.py
+      - .github/workflows/uz-voice-model.yml
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    if: github.repository == 'botanikjon-droid/dual-sub-replay'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install export tools
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu torch==2.4.1
+          pip install "transformers==4.46.3" "onnx==1.16.2" "onnxruntime==1.19.2" "numpy<2" scipy
+      - name: Export MMS Uzbek to ONNX
+        run: python tools/voice/export_mms_uzbek.py out
+      - name: Publish as the uz-voice-mms pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ls -lh out
+          cd out
+          gh release delete uz-voice-mms --cleanup-tag --yes 2>/dev/null || true
+          gh release create uz-voice-mms uz-mms.onnx vocab.json voice.json sample.wav \
+            --prerelease --title "Uzbek offline voice (MMS, non-commercial)" \
+            --notes "Offline Uzbek voice for DualSub UZ, exported from facebook/mms-tts-uzb-script_cyrillic (CC-BY-NC 4.0). Listen to sample.wav first." \
+            --target "$GITHUB_SHA"

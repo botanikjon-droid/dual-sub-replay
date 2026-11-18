@@ -187,6 +187,9 @@ private fun request(
     contentType: String = FORM_CONTENT_TYPE,
     headers: Map<String, String> = emptyMap(),
     readTimeoutMs: Int = READ_TIMEOUT_MS,
+    errorMessage: (code: Int, body: String) -> String = { code, text ->
+        "HTTP $code${apiErrorMessage(text)?.let { " - $it" }.orEmpty()}"
+    },
 ): String {
     val connection = URL(url).openConnection() as HttpURLConnection
     try {
@@ -205,7 +208,7 @@ private fun request(
         val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
         if (code !in 200..299) {
             // Google Cloud explains rejected keys and quotas in its JSON error body.
-            throw HttpStatusException(code, "HTTP $code${apiErrorMessage(text)?.let { " - $it" }.orEmpty()}")
+            throw HttpStatusException(code, errorMessage(code, text))
         }
         return text
     } finally {
