@@ -1,0 +1,36 @@
+SHOKALON — SUBTITR TARJIMASI (Claude yoki ChatGPT uchun)
+
+Senga ilova qilinadi:
+1) bitta asl subtitr fayli: SHK_{kod}_{Video ID}_ORIGINAL.srt yoki ..._ASR-EN.srt;
+2) UZI lug‘ati: uzi_glossary.tsv (ustunlar: id, category, english, aliases, uzbek, note, status, general).
+
+Vazifa: faylni o‘zbek lotin yozuviga, tibbiy aniq va tabiiy o‘zbekcha gaplar bilan tarjima qil. Bu SHOKALON
+loyihasining yagona tarjima standarti (docs/shokalon/TARJIMA_STANDARTI.md) qisqa shakli.
+
+QAT’IY QOIDALAR
+1. Bloklar soni, raqamlari, tartibi va vaqt kodlari asl fayldagidek qoladi. Blokni birlashtirma va bo‘lma.
+2. Avval bir necha blokka bo‘lingan inglizcha gaplarni tikla, so‘ng har bir gapni to‘liq o‘zbekcha qur (fe’l oxirida)
+   va uni o‘sha bloklarga ma’no bo‘yicha qayta taqsimla. Blok boshida yoki oxirida osilib qolgan so‘z bo‘lmasin.
+3. Tibbiy ma’no, son, o‘lchov birligi va tomon (o‘ng/chap, proksimal/distal) o‘zgarmaydi. Manbada yo‘q tashxis,
+   tafsilot yoki izoh qo‘shma.
+4. Lug‘at majburiy: inglizcha atama yoki uning sinonimi uchrasa, “uzbek” ustunidagi shaklni ishlat (qo‘shimchalarini
+   gapga moslab). general = 1 bo‘lgan qatorlar oddiy so‘z sifatida tarjima qilinadi. Lug‘atda yo‘q atamani tanlasang,
+   uni hisobotning “Yangi terminlar” bo‘limiga yoz.
+5. Yozuv: faqat lotin. o‘ va g‘ uchun ‘ (U+2018), tutuq uchun ’ (U+2019); butun faylda bitta shakl. Kirill harfi yo‘q.
+6. Qisqartmalar asl ko‘rinishda (RI, PSV, CBD, TI-RADS); birinchi uchraganda lug‘atdagidek oching.
+   O‘nlik kasr vergul bilan (3,5 mm). Birliklar o‘zgarmaydi: mm, cm, cm/s, kPa, MHz, mL. Nomlar tarjima qilinmaydi.
+7. Bir qatorda 42 belgigacha, blokda ko‘pi bilan 2 qator. Qisqartirish faqat ortiqcha so‘zlar hisobiga.
+8. Avtomatik subtitrdagi (ASR) xatoni faqat kontekst aniq asoslasa tuzat. Ishonching komil bo‘lmasa, eng ehtimoliy
+   variantni ishlat va hisobotda barcha variantlarni “Past” ishonchlilik bilan yoz. Asl audio eshitilmaganini ayt.
+9. Tekshirmagan narsani tekshirdim deb yozma.
+
+JAVOB FORMATI
+A) Tarjima: fayl nomi SHK_{kod}_{Video ID}_UZ-LATIN.srt (kod va Video ID asl nomdagidek), to‘liq SRT bitta kod
+   blokida.
+B) Hisobot — faqat o‘zgartirilgan, shubhali yoki tekshirish talab qiladigan bloklar, uch bo‘lim:
+   ASR tuzatishlari | Terminologik tuzatishlar / yangi terminlar | Grammatik tahrirlar.
+   Har qatorda: blok raqami, asl matn, o‘zbekcha matn, variantlar, sabab, ishonchlilik (Yuqori / O‘rta / Past).
+C) Tekshirib bo‘lmagan narsalar ro‘yxati.
+
+Tarjimani keyin Claude avtomatik tekshiradi (tools/shokalon/check_translation.py): bloklar soni va vaqt kodlari,
+sonlar, birliklar, qolib ketgan inglizcha so‘zlar, lug‘at atamalari, o‘/g‘ belgilari va qator uzunligi.

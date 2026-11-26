@@ -99,6 +99,16 @@ internal fun dubbingVolumeScript(
 }
 
 /**
+ * A clip belongs to the words it says, not only to its sentence: when the doctor changes a translation,
+ * the line keeps its key but gets new text, and the old clip must not be played for it.
+ */
+private val DubLine.clipKey: String get() = "$key\u0000$text"
+
+/** The voice and how it pronounces words ("Faqat ovozda shunday o‘qilsin"): a change makes clips stale. */
+private fun voiceSetup(): String =
+    listOf(DubbingSettings.voiceId.value, DubbingSettings.speechLexicon.value, DubbingSettings.speechOptions.value).toString()
+
+/**
  * Speaks each translated caption sentence when the video reaches it. Fed by AppViewModel with
  * caption windows and the playback clock; with no [voice] every call is a no-op.
  *
@@ -125,7 +135,7 @@ internal class DubbingController(
     private var switchedOff = false
     private var timeMs = 0L
     private var paused = true
-    private var clipsVoiceId = DubbingSettings.voiceId.value
+    private var clipsVoiceId = voiceSetup()
     private var playEndsAtMs = 0L
     private var pausedAtMs = 0L
 
@@ -217,9 +227,9 @@ internal class DubbingController(
             switchedOff = false
             scheduler.seek(timeMs)
         }
-        val voiceId = DubbingSettings.voiceId.value
+        val voiceId = voiceSetup()
         if (voiceId != clipsVoiceId) {
-            // Another voice: forget clips spoken by the old one and prepare again.
+            // Another voice or new pronunciation rules: forget clips spoken the old way and prepare again.
             quiet()
             cancelPreparing()
             clips.clear()
@@ -264,7 +274,7 @@ internal class DubbingController(
         if (!holdAllowed(now)) {
             setHold(false)
             waitSinceMs = null
-            val line = scheduler.next(timeMs, player.playing) { it.key in clips } ?: return
+            val line = scheduler.next(timeMs, player.playing) { it.clipKey in clips } ?: return
             startLine(line, now)
             return
         }
@@ -279,7 +289,7 @@ internal class DubbingController(
                     remaining,
                     waited,
                     MAX_WAIT_MS,
-                    ready = { it.key in clips },
+                    ready = { it.clipKey in clips },
                     failed = ::gaveUpOn,
                     holding = holding,
                 )
@@ -307,7 +317,7 @@ internal class DubbingController(
         }
     }
 
-    private fun gaveUpOn(line: DubLine): Boolean = (failures[line.key]?.count ?: 0) >= MAX_FAILURES
+    private fun gaveUpOn(line: DubLine): Boolean = (failures[line.clipKey]?.count ?: 0) >= MAX_FAILURES
 
     private fun skipped(now: Long) {
         waitSinceMs = null
@@ -321,7 +331,7 @@ internal class DubbingController(
         line: DubLine,
         now: Long,
     ) {
-        val clip = clips.getValue(line.key)
+        val clip = clips.getValue(line.clipKey)
         stopClip()
         scheduler.started(line)
         val maxTempo = DubbingSettings.maxTempoPercent.value / PERCENT
@@ -395,9 +405,9 @@ internal class DubbingController(
     /** The nearest upcoming line without audio that is not being prepared or waiting to retry. */
     private fun nextToPrepare(): DubLine? =
         scheduler.upcoming(timeMs, PREPARE_AHEAD_MS).firstOrNull { line ->
-            val failure = failures[line.key]
-            line.key !in clips &&
-                line.key !in preparing &&
+            val failure = failures[line.clipKey]
+            line.clipKey !in clips &&
+                line.clipKey !in preparing &&
                 (failure == null || (failure.count < MAX_FAILURES && clock() >= failure.retryAtMs))
         }
 
@@ -414,19 +424,19 @@ internal class DubbingController(
                 scope.launch {
                     while (true) {
                         val line = nextToPrepare() ?: break
-                        preparing += line.key
+                        preparing += line.clipKey
                         try {
-                            clips[line.key] = voice.synthesize(line.text)
-                            failures.remove(line.key)
+                            clips[line.clipKey] = voice.synthesize(line.text)
+                            failures.remove(line.clipKey)
                             if (holding) evaluate()
                         } catch (error: CancellationException) {
                             throw error
                         } catch (_: Exception) {
-                            val count = (failures[line.key]?.count ?: 0) + 1
+                            val count = (failures[line.clipKey]?.count ?: 0) + 1
                             val pause = (RETRY_BASE_MS shl (count - 1)).coerceAtMost(RETRY_MAX_MS)
-                            failures[line.key] = PrepareFailure(count, clock() + pause)
+                            failures[line.clipKey] = PrepareFailure(count, clock() + pause)
                         } finally {
-                            preparing -= line.key
+                            preparing -= line.clipKey
                         }
                     }
                 }

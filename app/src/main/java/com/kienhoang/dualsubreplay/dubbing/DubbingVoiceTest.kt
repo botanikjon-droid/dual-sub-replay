@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
 /** The same sentence for every voice, so the doctor can compare them by ear. */
 internal const val UZI_VOICE_TEST_TEXT =
     "O‘zbekistonlik UZI shifokori jigar, portal vena va umumiy o‘t yo‘lini tekshiradi. " +
-        "Gipoexogen o‘choq, echogenlik va siljish to‘lqini elastografiyasi natijalarini baholaydi. " +
+        "Gipoexogen o‘choq, exogenlik va siljish to‘lqini elastografiyasi natijalarini baholaydi. " +
         "O‘ng bo‘lakdagi to‘qimaning qattiqligi kilopaskalda ifodalanadi."
 
 /**

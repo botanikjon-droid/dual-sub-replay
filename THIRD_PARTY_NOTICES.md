@@ -21,6 +21,8 @@ Current releases bundle only:
 - Kotlin / Coroutines: Apache-2.0.
 - Kuromoji 0.9.0 (`com.atilika.kuromoji:kuromoji-ipadic`, code only): Apache-2.0, copyright 2010-2015 Atilika Inc. and contributors. Its license and notice files are kept in the APK under `META-INF/`.
 
+The Uzbek build (`-Pdistribution=uz`) also contains `app/src/uz/java/com/kienhoang/dualsubreplay/dubbing/EdgeTokenV2.kt`, a Kotlin port of `src/edge_tts/drm.py` from [edge-tts](https://github.com/rany2/edge-tts) by rany2 and contributors. That file alone is licensed under the [GNU LGPL v3](https://www.gnu.org/licenses/lgpl-3.0.html), like its source; its full source is the file itself in this repository, and it can be changed or replaced independently of the rest of the app.
+
 The F-Droid build (`-Pdistribution=fdroid`) leaves out Google ML Kit Translate and contains only free software. Instead it bundles a native translation engine built from the git submodules in `app/src/fdroid/cpp`:
 - Bergamot translator and Marian (mozilla/translations `inference/`): MPL-2.0 and MIT.
 - Bundled with Marian: SentencePiece and ruy (Apache-2.0), cpuinfo, pathie-cpp and simd_utils (BSD-2-Clause), intgemm, yaml-cpp and faiss (MIT), zlib (zlib).

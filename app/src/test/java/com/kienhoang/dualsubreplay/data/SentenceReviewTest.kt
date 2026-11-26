@@ -1,0 +1,70 @@
+package com.kienhoang.dualsubreplay.data
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class SentenceReviewTest {
+    @Test
+    fun aCheckedFileComesBackWithItsCorrections() {
+        val file =
+            reviewFileText(
+                "Gallbladder",
+                "x6hXhLNc-jU",
+                listOf(
+                    ReviewSentence(271_200, 279_800, "so reflection is caused", "Sinish shuning uchun yuz beradi."),
+                    ReviewSentence(3_723_004, 3_725_000, "thank you", "Rahmat."),
+                ),
+            )
+        val edited = file.replace("UZ: Sinish shuning uchun yuz beradi.", "UZ: Sinish UTT to‘lqini\nturli muhitlardan o‘tganda yuz beradi.")
+        val back = parseReviewFile(edited)
+        assertEquals("x6hXhLNc-jU", reviewFileVideoId(edited))
+        assertEquals(listOf(271_200L, 3_723_004L), back.map { it.startMs })
+        assertEquals(279_800L, back[0].endMs)
+        assertEquals("Sinish UTT to‘lqini turli muhitlardan o‘tganda yuz beradi.", back[0].uzbek)
+        assertEquals("Rahmat.", back[1].uzbek)
+    }
+
+    @Test
+    fun aCorrectionReplacesOnlyItsSentence() {
+        val cues =
+            listOf(
+                RawCaptionCue(0, 2_000, "Oldingi gap."),
+                RawCaptionCue(2_000, 4_000, "UTT to‘lqini"),
+                RawCaptionCue(4_000, 6_000, "sinadi."),
+                RawCaptionCue(5_900, 8_000, "Keyingi gap."),
+            )
+        val result = applySentenceCorrection(cues, 2_000, 6_000, "UTT to‘lqini sinadi va qaytadi.")
+        assertEquals(listOf("Oldingi gap.", "UTT to‘lqini sinadi va qaytadi.", "Keyingi gap."), result.map { it.text })
+    }
+
+    @Test
+    fun aRecurringMistakeIsReplacedEverywhere() {
+        val cues =
+            listOf(
+                RawCaptionCue(0, 2_000, "Sinish bu yerda yuz beradi."),
+                RawCaptionCue(2_000, 4_000, "Ko\u2018p marta sinish bo\u2018ladi, sinishlar esa yo\u2018q."),
+            )
+        val word = replaceInCues(cues, "sinish", "qaytish", wholeWord = true)
+        assertEquals(2, word.count)
+        assertEquals("Qaytish bu yerda yuz beradi.", word.cues[0].text)
+        assertEquals("Ko\u2018p marta qaytish bo\u2018ladi, sinishlar esa yo\u2018q.", word.cues[1].text)
+        assertEquals(3, replaceInCues(cues, "sinish", "qaytish", wholeWord = false).count)
+    }
+
+    @Test
+    fun aPhraseSplitOverTwoCuesIsReplaced() {
+        val cues =
+            listOf(
+                RawCaptionCue(0, 2_000, "Bu yerda akustik"),
+                RawCaptionCue(2_000, 4_000, "soya hosil bo\u2018ladi. Akustik  soya muhim."),
+                RawCaptionCue(4_000, 6_000, "Soya emas."),
+            )
+        val result = replaceInCues(cues, "akustik soya", "akustik soyalanish", wholeWord = true)
+        assertEquals(2, result.count)
+        assertEquals(
+            listOf("Bu yerda akustik soyalanish", "hosil bo\u2018ladi. Akustik soyalanish muhim.", "Soya emas."),
+            result.cues.map { it.text },
+        )
+        assertEquals(2, result.examples.size)
+    }
+}

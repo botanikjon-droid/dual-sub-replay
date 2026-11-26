@@ -7,8 +7,10 @@ import com.kienhoang.dualsubreplay.data.glossaryAcronymExpansions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
@@ -56,24 +58,49 @@ private fun currentGlossaryAcronyms(): Map<String, String> {
 
 internal const val EDGE_TRUSTED_CLIENT_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4"
 internal const val EDGE_CHROMIUM_VERSION = "143.0.3650.75"
-internal const val EDGE_WSS_URL =
-    "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=$EDGE_TRUSTED_CLIENT_TOKEN"
+
+/** One address of the Read Aloud voices; [protocol] is the WebSocket subprotocol it expects, if any. */
+internal data class EdgeEndpoint(
+    val name: String,
+    val url: String,
+    val protocol: String?,
+)
+
+/**
+ * Where the voices answer, tried in this order. Microsoft has moved them before: in October 2026
+ * speech.platform.bing.com refused the old (v1) token with HTTP 403 and api.msedgeservices.com stopped
+ * opening the voice socket; with the v2 token (EdgeTokenV2.kt) the Read Aloud address answers again, as it
+ * does for edge-tts. The uz-voice-check workflow checks both from CI daily. If one address stops working,
+ * the next is used and remembered, so a single move no longer silences the app.
+ */
+internal val EDGE_ENDPOINTS =
+    listOf(
+        EdgeEndpoint(
+            "bing",
+            "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=$EDGE_TRUSTED_CLIENT_TOKEN",
+            null,
+        ),
+        EdgeEndpoint(
+            "msedgeservices",
+            "wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1?Ocp-Apim-Subscription-Key=$EDGE_TRUSTED_CLIENT_TOKEN",
+            "synthesize",
+        ),
+    )
+
+/** The endpoints to try, the one that worked last first. */
+internal fun edgeEndpointOrder(
+    endpoints: List<EdgeEndpoint>,
+    preferred: Int,
+): List<EdgeEndpoint> {
+    val first = endpoints.getOrNull(preferred) ?: return endpoints
+    return listOf(first) + endpoints.filterIndexed { index, _ -> index != preferred }
+}
+
 internal const val EDGE_VOICE_SARDOR = "uz-UZ-SardorNeural"
 internal const val EDGE_VOICE_MADINA = "uz-UZ-MadinaNeural"
 
 /** edge-tts output format: 48 kbit/s constant bitrate, so the byte count gives the length. */
 private const val MP3_BYTES_PER_SECOND = 48_000 / 8
-private const val WINDOWS_EPOCH_OFFSET_S = 11_644_473_600L
-private const val TOKEN_WINDOW_S = 300L
-private const val HUNDRED_NS_PER_SECOND = 10_000_000L
-
-/** The Sec-MS-GEC token: SHA-256 of the 5-minute Windows file time and the client token. */
-internal fun edgeSecMsGec(unixSeconds: Long): String {
-    var ticks = unixSeconds + WINDOWS_EPOCH_OFFSET_S
-    ticks -= ticks % TOKEN_WINDOW_S
-    val digest = MessageDigest.getInstance("SHA-256").digest("${ticks * HUNDRED_NS_PER_SECOND}$EDGE_TRUSTED_CLIENT_TOKEN".toByteArray())
-    return digest.joinToString("") { "%02X".format(it) }
-}
 
 internal fun edgeVoiceName(shortName: String): String {
     val (language, region, name) = shortName.split("-", limit = 3)
@@ -119,7 +146,7 @@ internal fun edgeAudioPayload(frame: ByteArray): ByteArray? {
 internal class EdgeDubbingVoice(
     private val directory: File,
     private val voiceOf: () -> String = { DubbingSettings.voiceId.value.ifEmpty { EDGE_VOICE_SARDOR } },
-    private val url: String = EDGE_WSS_URL,
+    private val endpoints: List<EdgeEndpoint> = EDGE_ENDPOINTS,
     private val client: OkHttpClient =
         OkHttpClient
             .Builder()
@@ -138,7 +165,8 @@ internal class EdgeDubbingVoice(
             voiceOf(),
             // The subtitle stays as it is; only the voice's copy gets the pronunciation rules.
             DubbingSettings.speechOptions.value.let { options ->
-                prepareUzbekSpeech(text, options, if (options.expandAcronyms) currentGlossaryAcronyms() else emptyMap())
+                val said = applySpeechLexicon(text, DubbingSettings.speechLexicon.value)
+                prepareUzbekSpeech(said, options, if (options.expandAcronyms) currentGlossaryAcronyms() else emptyMap())
             },
         )
 
@@ -153,13 +181,7 @@ internal class EdgeDubbingVoice(
             if (prepared.applied.isNotEmpty()) Log.d(TAG, "speech rules ${prepared.ruleSummary()}: ${prepared.display} -> $spoken")
             val file = File(directory, "${sha1("$voice\n$spoken")}.mp3")
             if (file.length() == 0L) {
-                val audio =
-                    try {
-                        request(voice, spoken)
-                    } catch (error: SkewedClock) {
-                        clockSkewSeconds = error.serverSeconds - System.currentTimeMillis() / 1000
-                        request(voice, spoken)
-                    }
+                val audio = fetchAudio(voice, spoken)
                 val partial = File(directory, "${file.name}.part")
                 partial.writeBytes(audio)
                 if (!partial.renameTo(file)) throw IOException("Could not save the speech clip.")
@@ -171,9 +193,76 @@ internal class EdgeDubbingVoice(
             DubClip(file, file.length() * 1000 / MP3_BYTES_PER_SECOND)
         }
 
+    /**
+     * The doctor's own Azure Speech key when set (official service, same voices), otherwise the free
+     * Edge endpoint. Failures are shown on the voice card with what to do about them.
+     */
+    private suspend fun fetchAudio(
+        voice: String,
+        text: String,
+    ): ByteArray {
+        val key = DubbingSettings.azureSpeechKey.value
+        val region = DubbingSettings.azureSpeechRegion.value
+        if (key.isNotBlank() && region.isNotBlank()) {
+            return try {
+                azureRequest(voice, text, key, region).also { DubbingSettings.publishVoiceStatus("") }
+            } catch (error: IOException) {
+                DubbingSettings.publishVoiceStatus(error.message ?: "Azure Speech ishlamadi.")
+                throw error
+            }
+        }
+        val failures = mutableListOf<String>()
+        for (endpoint in edgeEndpointOrder(endpoints, preferredEndpoint)) {
+            try {
+                val audio =
+                    try {
+                        request(voice, text, endpoint)
+                    } catch (error: SkewedClock) {
+                        clockSkewSeconds = error.serverSeconds - System.currentTimeMillis() / 1000
+                        request(voice, text, endpoint)
+                    }
+                preferredEndpoint = endpoints.indexOf(endpoint)
+                DubbingSettings.publishVoiceStatus("")
+                return audio
+            } catch (error: IOException) {
+                failures += "${endpoint.name}: ${error.message?.substringAfterLast(": ")}"
+                Log.w(TAG, "Voice address ${endpoint.name} failed", error)
+            }
+        }
+        DubbingSettings.publishVoiceStatus(edgeVoiceFailureMessage(failures.joinToString("; ")))
+        throw IOException("The voice service is unavailable: ${failures.joinToString("; ")}")
+    }
+
+    /** The address that answered last; tried first next time. */
+    @Volatile private var preferredEndpoint = 0
+
+    private fun azureRequest(
+        voice: String,
+        text: String,
+        key: String,
+        region: String,
+    ): ByteArray {
+        val request =
+            Request
+                .Builder()
+                .url(azureTtsUrl(region))
+                .header("Ocp-Apim-Subscription-Key", key)
+                .header("X-Microsoft-OutputFormat", AZURE_OUTPUT_FORMAT)
+                .header("User-Agent", "DualSubReplay-uz")
+                .post(azureSsml(voice, text).toRequestBody("application/ssml+xml".toMediaType()))
+                .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException(azureSpeechError(response.code))
+            val audio = response.body?.bytes() ?: ByteArray(0)
+            if (audio.isEmpty()) throw IOException("Azure Speech ovoz qaytarmadi.")
+            return audio
+        }
+    }
+
     private suspend fun request(
         voice: String,
         text: String,
+        endpoint: EdgeEndpoint,
     ): ByteArray =
         suspendCancellableCoroutine { continuation ->
             val audio = ByteArrayOutputStream()
@@ -182,14 +271,16 @@ internal class EdgeDubbingVoice(
                 Request
                     .Builder()
                     .url(
-                        "$url&ConnectionId=${UUID.randomUUID().toString().replace("-", "")}" +
-                            "&Sec-MS-GEC=${edgeSecMsGec(now)}&Sec-MS-GEC-Version=1-$EDGE_CHROMIUM_VERSION",
+                        "${endpoint.url}&ConnectionId=${UUID.randomUUID().toString().replace("-", "")}" +
+                            "&Sec-MS-GEC=${edgeSecMsGecV2(now, EDGE_TRUSTED_CLIENT_TOKEN)}" +
+                            "&Sec-MS-GEC-Version=$EDGE_SEC_MS_GEC_VERSION_PREFIX$EDGE_CHROMIUM_VERSION",
                     ).header("Pragma", "no-cache")
                     .header("Cache-Control", "no-cache")
                     .header("Origin", "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold")
                     .header("User-Agent", EDGE_USER_AGENT)
                     .header("Accept-Language", "en-US,en;q=0.9")
                     .header("Cookie", "muid=${UUID.randomUUID().toString().replace("-", "").uppercase()};")
+                    .apply { endpoint.protocol?.let { header("Sec-WebSocket-Protocol", it) } }
                     .build()
             val socket =
                 client.newWebSocket(
